@@ -2,6 +2,8 @@ import { Link, createFileRoute } from "@tanstack/react-router";
 import { MessageCircle } from "lucide-react";
 
 import { FluxoPlanilhas } from "@/components/fluxo-planilhas";
+import { PassoAPasso } from "@/components/passo-a-passo";
+import { PlanilhaDeExemplos, type GrupoDeExemplos } from "@/components/planilha-de-exemplos";
 import { Button } from "@/components/ui/button";
 import { linkWhatsApp } from "@/lib/contato";
 
@@ -26,27 +28,8 @@ export const Route = createFileRoute("/")({
   component: Landing,
 });
 
-const ETAPAS: { voce: string; stagium: string }[] = [
-  {
-    voce: "Pergunta o que precisa, do jeito que pediria a um analista.",
-    stagium: "Procura, na documentação da API do seu ERP, a consulta que responde.",
-  },
-  {
-    voce: "Confere a proposta: o que será buscado e quais colunas virão.",
-    stagium: "Mostra a consulta e já preenche o período citado na pergunta.",
-  },
-  {
-    voce: "Aprova e informa o acesso de integração do seu ERP, num formulário à parte.",
-    stagium: "Consulta a API do seu ERP, só para leitura, e percorre todas as páginas.",
-  },
-  {
-    voce: "Baixa a planilha.",
-    stagium: "Entrega o .xlsx com uma aba que registra filtros, data e origem.",
-  },
-];
-
 /** Exemplos que valem para qualquer ERP; na conversa o cliente diz qual sistema usa. */
-const EXEMPLOS: { area: string; perguntas: string[] }[] = [
+const EXEMPLOS: GrupoDeExemplos[] = [
   {
     area: "Financeiro",
     perguntas: [
@@ -178,71 +161,26 @@ function Landing() {
           <FluxoPlanilhas />
         </section>
 
-        {/* Como funciona: a divisão de tarefas, etapa por etapa */}
+        {/* Como funciona: as quatro etapas, com as peças reais da conversa */}
         <section className="border-t bg-card/60">
           <div className="mx-auto w-full max-w-6xl px-4 py-20 sm:px-6">
             <h2 className="titulo-secao">Como funciona</h2>
             <p className="mt-3 max-w-[60ch] text-muted-foreground">
               Quatro etapas na mesma conversa. Você decide; o Stagium faz o trabalho de ir buscar.
             </p>
-            <div className="grade-rolagem mt-8 rounded-md border">
-              <table className="grade grade-texto w-full">
-                <caption className="sr-only">Etapas, o que você faz e o que o Stagium faz</caption>
-                <thead>
-                  <tr>
-                    <th className="grade-linha" aria-hidden />
-                    <th scope="col" className="grade-titulo">
-                      Você
-                    </th>
-                    <th scope="col" className="grade-titulo">
-                      O Stagium
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {ETAPAS.map((e, i) => (
-                    <tr key={i}>
-                      <th scope="row" className="grade-linha mono">
-                        {i + 1}
-                      </th>
-                      <td>{e.voce}</td>
-                      <td>{e.stagium}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <PassoAPasso />
           </div>
         </section>
 
-        {/* O que pedir: cada exemplo abre a conversa com a pergunta escrita */}
+        {/* O que pedir: planilha de exemplos; a pergunta escolhida abre a conversa já escrita */}
         <section className="border-t">
           <div className="mx-auto w-full max-w-6xl px-4 py-20 sm:px-6">
             <h2 className="titulo-secao">O que você pode pedir</h2>
             <p className="mt-3 max-w-[60ch] text-muted-foreground">
-              Escolha um exemplo para abrir a conversa com a pergunta já escrita. Lá você diz qual
-              ERP a sua empresa usa e ajusta o período como quiser.
+              Escolha uma pergunta e peça. Na conversa você diz qual ERP a sua empresa usa e ajusta
+              o período como quiser.
             </p>
-            <div className="mt-10 grid gap-x-10 gap-y-10 sm:grid-cols-2 lg:grid-cols-4">
-              {EXEMPLOS.map((grupo) => (
-                <div key={grupo.area}>
-                  <h3 className="text-sm font-semibold">{grupo.area}</h3>
-                  <ul className="mt-3 space-y-2">
-                    {grupo.perguntas.map((p) => (
-                      <li key={p}>
-                        <Link
-                          to="/chat"
-                          search={{ pergunta: p }}
-                          className="link-pergunta text-[0.9375rem]"
-                        >
-                          {p}
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ))}
-            </div>
+            <PlanilhaDeExemplos grupos={EXEMPLOS} />
           </div>
         </section>
 
@@ -250,11 +188,11 @@ function Landing() {
         <section className="border-t bg-card/60">
           <div className="mx-auto w-full max-w-6xl px-4 py-20 sm:px-6">
             <h2 className="titulo-secao">Só leitura, sempre com a sua aprovação</h2>
-            <dl className="mt-10 grid gap-x-12 gap-y-8 sm:grid-cols-2">
+            <dl className="mt-10 grid gap-x-16 gap-y-10 sm:grid-cols-2">
               {GARANTIAS.map((g) => (
-                <div key={g.titulo} className="max-w-[46ch]">
-                  <dt className="font-semibold">{g.titulo}</dt>
-                  <dd className="mt-1.5 leading-relaxed text-muted-foreground">{g.texto}</dd>
+                <div key={g.titulo} className="max-w-[44ch]">
+                  <dt className="titulo-passo">{g.titulo}</dt>
+                  <dd className="mt-2 leading-relaxed text-muted-foreground">{g.texto}</dd>
                 </div>
               ))}
             </dl>

@@ -275,6 +275,126 @@
     letter-spacing: -0.02em;
     text-wrap: balance;
   }
+  /* Título de etapa e de garantia: serifa menor que o título de seção */
+  .titulo-passo {
+    font-family: "EB Garamond", Georgia, serif;
+    font-size: 1.5rem;
+    line-height: 1.15;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+  }
+
+  /* Como funciona: cada etapa é uma linha, com o número na lateral como numa planilha */
+  .passos {
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--card);
+  }
+  .passo {
+    display: grid;
+    grid-template-columns: 2.25rem minmax(0, 1fr);
+  }
+  .passo + .passo {
+    border-top: 1px solid var(--border);
+  }
+  .passo-numero {
+    grid-row: span 2;
+    display: flex;
+    justify-content: center;
+    padding-top: 1.6rem;
+    border-right: 1px solid var(--border);
+    background: var(--grade-cabecalho);
+    color: var(--muted-foreground);
+    font-size: 0.8125rem;
+  }
+  .passo-texto {
+    padding: 1.4rem 1rem 0.5rem;
+  }
+  .passo-peca {
+    padding: 0.75rem 1rem 1.5rem;
+  }
+  @media (min-width: 1024px) {
+    .passo {
+      grid-template-columns: 2.75rem minmax(0, 21rem) minmax(0, 1fr);
+    }
+    .passo-numero {
+      grid-row: auto;
+    }
+    .passo-texto {
+      padding: 1.5rem 1.75rem;
+    }
+    /* a peça fica sobre o "papel" da conversa, como no chat */
+    .passo-peca {
+      padding: 1.5rem 1.75rem;
+      border-left: 1px solid var(--border);
+      background: var(--background);
+    }
+    .passo-peca > * {
+      max-width: 34rem;
+    }
+  }
+  /* dentro da peça, a grade ocupa a largura do cartão */
+  .passo-peca .grade {
+    width: 100%;
+  }
+
+  /* O que você pode pedir: células clicáveis e barra de fórmulas */
+  .fx {
+    font-family: "EB Garamond", Georgia, serif;
+    font-style: italic;
+    font-size: 1.125rem;
+    line-height: 1;
+  }
+  .grade-exemplos .celula-exemplo {
+    position: relative;
+    isolation: isolate;
+    padding: 0;
+    overflow: visible;
+  }
+  .grade-exemplos .celula-exemplo button {
+    display: block;
+    width: 100%;
+    padding: 0.85rem 1rem;
+    text-align: left;
+    cursor: pointer;
+  }
+  /* a área clicável, o realce e a seleção cobrem a célula inteira, não só o texto */
+  .grade-exemplos .celula-exemplo button::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+  }
+  .grade-exemplos .celula-exemplo button:hover::before {
+    background: color-mix(in oklab, var(--marca) 22%, transparent);
+  }
+  /* célula selecionada, como no logotipo: borda de tinta e alça de preenchimento */
+  .grade-exemplos .celula-exemplo button[aria-pressed="true"]::before {
+    outline: 2px solid var(--foreground);
+    outline-offset: -1px;
+  }
+  .grade-exemplos .celula-exemplo button[aria-pressed="true"]::after {
+    content: "";
+    position: absolute;
+    right: -4px;
+    bottom: -4px;
+    z-index: 1;
+    width: 7px;
+    height: 7px;
+    background: var(--foreground);
+    box-shadow: 0 0 0 1.5px var(--card);
+  }
+  .grade-exemplos .celula-exemplo button:focus-visible {
+    outline: none;
+    box-shadow: none;
+  }
+  .grade-exemplos .celula-exemplo button:focus-visible::before {
+    outline: 2px solid var(--foreground);
+    outline-offset: -1px;
+    box-shadow: inset 0 0 0 5px var(--marca);
+  }
+
   /* Faixa animada do topo */
   .fluxo {
     margin-top: 0.5rem;
