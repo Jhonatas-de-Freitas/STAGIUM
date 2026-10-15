@@ -1,14 +1,16 @@
 # Índice dos sistemas documentados
 
-Gerado em 2026-10-09 por `scripts/gerar_indice.py` a partir das fichas. Não edite à mão: rode o script de novo.
+Gerado em 2026-10-14 por `scripts/gerar_indice.py` a partir das fichas. Não edite à mão: rode o script de novo.
 
-**Totais:** 11 sistemas · 547 endpoints detalhados · 1017 catalogados · 302 executáveis pelo assistente · 193 perguntas de FAQ.
+**Totais:** 13 sistemas · 632 endpoints detalhados · 1155 catalogados · 373 executáveis pelo assistente · 228 perguntas de FAQ.
 
 | Sistema | Categoria | Índice | Endpoints (det. + cat.) | Executáveis | Autenticação | Concluído |
 |---|---|---|---|---|---|---|
+| [Qive (antiga Arquivei) — API de gestão de documentos fiscais](../sistemas/arquivei/ficha.md) | Fiscal (emissor) | 54 | 49 + 30 | 38 | `header_api_key` | 2026-10-14 |
 | [Asaas](../sistemas/asaas/ficha.md) | Pagamentos | 78 | 62 + 151 | 27 | `header_api_key` | 2026-09-17 |
 | [Bling](../sistemas/bling/ficha.md) | ERP | 64 | 75 + 185 | 32 | `oauth2_refresh_token` | 2026-09-17 |
 | [Focus NFe](../sistemas/focus-nfe/ficha.md) | Fiscal (emissor) | 67 | 62 + 66 | 32 | `basic` | 2026-09-17 |
+| [Mercado Livre (API de marketplace — site MLB)](../sistemas/mercado-livre/ficha.md) | marketplace | 64 | 36 + 108 | 33 | `oauth2_refresh_token` | 2026-10-14 |
 | [Mercado Pago](../sistemas/mercado-pago/ficha.md) | Pagamentos | 82 | 41 + 83 | 25 | `bearer` | 2026-09-17 |
 | [NFE.io](../sistemas/nfe-io/ficha.md) | Fiscal (emissor) | 69 | 43 + 142 | 30 | `header_api_key` | 2026-09-18 |
 | [Nomus ERP (Nomus ERP Industrial e Nomus Start Industrial)](../sistemas/nomus/ficha.md) | ERP | 29 | 35 + 159 | 31 | `header_api_key` | 2026-10-09 |
@@ -19,6 +21,24 @@ Gerado em 2026-10-09 por `scripts/gerar_indice.py` a partir das fichas. Não edi
 | [SyGeCom (Sagi, SGR, SGR+, Easy)](../sistemas/sygecom/ficha.md) | ERP | 39 | 16 + 63 | 14 | `login_credenciais` | 2026-09-17 |
 
 ## Detalhe por sistema
+
+### Qive (antiga Arquivei) — API de gestão de documentos fiscais
+
+Plataforma de gestão de documentos fiscais e de contas a pagar (Qive, antiga Arquivei): captura automaticamente na SEFAZ e nas prefeituras as NF-e, CT-e, CT-e OS, NFS-e, NFC-e e MDF-e emitidas contra ou pelos CNPJs do cliente, guarda os XMLs, faz manifestação do destinatário e captura boletos e com…
+
+- **Pasta:** `catalogo/sistemas/arquivei/` — ficha humana em `ficha.md`
+- **API:** REST · produção `https://api.arquivei.com.br` · sandbox `https://sandbox-api.arquivei.com.br`
+- **Autenticação para o executor:** `header_api_key`
+- **Índice de integrabilidade:** 54
+- **Endpoints:** 49 detalhados, 30 catalogados, 38 executáveis, 18 perguntas de FAQ
+- **Armadilhas:**
+  - Buscas da API 2.0 são POST com corpo JSON (não GET): o executor precisa mandar corpo e paginar pelo cursor no corpo.
+  - Duas autenticações em dois cabeçalhos (X-API-ID e X-API-KEY) e, nas rotas novas, o cabeçalho fixo X-Use-ApiGateway: always.
+  - Rotas GET clássicas só filtram por created_at, que é a data de ENTRADA na Qive, não a de emissão.
+- **Lacunas principais:**
+  - A especificação do catálogo prevê um único cabeçalho de credencial em header_api_key. A Qive exige X-API-ID e X-API-KEY. Foi usado o campo de extensã…
+  - As buscas não devolvem valor total nem série como campo; é preciso ler o XML (Base64). O campo Document (NF-e em JSON) não tem estrutura documentada.
+  - O cabeçalho X-API-PERMISSION-KEY está declarado em securityDefinitions, mas nenhuma operação o usa explicitamente e não há guia de como o parceiro o…
 
 ### Asaas
 
@@ -69,6 +89,24 @@ Gateway REST/JSON que assina e transmite documentos fiscais eletrônicos (NF-e, 
 - **Lacunas principais:**
   - O limite de 100 créditos/min e os cabeçalhos Rate-Limit-* só constam na doc legada (repositório oficial FocusNFe/api-doc, último commit 2026-05-28).…
   - Não encontrados na documentação.
+
+### Mercado Livre (API de marketplace — site MLB)
+
+API REST pública do Mercado Livre para vendedores e integradores: pedidos, packs, envios (Mercado Envios, Full, Flex), anúncios, preços, estoque, perguntas, reclamações/devoluções, faturamento de tarifas, notas fiscais do Faturador, visitas e reputação. Um host para tudo (https://api.mercadolibre.c…
+
+- **Pasta:** `catalogo/sistemas/mercado-livre/` — ficha humana em `ficha.md`
+- **API:** REST · produção `https://api.mercadolibre.com` · sandbox `não há`
+- **Autenticação para o executor:** `oauth2_refresh_token`
+- **Índice de integrabilidade:** 64
+- **Endpoints:** 36 detalhados, 108 catalogados, 33 executáveis, 17 perguntas de FAQ
+- **Armadilhas:**
+  - refresh_token de uso único: duas renovações simultâneas para a mesma conta derrubam a conexão; serialize a renovação e grave o novo valor antes de us…
+  - Access token dura só 6 horas; Power Query não consegue manter a rotação do refresh_token sozinho.
+  - Quem autoriza tem de ser o administrador da conta; colaborador gera invalid_operator_user_id.
+- **Lacunas principais:**
+  - O executor do site (src/lib/executor.servidor.ts) só executa header_api_key e login_credenciais. Para o Mercado Livre falta: tipo oauth2_refresh_toke…
+  - Os Termos permitem aplicativos de terceiros autorizados pelo vendedor, mas a cláusula 5.4 exige autorização expressa do Mercado Livre para usar o con…
+  - Não há número publicado de requisições por minuto/hora (só 500 rpm na mensageria e max_requests_per_hour no recurso do aplicativo, com 18000 no exemp…
 
 ### Mercado Pago
 

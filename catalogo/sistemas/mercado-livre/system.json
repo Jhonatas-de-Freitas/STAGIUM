@@ -1,0 +1,721 @@
+{
+ "slug": "mercado-livre",
+ "nome": "Mercado Livre (API de marketplace — site MLB)",
+ "categoria": "marketplace",
+ "fornecedor": {
+  "razao_social": "Mercado Livre Brasil Ltda. (rodapé do portal de desenvolvedores); os Termos do Programa de Desenvolvedores citam a MercadoLibre Inc. e o domicílio da eBazar.com.br Ltda.",
+  "pais": "BR",
+  "site": "https://www.mercadolivre.com.br",
+  "cnpj": null,
+  "observacao": "CNPJ não aparece nas páginas consultadas.",
+  "fonte_url": "https://developers.mercadolivre.com.br/pt_br/termos-e-condicoes",
+  "data_consulta": "2026-10-14"
+ },
+ "descricao_curta": "API REST pública do Mercado Livre para vendedores e integradores: pedidos, packs, envios (Mercado Envios, Full, Flex), anúncios, preços, estoque, perguntas, reclamações/devoluções, faturamento de tarifas, notas fiscais do Faturador, visitas e reputação. Um host para tudo (https://api.mercadolibre.com), OAuth 2.0 authorization code com refresh token de uso único, access token de 6 horas, sem sandbox (testes com usuários de teste em produção), paginação por offset/limit com scroll para buscas grandes e notificações por tópico.",
+ "porte_alvo": [
+  "pequena",
+  "media",
+  "grande"
+ ],
+ "verticais": [
+  "varejo",
+  "ecommerce",
+  "marketplace"
+ ],
+ "status": "documentado",
+ "api": {
+  "estilo": "REST",
+  "base_urls": {
+   "producao": "https://api.mercadolibre.com",
+   "sandbox": null
+  },
+  "base_url_observacao": "Mesma URL para tudo. Não há sandbox: os testes usam usuários de teste criados por POST /users/test_user, operando em produção. A autorização do vendedor usa outro host, https://auth.mercadolivre.com.br/authorization (domínio do país).",
+  "url_autorizacao": "https://auth.mercadolivre.com.br/authorization",
+  "versao_atual": null,
+  "versao_observacao": "Sem número de versão na URL. Alguns recursos pedem versão por parâmetro ou cabeçalho (api_version=4 em perguntas, x-format-new: true em shipments, X-New-Domain em rotas novas, X-Api-Version: 2 em parte dos envios).",
+  "politica_versionamento": "Sem versionamento global. Mudanças e descontinuações são anunciadas com data nas próprias páginas e na seção Novidades do DevCenter; a doc diz que /communications/notices é a única forma de saber de mudanças aplicadas ao aplicativo. Para parceiros certificados, mudanças obrigatórias têm prazo de adaptação de 15 dias.",
+  "formatos": [
+   "json"
+  ],
+  "spec_oficial_url": null,
+  "openapi_disponivel": false,
+  "spec_observacao": "Não há OpenAPI oficial localizado; a referência é o portal developers.mercadolivre.com.br (páginas com exemplos curl). O openapi.yaml do catálogo é reconstruído.",
+  "fonte_url": "https://developers.mercadolivre.com.br/pt_br/api-docs-pt-br",
+  "data_consulta": "2026-10-14"
+ },
+ "autenticacao": {
+  "tipos": [
+   "oauth2_authorization_code"
+  ],
+  "fluxo_resumido": "1) Criar um aplicativo no DevCenter (conta administradora, dados validados; no Brasil só 1 aplicativo por conta) com redirect URI HTTPS, permissões funcionais e scopes (read, write, offline_access). 2) O vendedor abre https://auth.mercadolivre.com.br/authorization?response_type=code&client_id=<APP_ID>&redirect_uri=<URI> (state e PKCE opcionais), entra com a conta principal e autoriza. 3) O redirect_uri recebe ?code=TG-...; o backend troca por tokens em POST https://api.mercadolibre.com/oauth/token (form-urlencoded: grant_type=authorization_code, client_id, client_secret, code, redirect_uri). 4) Cada chamada leva Authorization: Bearer <access_token>. 5) Ao vencer (6 h), POST /oauth/token com grant_type=refresh_token devolve novo access_token e novo refresh_token.",
+  "escopos_permissoes": [
+   "read",
+   "write",
+   "offline_access",
+   "Permissões funcionais do DevCenter: Usuários (padrão), Publicação e sincronização, Comunicação pré e pós-venda, Publicidade, Métricas do negócio, Vendas e envios, Promoções/cupons/descontos, Faturamento"
+  ],
+  "expiracao_token": "access_token: 6 horas (expires_in 21600). refresh_token: 6 meses. O token pode cair antes se o vendedor trocar a senha, o Client Secret for renovado, o vendedor revogar a permissão ou o aplicativo passar 4 meses sem chamar a API.",
+  "renovacao": "POST /oauth/token com grant_type=refresh_token, client_id, client_secret e refresh_token. O refresh_token é de uso único, só o último emitido vale e só para o client_id dono; cada renovação devolve um novo, que precisa ser gravado. A doc recomenda renovar só quando o access_token vencer.",
+  "ip_allowlist_obrigatorio": false,
+  "ip_allowlist_observacao": "Gerenciamento de faixas de IP no DevCenter existe só para integradores habilitados (whitelist); quando ativo, IP fora da lista gera 403. As boas práticas recomendam limitar os IPs que usam o token.",
+  "observacao": "Quem autoriza precisa ser o administrador da conta: usuário operador/colaborador gera invalid_operator_user_id. Desde 30/08/2026 aplicativos do Mercado Livre e do Mercado Pago precisam ser separados; aplicativo do ML com scopes urn:mp:... perde acesso.",
+  "fonte_url": "https://developers.mercadolivre.com.br/pt_br/autenticacao-e-autorizacao",
+  "data_consulta": "2026-10-14"
+ },
+ "execucao_auth": {
+  "tipo": "oauth2_refresh_token",
+  "header": "Authorization",
+  "prefixo": "Bearer ",
+  "usuario_basic_e_a_credencial": false,
+  "headers_fixos": {
+   "Accept": "application/json"
+  },
+  "token_url": "https://api.mercadolibre.com/oauth/token",
+  "token_request": {
+   "metodo": "POST",
+   "content_type": "application/x-www-form-urlencoded",
+   "corpo": {
+    "grant_type": "refresh_token",
+    "client_id": "{client_id}",
+    "client_secret": "{client_secret}",
+    "refresh_token": "{refresh_token}"
+   },
+   "campo_token": "access_token",
+   "campo_refresh_token": "refresh_token",
+   "campo_expira_em_s": "expires_in",
+   "campo_user_id": "user_id",
+   "refresh_token_rotativo": true,
+   "expira_em_s": 21600
+  },
+  "credenciais_necessarias": [
+   {
+    "nome": "client_id",
+    "rotulo": "APP ID (Client ID) do aplicativo",
+    "segredo": false,
+    "onde_obter": "DevCenter do Mercado Livre (developers.mercadolivre.com.br > Minhas aplicações) > aplicativo > Configurações: campo client id. No modelo recomendado (aplicativo do Stagium), este valor é do Stagium e o cliente não informa.",
+    "obrigatoria": true
+   },
+   {
+    "nome": "client_secret",
+    "rotulo": "Client Secret (Secret Key) do aplicativo",
+    "segredo": true,
+    "onde_obter": "Mesma tela do DevCenter, campo client secret (Mostrar). Pode ser renovado ali (agora ou programado); ao renovar, atualize o cofre. No modelo recomendado é do Stagium.",
+    "obrigatoria": true
+   },
+   {
+    "nome": "refresh_token",
+    "rotulo": "Refresh token da conta do vendedor",
+    "segredo": true,
+    "onde_obter": "Gerado quando o vendedor (conta administradora) autoriza o aplicativo: o code recebido no redirect_uri é trocado em POST /oauth/token (grant_type=authorization_code) e a resposta traz refresh_token (TG-...). Exige o scope offline_access no aplicativo. É de uso único e muda a cada renovação: o cofre precisa regravar o valor novo toda vez.",
+    "obrigatoria": true
+   },
+   {
+    "nome": "access_token",
+    "rotulo": "Access token atual (opcional)",
+    "segredo": true,
+    "onde_obter": "Resposta do POST /oauth/token (APP_USR-...). Vale 6 horas; serve só para evitar uma renovação imediata ou para teste rápido.",
+    "obrigatoria": false
+   }
+  ],
+  "base_url_por_ambiente": {
+   "sandbox": null,
+   "producao": "https://api.mercadolibre.com"
+  },
+  "headers_por_endpoint": true,
+  "observacao": "Executor ainda não implementa este tipo. Receita: (1) se não houver access_token válido, POST form-urlencoded em token_url com grant_type=refresh_token; (2) gravar no cofre, na mesma transação, o access_token, o novo refresh_token e a validade; nunca renovar em paralelo para a mesma conta (só o último refresh_token vale); (3) GET com Authorization: Bearer; em 401, renovar uma vez e repetir; (4) em 429, backoff exponencial com jitter (limite numérico não publicado; controle por Client ID e endpoint; faturamento bloqueia por IP). Alguns endpoints exigem cabeçalhos próprios (x-format-new: true em /shipments, X-New-Domain: true em /orders/{id}/shipments) declarados em execucao.headers. O seller_id vem de GET /users/me (campo id) ou do user_id da resposta do token. Somente leitura: com scope write o mesmo token altera anúncios e responde perguntas, então o executor só usa GET. Modelo recomendado: aplicativo único do Stagium (client_id/client_secret do Stagium, guardados como segredo da plataforma) e o cliente só autoriza pelo redirect; o refresh_token por vendedor fica no cofre. Os Termos dizem que as chaves de acesso são confidenciais e podem ser revogadas se reveladas a terceiros, o que desaconselha pedir ao cliente o client_secret do aplicativo dele.",
+  "confianca": "verificado",
+  "fonte_url": "https://developers.mercadolivre.com.br/pt_br/autenticacao-e-autorizacao",
+  "data_consulta": "2026-10-14"
+ },
+ "ambiente_testes": {
+  "sandbox": false,
+  "como_obter": "Não existe sandbox. Com um access token, POST /users/test_user com {\"site_id\":\"MLB\"} cria um usuário de teste (até 10 por conta; guardar a senha na hora, não há como consultar depois). Testes só entre usuários de teste, com anúncios de teste (título 'Item de Teste – Por favor, NÃO OFERTAR!', categoria Outros, sem gold/gold_premium) e cartões de teste. Usuário de teste sem atividade por 60 dias é removido. Interação de usuário real com usuário de teste pode acionar antifraude e bloquear a conta real.",
+  "custo": "Gratuito.",
+  "dados_ficticios": true,
+  "observacao": "Para leituras do Stagium, o teste realista é com a conta real do vendedor (somente GET). Multi-origem em usuários de teste exige pedido por formulário (ativação quinzenal).",
+  "fonte_url": "https://developers.mercadolivre.com.br/pt_br/realizacao-de-testes",
+  "data_consulta": "2026-10-14"
+ },
+ "limites": {
+  "rate_limit": null,
+  "janela": null,
+  "burst": null,
+  "rate_limit_observacao": "Sem limite numérico global publicado. A FAQ oficial diz que o controle é principalmente por Client ID (aplicação) e por endpoint, sem considerar o tamanho do payload; o 429 (local_rate_limited) pede backoff com jitter, menos concorrência e consumo do scroll antes de expirar; aumento de cota é pedido com evidência de uso. Valores publicados pontualmente: mensageria pós-venda 500 rpm para GETs e 500 rpm para escritas; o recurso /applications/{id} expõe max_requests_per_hour (18000 no exemplo). Nos relatórios de faturamento o 429 é bloqueio preventivo por IP. Os Termos permitem ao Mercado Livre limitar chamadas a seu critério e até cobrar pelo excedente.",
+  "paginacao": {
+   "estilo": "offset",
+   "tamanho_max": 100,
+   "observacao": "offset/limit na maioria das buscas: anúncios do vendedor (padrão 50, máx. 100; acima de 1000 resultados só com search_type=scan e scroll_id, que expira em 5 min), perguntas (padrão 50; scan acima de 1000), reclamações (padrão 30, máx. 100; offset+limit < 10000), pedidos (padrão 50 nos exemplos; máximo não publicado). Faturamento: limit até 1000 e paginação por from_id/last_id (offset até 10000). Operações do Full: scroll + limit até 1000. Multiget de itens: até 20 IDs."
+  },
+  "tamanho_max_payload": null,
+  "timeout_recomendado": "30 a 60 s por requisição (recomendação própria; a doc não publica).",
+  "politica_retry": "429: backoff exponencial com jitter (FAQ oficial). 401: renovar o token uma vez. 206 (Partial Content) em pedidos e faturamento: usar o que veio e repetir mais tarde. Escritas: não repetir sem conferir.",
+  "idempotencia": {
+   "suportada": false,
+   "header": null
+  },
+  "datas": "Respostas em ISO 8601 com fuso (-04:00 em muitos exemplos), em UTC (Z ou +00:00) em envios/visitas/devoluções e sem fuso no faturamento. Filtros: pedidos em AAAA-MM-DDThh:mm:ss.000-03:00 (só a hora é considerada); reclamações por range com milissegundos; visitas e Full em AAAA-MM-DD.",
+  "valores": "Números JSON em reais com ponto decimal (não centavos).",
+  "volatil": true,
+  "fonte_url": "https://developers.mercadolivre.com.br/pt_br/rate-limit-erro-429",
+  "data_consulta": "2026-10-14"
+ },
+ "webhooks": {
+  "suportados": true,
+  "eventos": [
+   "orders_v2",
+   "orders feedback",
+   "messages (created, read)",
+   "items",
+   "items_prices",
+   "price_suggestion",
+   "questions",
+   "user_products (created, updated, purged)",
+   "user_products_families",
+   "stock-location",
+   "item competition (catálogo)",
+   "shipments",
+   "fbm_stock_operations",
+   "flex-handshakes",
+   "public_offers (promoções)",
+   "post_purchase (claims, claims_actions)",
+   "payments",
+   "invoices",
+   "vis_leads",
+   "leads-credits"
+  ],
+  "verificacao_assinatura": null,
+  "verificacao_observacao": "A doc não descreve assinatura nem segredo nas notificações; publica a lista de IPs de origem para filtro e recomenda tratar a notificação só como aviso e consultar o recurso (GET no resource).",
+  "politica_reentrega": "POST no callback; sem HTTP 200 a notificação é reenviada durante 1 hora (até a 8ª tentativa); depois fica em GET /missed_feeds por até 2 dias. O callback deve responder 200 em até 500 ms. Desde 15/06/2026 o Mercado Livre desativa notificações de aplicações com mais de 80% de erro ou alta intermitência (o que chegar durante a desativação não vai para o missed_feeds).",
+  "requer_endpoint_publico": true,
+  "configuracao": "No DevCenter (editar aplicativo: URL de notificações e tópicos). Não há API para cadastrar webhooks. O alcance é global: chegam eventos de todos os vendedores que autorizaram o aplicativo. Horários em UTC.",
+  "fonte_url": "https://developers.mercadolivre.com.br/pt_br/produto-receba-notificacoes",
+  "data_consulta": "2026-10-14"
+ },
+ "erros": {
+  "formato": "JSON com status, error/code e message, às vezes cause[]. Ex.: {\"status\":403,\"error\":\"access_denied\",\"message\":\"access to the requested resource is forbidden\",\"code\":\"FORBIDDEN\"}; falta de permissão funcional: {\"code\":\"PA_UNAUTHORIZED_RESULT_FROM_POLICIES\",\"blocked_by\":\"PolicyAgent\",\"message\":\"At least one policy returned UNAUTHORIZED.\",\"status\":403}; OAuth: {\"error\":\"invalid_grant\",\"error_description\":\"...\",\"status\":400,\"cause\":[]}.",
+  "codigos_principais": [
+   {
+    "status": 200,
+    "quando": "Sucesso."
+   },
+   {
+    "status": 204,
+    "quando": "Sem conteúdo (ex.: pedido ainda sem envio associado)."
+   },
+   {
+    "status": 206,
+    "quando": "Conteúdo parcial (pedidos: cabeçalho X-Content-Missing; faturamento: dados incompletos)."
+   },
+   {
+    "status": 400,
+    "quando": "Parâmetros inválidos; invalid_grant no OAuth; filtros obrigatórios ausentes em reclamações; janela de visitas acima de 150 dias."
+   },
+   {
+    "status": 401,
+    "quando": "Token ausente, inválido ou expirado."
+   },
+   {
+    "status": 403,
+    "quando": "Token de outro usuário, scope ou permissão funcional faltando, IP bloqueado, usuário inativo/sem validação, aplicação bloqueada."
+   },
+   {
+    "status": 404,
+    "quando": "Recurso inexistente (pedido, envio, anúncio, inventory)."
+   },
+   {
+    "status": 429,
+    "quando": "Excesso de requisições (local_rate_limited); no faturamento, bloqueio por IP."
+   }
+  ],
+  "fonte_url": "https://developers.mercadolivre.com.br/pt_br/erro-403",
+  "data_consulta": "2026-10-14"
+ },
+ "sdks_oficiais": [],
+ "sdks_observacao": "As páginas consultadas não apontam SDK oficial para a API do Mercado Livre (há uma menção solta a 'nossos SDK' num exemplo de perguntas). Existe o MCP Server oficial do portal (https://mcp.mercadolibre.com/devsite/v1/mcp), com OAuth, para consultar a documentação e gerar código a partir de clientes de IA.",
+ "comercial": {
+  "modelo_acesso": "aberto",
+  "custo_api": "Sem custo publicado para usar a API.",
+  "custo_api_observacao": "Criar aplicativo é self-service e gratuito. Os Termos reservam ao Mercado Livre limitar chamadas e eventualmente cobrar pelo excedente. O Developer Partner Program (certificação) exige GMV mensal mínimo de USD 2,5 milhões no Brasil, assessment de segurança e entregas periódicas; não é obrigatório para usar a API.",
+  "exige_homologacao": false,
+  "homologacao_observacao": "Não há homologação para começar; a certificação é opcional e dá benefícios. O vendedor precisa autorizar o aplicativo (tela de consentimento mostra se o aplicativo é certificado).",
+  "tempo_medio_aprovacao": "Imediato (criação do aplicativo no DevCenter), desde que os dados do titular estejam validados.",
+  "volatil": true,
+  "fonte_url": "https://developers.mercadolivre.com.br/pt_br/developer-partner-program",
+  "data_consulta": "2026-10-14"
+ },
+ "conformidade": {
+  "trafega_dado_pessoal": true,
+  "dado_sensivel": false,
+  "base_legal_tipica": "Execução de contrato (LGPD art. 7º, V) e cumprimento de obrigação legal (art. 7º, II, para dados fiscais). Pelos Termos, o vendedor que autoriza é o controlador e o desenvolvedor (Stagium) é operador, tratando dados só conforme as instruções do vendedor. A API traz apelido e id de compradores, endereço de entrega (após pagamento), dados fiscais (CPF/CNPJ no billing-info e na NF-e), mensagens e, para o vendedor, e-mail e documento.",
+  "exige_certificado_digital": false,
+  "certificado_observacao": "A API não exige certificado. O Faturador do Mercado Livre emite NF-e com o certificado do vendedor configurado na plataforma, fora do escopo da API de leitura.",
+  "regulador": null,
+  "residencia_dados": null,
+  "termos_uso_url": "https://developers.mercadolivre.com.br/pt_br/termos-e-condicoes",
+  "permite_uso_em_produto_terceiro": "sim",
+  "permite_uso_em_produto_terceiro_observacao": "Os Termos do Programa de Desenvolvedores licenciam o desenvolvedor a criar aplicativos que interagem com a API para os usuários do aplicativo, com dados não públicos exibidos só com autorização expressa do usuário (o grant OAuth). Condições que pesam para o Stagium: (a) as chaves de acesso são confidenciais e podem ser revogadas se reveladas a terceiros — use aplicativo próprio do Stagium em vez de pedir o client_secret do cliente; (b) cláusula 5.4: usar o conteúdo para gerar estatísticas de vendas, desempenho ou de um usuário específico exige autorização expressa do Mercado Livre (interpretação sobre relatórios do próprio vendedor para ele mesmo não é explícita — perguntar); (c) proibido sublicenciar a API, armazenar dados de cartão e repassar informações a quem não é usuário do Mercado Livre; (d) cópias intermediárias só pelo necessário e conteúdo atualizado a cada 24 h (6 h para listagens); (e) proibido usar 'mercado', 'livre', 'envios' etc. no nome do aplicativo; (f) segurança: notificar vulnerabilidade em 24 h e aceitar auditorias.",
+  "fonte_url": "https://developers.mercadolivre.com.br/pt_br/termos-e-condicoes",
+  "data_consulta": "2026-10-14"
+ },
+ "esforco_integracao": {
+  "complexidade": "media",
+  "horas_estimadas_mvp": 48,
+  "premissa_estimativa": "MVP de leitura com ~12 consultas (pedidos, pedido, envio e custos, anúncios em duas etapas, estoque, perguntas, reclamações e devoluções, faturamento por período e detalhe, visitas): fluxo OAuth com tela de conexão e redirect HTTPS, cofre com rotação do refresh_token sem concorrência, seller_id via /users/me, paginação offset e scroll, cabeçalhos por endpoint, desdobramento de arrays (itens do pedido, sales_info), tratamento de 401/429/206. Sem escrita.",
+  "principais_armadilhas": [
+   "refresh_token de uso único: duas renovações simultâneas para a mesma conta derrubam a conexão; serialize a renovação e grave o novo valor antes de usar o access_token.",
+   "Access token dura só 6 horas; Power Query não consegue manter a rotação do refresh_token sozinho.",
+   "Quem autoriza tem de ser o administrador da conta; colaborador gera invalid_operator_user_id.",
+   "Sem sandbox: teste de leitura é na conta real (somente GET) ou com usuários de teste, que não podem interagir com contas reais.",
+   "Busca de anúncios devolve só IDs; dados vêm de /items/bulk em lotes de 20. Acima de 1000 anúncios, só com search_type=scan e scroll_id (5 min).",
+   "Pedidos ficam disponíveis por 12 meses; filtro de data considera só a hora; máximo do limit não publicado.",
+   "/shipments exige header x-format-new: true e não devolve mais order_id; /orders/{id}/shipments exige X-New-Domain.",
+   "Arrays aninhados (order_items, payments, sales_info, players) precisam ser desdobrados para virar linhas.",
+   "Relatórios de faturamento: só para conciliação, uma consulta por dia, 429 por IP; períodos não coincidem com o mês civil e as datas vêm sem fuso.",
+   "GET de mensagens pós-venda marca como lidas, a menos que se envie mark_as_read=false.",
+   "Datas em formatos mistos: -04:00, UTC (Z/+00:00) e sem fuso; reclamações exigem milissegundos no range.",
+   "Muitas descontinuações com data (items?ids até 25/10/2026, vista atual de /orders/{id}/shipments, condition, price em /items): acompanhar Novidades."
+  ]
+ },
+ "casos_uso_negocio": [
+  {
+   "titulo": "Vendas do período com margem",
+   "dor_resolvida": "O vendedor exporta vendas do painel e cruza à mão com tarifas e frete para saber quanto sobrou.",
+   "endpoints_envolvidos": [
+    "mercado-livre.pedido.listar",
+    "mercado-livre.envio.obter.custos",
+    "mercado-livre.transacao.listar.tarifas"
+   ],
+   "valor_percebido": "Planilha por venda com valor, tarifa de venda, frete pago pelo vendedor e descontos, pronta para tabela dinâmica."
+  },
+  {
+   "titulo": "Expedição e atrasos",
+   "dor_resolvida": "Atraso de despacho derruba a reputação e ninguém vê a fila por prazo.",
+   "endpoints_envolvidos": [
+    "mercado-livre.pedido.listar",
+    "mercado-livre.envio.obter",
+    "mercado-livre.envio.consultar_status.sla"
+   ],
+   "valor_percebido": "Envios por situação, logística e prazo limite de despacho, ordenados pelo que vence primeiro."
+  },
+  {
+   "titulo": "Catálogo de anúncios e estoque",
+   "dor_resolvida": "Estoque divergente entre ERP, Full e anúncios; anúncios pausados sem perceber.",
+   "endpoints_envolvidos": [
+    "mercado-livre.anuncio.listar",
+    "mercado-livre.anuncio.listar.bulk",
+    "mercado-livre.estoque.obter",
+    "mercado-livre.estoque.obter.fulfillment"
+   ],
+   "valor_percebido": "Todos os anúncios com preço, estoque, vendidos, status, SKU e estoque Full por motivo de indisponibilidade."
+  },
+  {
+   "titulo": "Atendimento pré-venda",
+   "dor_resolvida": "Perguntas sem resposta custam vendas e tempo de resposta pesa na conversão.",
+   "endpoints_envolvidos": [
+    "mercado-livre.mensagem.listar.perguntas",
+    "mercado-livre.mensagem.obter.tempo_resposta"
+   ],
+   "valor_percebido": "Fila de perguntas sem resposta por anúncio e o tempo médio por faixa de horário."
+  },
+  {
+   "titulo": "Pós-venda: reclamações e devoluções",
+   "dor_resolvida": "Reclamações com prazo correndo e devoluções com dinheiro retido sem controle.",
+   "endpoints_envolvidos": [
+    "mercado-livre.contestacao.listar",
+    "mercado-livre.contestacao.obter.devolucao",
+    "mercado-livre.empresa.obter"
+   ],
+   "valor_percebido": "Casos abertos com motivo, etapa, ação pendente e prazo; devoluções com situação do dinheiro; métricas de reputação dos últimos 60 dias."
+  },
+  {
+   "titulo": "Conciliação das tarifas do Mercado Livre",
+   "dor_resolvida": "A fatura mensal do Mercado Livre não bate com o que o financeiro esperava.",
+   "endpoints_envolvidos": [
+    "mercado-livre.conta_pagar.listar",
+    "mercado-livre.conta_pagar.obter.resumo",
+    "mercado-livre.transacao.listar.tarifas",
+    "mercado-livre.conta_pagar.listar.documentos"
+   ],
+   "valor_percebido": "Períodos com valor em aberto, resumo por tipo de cobrança e detalhe venda a venda que soma igual à fatura."
+  },
+  {
+   "titulo": "Tráfego e conversão",
+   "dor_resolvida": "Não se sabe quais anúncios recebem visitas e não vendem.",
+   "endpoints_envolvidos": [
+    "mercado-livre.anuncio.listar.visitas_diarias",
+    "mercado-livre.anuncio.obter.visitas",
+    "mercado-livre.anuncio.listar.bulk"
+   ],
+   "valor_percebido": "Visitas diárias da loja e por anúncio comparadas a vendidos."
+  }
+ ],
+ "indice_integrabilidade": {
+  "score": 64,
+  "componentes": {
+   "documentacao": {
+    "peso": 20,
+    "pontos": 15,
+    "justificativa": "Portal oficial em português, extenso e atualizado (páginas com data de 2025 a 10/2026), exemplos curl e de resposta para quase todo recurso, tabelas de parâmetros, erros e regras de paginação, FAQ de rate limit e de faturamento. Perde por não ter OpenAPI/schema tipado, por exemplos com JSON inválido ou trechos em espanhol, contradições pontuais (type returns x return, scroll dentro ou fora de paging, searchtype x search_type) e lacunas como o limit máximo de /orders/search e o limite numérico de requisições."
+   },
+   "sandbox": {
+    "peso": 15,
+    "pontos": 7,
+    "justificativa": "Não há sandbox; a doc oferece usuários de teste gratuitos e self-service (até 10 por conta, cartões de teste), mas que operam em produção, expiram por inatividade, não podem interagir com contas reais e não reproduzem bem cenários como multi-origem sem pedido prévio."
+   },
+   "autenticacao": {
+    "peso": 15,
+    "pontos": 13,
+    "justificativa": "OAuth 2.0 authorization code com PKCE opcional, state, scopes (read, write, offline_access) e permissões funcionais por área, revogação pelo vendedor e renovação de Client Secret programável. Perde por refresh token de uso único com access de 6 horas (exige cofre com rotação serializada) e por não aceitar autorização de usuário colaborador."
+   },
+   "webhooks": {
+    "peso": 15,
+    "pontos": 10,
+    "justificativa": "Muitos tópicos (pedidos, envios, itens, preços, estoque, perguntas, reclamações, faturamento), reentrega por 1 hora e histórico de perdidas por 2 dias (missed_feeds), IPs de origem publicados. Perde por não documentar assinatura/segredo, exigir resposta em 500 ms, desativar tópicos de apps com muitos erros e ser configurado só pelo DevCenter."
+   },
+   "limites_paginacao": {
+    "peso": 10,
+    "pontos": 6,
+    "justificativa": "Paginação documentada por recurso (offset/limit, scan/scroll, from_id/last_id), limites de página altos no faturamento (1000) e regras claras em reclamações. Perde por não publicar o limite de requisições, por tetos de offset (1000 em anúncios sem scan, 10.000 em várias rotas), por buscas que só devolvem IDs e pela necessidade de uma chamada por item em visitas, preço de venda e estoque."
+   },
+   "sdks_comunidade": {
+    "peso": 10,
+    "pontos": 3,
+    "justificativa": "Nenhum SDK oficial apontado nas páginas consultadas. Há MCP Server oficial do portal para consultar a documentação e gerar código, e o Developer Partner Program com comunidade Slack para parceiros certificados; bibliotecas de comunidade não foram avaliadas (fonte não oficial)."
+   },
+   "acesso_sem_barreira": {
+    "peso": 10,
+    "pontos": 8,
+    "justificativa": "Documentação aberta sem login, criação de aplicativo gratuita e imediata, sem homologação para começar. Perde porque o titular precisa ter os dados validados, no Brasil cada conta cria só 1 aplicativo, e os Termos condicionam alguns usos (estatísticas derivadas) a autorização expressa do Mercado Livre."
+   },
+   "versionamento": {
+    "peso": 5,
+    "pontos": 2,
+    "justificativa": "Sem versão na URL; mudanças são anunciadas com data (Novidades, /communications/notices) e há prazos de migração, mas as descontinuações são frequentes e às vezes por cabeçalho ou parâmetro (x-format-new obrigatório, api_version=4, X-New-Domain), sem política formal de compatibilidade."
+   }
+  }
+ },
+ "qualidade_doc": {
+  "nota": 7,
+  "observacoes": "Rica em exemplos e em português, com páginas datadas e avisos de descontinuação. Problemas: JSON de exemplo às vezes inválido ou truncado, textos traduzidos parcialmente do espanhol, valores contraditórios entre seções, limites importantes ausentes (rate limit global, máximo de /orders/search) e nenhuma especificação formal (OpenAPI)."
+ },
+ "monitoramento": {
+  "changelog_url": "https://developers.mercadolivre.com.br/devcenter/news/",
+  "canal_breaking_changes": "Seção Novidades do DevCenter e o recurso GET /communications/notices (a doc diz que é a única forma de saber de mudanças aplicadas ao aplicativo; consultar com o token do titular).",
+  "frequencia_revisao_sugerida": "mensal",
+  "observacao": "Descontinuações com data vista nesta consulta: /items?ids= e /users?ids= até 25/10/2026; vista atual de /orders/{id}/shipments a partir do fim de setembro de 2026; separação de aplicativos ML/MP desde 30/08/2026; campos price/base_price/original_price de /items; atributo condition."
+ },
+ "lacunas": [
+  {
+   "campo": "execucao_auth (executor)",
+   "descricao": "O executor do site (src/lib/executor.servidor.ts) só executa header_api_key e login_credenciais. Para o Mercado Livre falta: tipo oauth2_refresh_token com POST form-urlencoded, gravação atômica do refresh_token rotativo no cofre e trava contra renovação concorrente; cabeçalhos por endpoint; parâmetro de vendedor preenchido com o id de /users/me; paginação por scroll/cursor lido no corpo; listas de strings (IDs) e consultas em duas etapas (IDs → /items/bulk).",
+   "impacto": "alto"
+  },
+  {
+   "campo": "conformidade.permite_uso_em_produto_terceiro",
+   "descricao": "Os Termos permitem aplicativos de terceiros autorizados pelo vendedor, mas a cláusula 5.4 exige autorização expressa do Mercado Livre para usar o conteúdo de forma a obter estatísticas de vendas, de desempenho ou de um usuário específico. Não está claro se relatórios do próprio vendedor entregues a ele mesmo se enquadram. Também não há regra explícita para o modelo em que o cliente cria o aplicativo e entrega client_secret a um terceiro (os Termos dizem que revelar chaves pode levar à revogação).",
+   "impacto": "alto"
+  },
+  {
+   "campo": "limites.rate_limit",
+   "descricao": "Não há número publicado de requisições por minuto/hora (só 500 rpm na mensageria e max_requests_per_hour no recurso do aplicativo, com 18000 no exemplo). Não se sabe a janela, o burst nem se o 429 traz Retry-After.",
+   "impacto": "alto"
+  },
+  {
+   "campo": "pedido.listar.limit",
+   "descricao": "O máximo de limit e de offset em /orders/search não é publicado (exemplos com 50), nem há modo scroll documentado para pedidos. Para vendedores com muitos pedidos no mês, fatiar o período.",
+   "impacto": "medio"
+  },
+  {
+   "campo": "pedido.listar cancelados",
+   "descricao": "A doc diz que a busca como vendedor 'continua a filtrar os pedidos cancelados' sem explicar se eles são omitidos por padrão ou se o filtro order.status=cancelled os traz.",
+   "impacto": "medio"
+  },
+  {
+   "campo": "OAuth: validade do code",
+   "descricao": "A doc do Mercado Livre não informa por quanto tempo o code (TG-...) do redirect vale antes da troca.",
+   "impacto": "baixo"
+  },
+  {
+   "campo": "webhooks.verificacao_assinatura",
+   "descricao": "Nenhum mecanismo de assinatura ou segredo é descrito para as notificações; só a lista de IPs de origem.",
+   "impacto": "medio"
+  },
+  {
+   "campo": "anuncio.listar.bulk",
+   "descricao": "O limite de 20 IDs está documentado para o multiget legado (/items?ids=); a página de migração para /items/bulk não repete o número.",
+   "impacto": "baixo"
+  },
+  {
+   "campo": "mensagem.listar.perguntas",
+   "descricao": "Não há filtro por data em /questions/search, e o limit máximo não é declarado para perguntas (a seção de busca acima de 1000 registros menciona máximo de 100).",
+   "impacto": "medio"
+  },
+  {
+   "campo": "envio.listar.pedido",
+   "descricao": "A vista atual de /orders/{id}/shipments estava marcada para descontinuação a partir do fim de setembro de 2026; em 2026-10-14 a página ainda descreve as duas vistas. Formato definitivo a confirmar.",
+   "impacto": "medio"
+  },
+  {
+   "campo": "transacao.listar.tarifas envelope",
+   "descricao": "O exemplo oficial do detalhe ML mostra só o objeto de cada lançamento; o envelope (results, last_id, total) vem do texto e do exemplo de boas práticas, não de um exemplo completo.",
+   "impacto": "baixo"
+  },
+  {
+   "campo": "contestacao.listar type",
+   "descricao": "A tabela de tipos lista 'return', mas o exemplo de busca e um exemplo de requisição usam 'returns'. Valor aceito a confirmar.",
+   "impacto": "baixo"
+  },
+  {
+   "campo": "sdks_oficiais",
+   "descricao": "Nenhum SDK oficial citado nas páginas atuais; não foi verificado se existem repositórios oficiais fora do portal.",
+   "impacto": "baixo"
+  },
+  {
+   "campo": "faturamento: escopo do 429 por IP",
+   "descricao": "O 429 dos relatórios de faturamento é descrito como bloqueio preventivo por IP: num executor compartilhado (vários clientes saindo do mesmo IP) isso pode afetar todos. Limite não publicado.",
+   "impacto": "medio"
+  },
+  {
+   "campo": "taxonomia — tarifas do marketplace",
+   "descricao": "Cobranças e bonificações do Mercado Livre foram mapeadas em Transacao (detalhe) e ContaPagar (períodos, documentos, resumo). Sugestão: entidade 'TarifaMarketplace' ou ampliar Transacao para cobranças de plataforma.",
+   "impacto": "baixo"
+  },
+  {
+   "campo": "taxonomia — métricas",
+   "descricao": "Visitas, tempo de resposta e reputação foram mapeados em Anuncio, Mensagem e Empresa com qualificador. Sugestão: entidade 'Metrica' (indicadores de desempenho).",
+   "impacto": "baixo"
+  },
+  {
+   "campo": "taxonomia — perguntas pré-venda",
+   "descricao": "Perguntas de compradores em anúncios foram mapeadas em Mensagem com qualificador perguntas. Sugestão: entidade 'Pergunta' se outros marketplaces repetirem o padrão.",
+   "impacto": "baixo"
+  },
+  {
+   "campo": "taxonomia — devoluções",
+   "descricao": "Devoluções foram mapeadas em Contestacao.obter.devolucao. Sugestão: entidade 'Devolucao' (logística reversa com situação do dinheiro).",
+   "impacto": "baixo"
+  }
+ ],
+ "fontes": [
+  {
+   "url": "https://developers.mercadolivre.com.br/pt_br/autenticacao-e-autorizacao",
+   "titulo": "Autenticação e Autorização (OAuth, refresh token, erros)",
+   "data_consulta": "2026-10-14"
+  },
+  {
+   "url": "https://developers.mercadolivre.com.br/pt_br/crie-uma-aplicacao-no-mercado-livre",
+   "titulo": "Crie uma aplicação no Mercado Livre (DevCenter, scopes, Client Secret)",
+   "data_consulta": "2026-10-14"
+  },
+  {
+   "url": "https://developers.mercadolivre.com.br/pt_br/permissoes-funcionais",
+   "titulo": "Permissões funcionais",
+   "data_consulta": "2026-10-14"
+  },
+  {
+   "url": "https://developers.mercadolivre.com.br/pt_br/gerencie-seu-aplicativo",
+   "titulo": "Gerencie seu aplicativo (grants, consumo, separação ML/MP)",
+   "data_consulta": "2026-10-14"
+  },
+  {
+   "url": "https://developers.mercadolivre.com.br/pt_br/desenvolvimento-in-house",
+   "titulo": "Guia rápido: integração in-house",
+   "data_consulta": "2026-10-14"
+  },
+  {
+   "url": "https://developers.mercadolivre.com.br/pt_br/realizacao-de-testes",
+   "titulo": "Realização de testes (usuários de teste, sem sandbox)",
+   "data_consulta": "2026-10-14"
+  },
+  {
+   "url": "https://developers.mercadolivre.com.br/pt_br/boas-praticas-para-usar-a-plataforma",
+   "titulo": "Boas práticas para uso da plataforma",
+   "data_consulta": "2026-10-14"
+  },
+  {
+   "url": "https://developers.mercadolivre.com.br/pt_br/gerenciar-ips-de-um-aplicativo",
+   "titulo": "Gerenciar IPs de um aplicativo",
+   "data_consulta": "2026-10-14"
+  },
+  {
+   "url": "https://developers.mercadolivre.com.br/pt_br/erro-403",
+   "titulo": "Erro 403",
+   "data_consulta": "2026-10-14"
+  },
+  {
+   "url": "https://developers.mercadolivre.com.br/pt_br/rate-limit-erro-429",
+   "titulo": "FAQ: Rate limit / Erro 429",
+   "data_consulta": "2026-10-14"
+  },
+  {
+   "url": "https://developers.mercadolivre.com.br/pt_br/faturamento-billing-info",
+   "titulo": "FAQ: Faturamento / Billing info",
+   "data_consulta": "2026-10-14"
+  },
+  {
+   "url": "https://developers.mercadolivre.com.br/pt_br/consulta-de-usuarios",
+   "titulo": "Consulta de usuários (/users/me)",
+   "data_consulta": "2026-10-14"
+  },
+  {
+   "url": "https://developers.mercadolivre.com.br/pt_br/usuarios-e-aplicativos",
+   "titulo": "Usuários e Aplicativos",
+   "data_consulta": "2026-10-14"
+  },
+  {
+   "url": "https://developers.mercadolivre.com.br/pt_br/reputacao-de-vendedores",
+   "titulo": "Reputação de vendedores",
+   "data_consulta": "2026-10-14"
+  },
+  {
+   "url": "https://developers.mercadolivre.com.br/pt_br/gerenciamento-de-vendas",
+   "titulo": "Gerenciar orders (/orders, /orders/search)",
+   "data_consulta": "2026-10-14"
+  },
+  {
+   "url": "https://developers.mercadolivre.com.br/pt_br/pedidos-e-opinioes",
+   "titulo": "Pedidos e opiniões (referência de recursos)",
+   "data_consulta": "2026-10-14"
+  },
+  {
+   "url": "https://developers.mercadolivre.com.br/pt_br/gestao-packs",
+   "titulo": "Gestão de packs",
+   "data_consulta": "2026-10-14"
+  },
+  {
+   "url": "https://developers.mercadolivre.com.br/pt_br/gerenciamento-de-envios",
+   "titulo": "Gerenciamento de envios (/shipments)",
+   "data_consulta": "2026-10-14"
+  },
+  {
+   "url": "https://developers.mercadolivre.com.br/pt_br/status-de-pedidos-rastreamento",
+   "titulo": "Status de pedidos e rastreamento",
+   "data_consulta": "2026-10-14"
+  },
+  {
+   "url": "https://developers.mercadolivre.com.br/pt_br/itens-e-buscas",
+   "titulo": "Busca de itens (/users/{id}/items/search, multiget, scan)",
+   "data_consulta": "2026-10-14"
+  },
+  {
+   "url": "https://developers.mercadolivre.com.br/pt_br/publicacao-de-produtos",
+   "titulo": "Publicar produtos (/items)",
+   "data_consulta": "2026-10-14"
+  },
+  {
+   "url": "https://developers.mercadolivre.com.br/pt_br/produto-sincronizacao-de-publicacoes",
+   "titulo": "Sincronização e modificação de publicações",
+   "data_consulta": "2026-10-14"
+  },
+  {
+   "url": "https://developers.mercadolivre.com.br/pt_br/api-de-precos",
+   "titulo": "Preços de produtos (sale_price, prices)",
+   "data_consulta": "2026-10-14"
+  },
+  {
+   "url": "https://developers.mercadolivre.com.br/pt_br/comissao-por-vender",
+   "titulo": "Custos por vender (listing_prices)",
+   "data_consulta": "2026-10-14"
+  },
+  {
+   "url": "https://developers.mercadolivre.com.br/pt_br/estoque-distribuido",
+   "titulo": "Estoque distribuído (/user-products/{id}/stock)",
+   "data_consulta": "2026-10-14"
+  },
+  {
+   "url": "https://developers.mercadolivre.com.br/pt_br/estoque-multi-origem",
+   "titulo": "Estoque multi-origem",
+   "data_consulta": "2026-10-14"
+  },
+  {
+   "url": "https://developers.mercadolivre.com.br/pt_br/envios-fulfillment",
+   "titulo": "Envios Fulfillment (estoque e operações)",
+   "data_consulta": "2026-10-14"
+  },
+  {
+   "url": "https://developers.mercadolivre.com.br/pt_br/gerenciamento-perguntas-respostas",
+   "titulo": "Gerenciamento de perguntas e respostas",
+   "data_consulta": "2026-10-14"
+  },
+  {
+   "url": "https://developers.mercadolivre.com.br/pt_br/perguntas-e-respostas",
+   "titulo": "Perguntas e Respostas (referência)",
+   "data_consulta": "2026-10-14"
+  },
+  {
+   "url": "https://developers.mercadolivre.com.br/pt_br/mensagens-post-venda",
+   "titulo": "Gestão de mensagens pós-venda",
+   "data_consulta": "2026-10-14"
+  },
+  {
+   "url": "https://developers.mercadolivre.com.br/pt_br/gerenciar-reclamacoes",
+   "titulo": "Gerenciar reclamações (/post-purchase/v1/claims)",
+   "data_consulta": "2026-10-14"
+  },
+  {
+   "url": "https://developers.mercadolivre.com.br/pt_br/gerenciar-devolucoes",
+   "titulo": "Devoluções (/post-purchase/v2/claims/{id}/returns)",
+   "data_consulta": "2026-10-14"
+  },
+  {
+   "url": "https://developers.mercadolivre.com.br/pt_br/boas-praticas-para-o-consumo-das-apis-de-relatorios-de-faturamento",
+   "titulo": "Boas práticas para os relatórios de faturamento",
+   "data_consulta": "2026-10-14"
+  },
+  {
+   "url": "https://developers.mercadolivre.com.br/pt_br/relatorios-de-faturamento",
+   "titulo": "Relatórios de faturamento (períodos, documentos, resumo)",
+   "data_consulta": "2026-10-14"
+  },
+  {
+   "url": "https://developers.mercadolivre.com.br/pt_br/provisoes",
+   "titulo": "Provisões (detalhe de faturamento ML/MP, por pedido)",
+   "data_consulta": "2026-10-14"
+  },
+  {
+   "url": "https://developers.mercadolivre.com.br/pt_br/pagamentos",
+   "titulo": "Relatórios de pagamentos",
+   "data_consulta": "2026-10-14"
+  },
+  {
+   "url": "https://developers.mercadolivre.com.br/pt_br/baixar-documento-legal",
+   "titulo": "Baixar documento legal",
+   "data_consulta": "2026-10-14"
+  },
+  {
+   "url": "https://developers.mercadolivre.com.br/pt_br/obtendo-nota-fiscal",
+   "titulo": "Gestão e consulta de notas fiscais (Faturador)",
+   "data_consulta": "2026-10-14"
+  },
+  {
+   "url": "https://developers.mercadolivre.com.br/pt_br/recurso-visits",
+   "titulo": "Visitas",
+   "data_consulta": "2026-10-14"
+  },
+  {
+   "url": "https://developers.mercadolivre.com.br/pt_br/produto-receba-notificacoes",
+   "titulo": "Notificações (tópicos, reentrega, missed_feeds)",
+   "data_consulta": "2026-10-14"
+  },
+  {
+   "url": "https://developers.mercadolivre.com.br/pt_br/termos-e-condicoes",
+   "titulo": "Termos e Condições do Programa de Desenvolvedores (MLB)",
+   "data_consulta": "2026-10-14"
+  },
+  {
+   "url": "https://developers.mercadolivre.com.br/pt_br/developer-partner-program",
+   "titulo": "Developer Partner Program",
+   "data_consulta": "2026-10-14"
+  },
+  {
+   "url": "https://developers.mercadolivre.com.br/pt_br/server-mcp",
+   "titulo": "MCP Server do Mercado Livre",
+   "data_consulta": "2026-10-14"
+  },
+  {
+   "url": "https://developers.mercadolivre.com.br/pt_br/api-docs-pt-br",
+   "titulo": "API Docs (índice)",
+   "data_consulta": "2026-10-14"
+  }
+ ]
+}

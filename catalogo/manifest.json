@@ -5,7 +5,7 @@
   "aguardando_aprovacao": false,
   "aprovado_em": "2026-09-14",
   "criado_em": "2026-09-14",
-  "atualizado_em": "2026-10-09",
+  "atualizado_em": "2026-10-14",
   "legenda_status": {
     "pendente": "ainda não iniciado",
     "em_andamento": "lote em execução",
@@ -140,6 +140,18 @@
       "concluido_em": "2026-10-09"
     },
     {
+      "lote": "P3",
+      "onda": 1,
+      "tema": "Adiantado — marketplace e fiscal (Mercado Livre, Qive/Arquivei)",
+      "sistemas": [
+        "mercado-livre",
+        "arquivei"
+      ],
+      "status": "concluido",
+      "motivo": "pedido do usuário em 2026-10-14: documentar Mercado Livre e Arquivei fora da ordem da fila",
+      "concluido_em": "2026-10-14"
+    },
+    {
       "lote": 3,
       "onda": 1,
       "tema": "Fiscal — padrão e gateways",
@@ -169,10 +181,12 @@
       "tema": "E-commerce / marketplace líderes",
       "sistemas": [
         "vtex",
-        "mercado-livre",
         "nuvemshop"
       ],
-      "status": "pendente"
+      "status": "pendente",
+      "retirados": [
+        "mercado-livre — adiantado para o lote P3 e concluído em 2026-10-14"
+      ]
     },
     {
       "lote": 6,
@@ -334,10 +348,12 @@
       "tema": "Fiscal complementar",
       "sistemas": [
         "efd-reinf",
-        "tecnospeed",
-        "arquivei"
+        "tecnospeed"
       ],
-      "status": "pendente"
+      "status": "pendente",
+      "retirados": [
+        "arquivei — adiantado para o lote P3 e concluído em 2026-10-14"
+      ]
     },
     {
       "lote": 21,
@@ -999,14 +1015,43 @@
       "nome": "Mercado Livre",
       "categoria": "marketplace",
       "onda": 1,
-      "lote": 5,
+      "lote": "P3",
       "prioridade": {
         "adocao": 3,
         "doc": 3,
         "valor": 3,
         "total": 27
       },
-      "status": "pendente"
+      "status": "concluido",
+      "adiantado_fora_da_ordem": true,
+      "justificativa_inclusao": "Pedido do usuário em 2026-10-14.",
+      "resultado": {
+        "endpoints_detalhados": 36,
+        "endpoints_catalogados": 108,
+        "faq": 17,
+        "indice_integrabilidade": 64,
+        "bloqueio_para_o_piloto": "OAuth 2.0 com refresh token de uso único (6 h / 6 meses): executor precisa renovar e gravar o token novo; recomendável aplicativo próprio do Stagium no DevCenter",
+        "data": "2026-10-14"
+      },
+      "concluido_em": "2026-10-14",
+      "endpoints_detalhados": 36,
+      "endpoints_catalogados": 108,
+      "faq": 17,
+      "indice_integrabilidade": 64,
+      "validador": "0 erros, 0 avisos",
+      "execucao": {
+        "completo_em": "2026-10-14",
+        "endpoints_executaveis": 33,
+        "endpoints_total": 36
+      },
+      "conferencia_orquestrador": null,
+      "pendencias": [
+        "executor do site não executa oauth2_refresh_token (refresh rotativo precisa voltar ao cofre)",
+        "cláusula 5.4 dos Termos: estatísticas de vendas exigem autorização expressa — confirmar se vale para relatório do próprio vendedor",
+        "sem rate limit numérico publicado; faturamento bloqueia por IP (1 consulta/dia recomendada)",
+        "anúncios em duas etapas (IDs e depois /items/bulk em lotes de 20); listas aninhadas viram JSON numa coluna",
+        "sem sandbox: testes com usuários de teste em produção"
+      ]
     },
     {
       "slug": "nuvemshop",
@@ -1683,19 +1728,48 @@
     },
     {
       "slug": "arquivei",
-      "nome": "Arquivei (Qive)",
+      "nome": "Qive (antiga Arquivei)",
       "categoria": "fiscal_gateway",
       "onda": 2,
-      "lote": 20,
+      "lote": "P3",
       "prioridade": {
         "adocao": 2,
         "doc": 2,
         "valor": 2,
         "total": 8
       },
-      "status": "pendente",
+      "status": "concluido",
       "hipoteses_a_validar": [
-        "rebranding para Qive"
+        "CONFIRMADA (2026-10-14): rebranding para Qive; os hosts da API seguem em arquivei.com.br (api, sandbox-api, lite-api)."
+      ],
+      "adiantado_fora_da_ordem": true,
+      "justificativa_inclusao": "Pedido do usuário em 2026-10-14.",
+      "resultado": {
+        "endpoints_detalhados": 49,
+        "endpoints_catalogados": 30,
+        "faq": 18,
+        "indice_integrabilidade": 54,
+        "bloqueio_para_o_piloto": "credenciais de produção só via equipe comercial da Qive (API contratada à parte); executor precisa de dois cabeçalhos, buscas POST com cursor no corpo e leitura do XML em Base64",
+        "data": "2026-10-14"
+      },
+      "concluido_em": "2026-10-14",
+      "endpoints_detalhados": 49,
+      "endpoints_catalogados": 30,
+      "faq": 18,
+      "indice_integrabilidade": 54,
+      "validador": "0 erros, 3 avisos (e-mails institucionais de suporte)",
+      "execucao": {
+        "completo_em": "2026-10-14",
+        "endpoints_executaveis": 38,
+        "endpoints_total": 49
+      },
+      "conferencia_orquestrador": null,
+      "pendencias": [
+        "executor do site: dois cabeçalhos (X-API-ID, X-API-KEY) e X-Use-ApiGateway por endpoint",
+        "buscas da API 2.0 são POST com corpo JSON e cursor no corpo; fim da paginação não documentado",
+        "valor total e série da NF-e só no XML em Base64",
+        "limite de requisições por cliente, sem número público (429 com Retry-After)",
+        "Termos proíbem uso em benefício de terceiros não autorizados: confirmar por escrito com a Qive"
       ]
     },
     {

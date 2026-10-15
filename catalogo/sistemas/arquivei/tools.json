@@ -1,0 +1,2622 @@
+{
+  "sistema": "arquivei",
+  "tools": [
+    {
+      "name": "arquivei__nota_fiscal__listar__nfe",
+      "title": "Busca de NFes (API 2.0)",
+      "description": "Qive (antiga Arquivei), gestão de documentos fiscais — POST /v2/dfe/nfe. Busca as NF-e da conta (recebidas, emitidas, como transportadora ou autorizada no autXML) com filtros no corpo JSON e projeção de campos: o integrador escolhe em Fields o que quer receber (chave, número, datas, emitente, destinatário, status, CFOPs, manifestações, eventos, tags e, se pedir, o XML em Base64 ou o documento em JSON). É a rota recomendada pela Qive para buscas desde a API 2.0. Apesar do POST, é uma consulta: não grava nada. Quando usar: Para a planilha de NF-e do período: recebidas (OwnerRoles=received) ou emitidas (emitted), por data de emissão, status (authorized/canceled), CNPJ do emitente ou destinatário, CFOP, finalidade ou tags. Quando NÃO usar: para o PDF (use arquivei.nota_fiscal.baixar_arquivo.danfe) ou para os XMLs de evento de uma chave (arquivei.nota_fiscal.obter.eventos_nfe). Valor total e série não vêm como campo próprio: estão no XML (peça 'Xml' em Fields e leia total/ICMSTot/vNF). Pré-requisitos: Credenciais X-API-ID e X-API-KEY do ambiente (sandbox ou produção). CNPJs da conta liberados para a API (novos CNPJs precisam ser liberados pelo time da Qive). Autenticação: cabeçalhos X-API-ID e X-API-KEY (par fixo emitido pela Qive; o de sandbox é gerado em developers.qive.com.br/sandbox). Base: produção https://api.arquivei.com.br, sandbox https://sandbox-api.arquivei.com.br. Envie também X-Use-ApiGateway: always.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "Filters": {
+            "type": "object",
+            "properties": {
+              "EmissionDate": {
+                "type": "object",
+                "properties": {
+                  "From": {
+                    "type": "string",
+                    "description": "Início do período de emissão. Formato: AAAA-MM-DD ou AAAA-MM-DD HH:MM:SS."
+                  },
+                  "To": {
+                    "type": "string",
+                    "description": "Fim do período de emissão. Formato: AAAA-MM-DD HH:MM:SS."
+                  }
+                }
+              },
+              "CreatedAt": {
+                "type": "object",
+                "properties": {
+                  "From": {
+                    "type": "string",
+                    "description": "Início do período de entrada do documento na Qive (captura/importação), não de emissão. Formato: AAAA-MM-DD HH:MM:SS."
+                  },
+                  "To": {
+                    "type": "string",
+                    "description": "Fim do período de entrada na Qive. Formato: AAAA-MM-DD HH:MM:SS."
+                  }
+                }
+              },
+              "OwnerRoles": {
+                "type": "array",
+                "description": "Papel do CNPJ da conta na nota.",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "received",
+                    "emitted",
+                    "transporter",
+                    "authorized"
+                  ]
+                }
+              },
+              "Owners": {
+                "type": "array",
+                "description": "CNPJs/CPFs donos dos documentos na Qive (os CNPJs da conta).",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "Status": {
+                "type": "string",
+                "description": "Situação do documento.",
+                "enum": [
+                  "authorized",
+                  "canceled"
+                ]
+              },
+              "DocumentIdentifier": {
+                "type": "string",
+                "description": "Chave de acesso para busca exata. Formato: 44 dígitos."
+              },
+              "EmitterCnpj": {
+                "type": "array",
+                "description": "CNPJs/CPFs dos emitentes.",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "ReceiverCnpj": {
+                "type": "array",
+                "description": "CNPJs/CPFs dos destinatários.",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "TransporterCnpj": {
+                "type": "array",
+                "description": "CNPJs/CPFs dos transportadores.",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "Cfops": {
+                "type": "array",
+                "description": "CFOPs.",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "FinNFe": {
+                "type": "array",
+                "description": "Finalidade (campo finNFe do XML).",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "1",
+                    "2",
+                    "3",
+                    "4",
+                    "5",
+                    "6"
+                  ]
+                }
+              },
+              "NfeNumber": {
+                "type": "object",
+                "properties": {
+                  "From": {
+                    "type": "integer",
+                    "description": "Número inicial da faixa."
+                  },
+                  "To": {
+                    "type": "integer",
+                    "description": "Número final da faixa."
+                  }
+                }
+              },
+              "HasCCE": {
+                "type": "boolean",
+                "description": "Só notas com (true) ou sem (false) carta de correção."
+              },
+              "HasEvent": {
+                "type": "boolean",
+                "description": "Só notas com eventos associados."
+              },
+              "HasManifestation": {
+                "type": "boolean",
+                "description": "Só notas com manifestação do destinatário."
+              },
+              "Origins": {
+                "type": "array",
+                "description": "Origem do documento na Qive.",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "sefaz",
+                    "upload",
+                    "upload_zip",
+                    "upload_daemon",
+                    "upload_api",
+                    "email",
+                    "integracoes"
+                  ]
+                }
+              },
+              "Tags": {
+                "type": "array",
+                "description": "IDs de etiquetas (pelo menos uma).",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "TagsAll": {
+                "type": "array",
+                "description": "IDs de etiquetas (todas).",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "XPeds": {
+                "type": "array",
+                "description": "Números de pedido (xPed) citados na nota.",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "CustomData": {
+                "type": "array",
+                "description": "Filtro por properties: lista de {Name, Values}; E entre itens, OU entre valores.",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "Fields": {
+            "type": "array",
+            "description": "Campos a devolver. Sem Fields vêm só Xml e AccessKey.",
+            "items": {
+              "type": "string",
+              "enum": [
+                "Xml",
+                "Origin",
+                "FlagErp",
+                "CustomData",
+                "Document",
+                "Events",
+                "Tags",
+                "Cfops",
+                "AccessKey",
+                "EmissionDate",
+                "CreatedAt",
+                "HasCCE",
+                "Manifestations",
+                "Number",
+                "Owner",
+                "OwnerRole",
+                "Receiver",
+                "Emitter",
+                "Status"
+              ]
+            }
+          },
+          "Limit": {
+            "type": "integer",
+            "description": "Tamanho da página.",
+            "default": 500,
+            "maximum": 500
+          },
+          "Paginator": {
+            "type": "string",
+            "description": "Cursor devolvido em Paginator na página anterior; vazio na primeira chamada."
+          }
+        },
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "arquivei__nota_fiscal__listar__cte",
+      "title": "Busca de CTes",
+      "description": "Qive (antiga Arquivei), gestão de documentos fiscais — POST /v1/dfe/cte. Busca os CT-e da conta com filtros no corpo JSON e projeção de campos: chave, número, datas, status, emitente, tomador, remetente, destinatário, expedidor, CFOPs, NF-e relacionadas, eventos, manifestações, grupo IBS/CBS da reforma e, se pedido, o XML em Base64. Consulta, sem efeito colateral. Quando usar: Para a planilha de fretes (CT-e) do período, em especial os tomados pela empresa (IsTaker=true), por emissão, status, emitente ou NF-e transportada. Quando NÃO usar: para CT-e OS (use arquivei.nota_fiscal.listar.cteos) ou para o PDF (arquivei.nota_fiscal.baixar_arquivo.dacte). O valor da prestação está no XML (vPrest/vTPrest). Pré-requisitos: Credenciais X-API-ID e X-API-KEY. Autenticação: cabeçalhos X-API-ID e X-API-KEY (par fixo emitido pela Qive; o de sandbox é gerado em developers.qive.com.br/sandbox). Base: produção https://api.arquivei.com.br, sandbox https://sandbox-api.arquivei.com.br. Envie também X-Use-ApiGateway: always.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "Filters": {
+            "type": "object",
+            "properties": {
+              "EmissionDate": {
+                "type": "object",
+                "properties": {
+                  "From": {
+                    "type": "string",
+                    "description": "Início do período de emissão. Formato: AAAA-MM-DD HH:MM:SS."
+                  },
+                  "To": {
+                    "type": "string",
+                    "description": "Fim do período de emissão. Formato: AAAA-MM-DD HH:MM:SS."
+                  }
+                }
+              },
+              "CreatedAt": {
+                "type": "object",
+                "properties": {
+                  "From": {
+                    "type": "string",
+                    "description": "Início do período de entrada na Qive. Formato: AAAA-MM-DD HH:MM:SS."
+                  },
+                  "To": {
+                    "type": "string",
+                    "description": "Fim do período de entrada na Qive. Formato: AAAA-MM-DD HH:MM:SS."
+                  }
+                }
+              },
+              "IsTaker": {
+                "type": "boolean",
+                "description": "true = só CT-e em que o CNPJ da conta é o tomador."
+              },
+              "Owners": {
+                "type": "array",
+                "description": "CNPJs/CPFs donos dos documentos na Qive.",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "EmitterCnpj": {
+                "type": "array",
+                "description": "CNPJs/CPFs dos emitentes (transportadoras).",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "Status": {
+                "type": "string",
+                "description": "Situação.",
+                "enum": [
+                  "authorized",
+                  "canceled"
+                ]
+              },
+              "DocumentIdentifier": {
+                "type": "string",
+                "description": "Chave de acesso do CT-e. Formato: 44 dígitos."
+              },
+              "Nfes": {
+                "type": "array",
+                "description": "Chaves de NF-e relacionadas ao CT-e.",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "Types": {
+                "type": "array",
+                "description": "Tipos de CT-e (ex.: normal, complemento).",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "Cfops": {
+                "type": "array",
+                "description": "CFOPs.",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "Origin": {
+                "type": "array",
+                "description": "Origem (ex.: sefaz, upload).",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "HasCCE": {
+                "type": "boolean",
+                "description": "Com carta de correção."
+              },
+              "HasManifestation": {
+                "type": "boolean",
+                "description": "Com manifestação."
+              },
+              "Tags": {
+                "type": "array",
+                "description": "IDs de etiquetas (pelo menos uma).",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "CustomData": {
+                "type": "array",
+                "description": "Filtro por properties {Name, Values}.",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "fields": {
+            "type": "array",
+            "description": "Campos a devolver.",
+            "items": {
+              "type": "string",
+              "enum": [
+                "Xml",
+                "Origin",
+                "FlagErp",
+                "CustomData",
+                "Document",
+                "Events",
+                "Tags",
+                "Cfops",
+                "AccessKey",
+                "EmissionDate",
+                "CreatedAt",
+                "HasCCE",
+                "Manifestations",
+                "Number",
+                "Owner",
+                "OwnerRole",
+                "Addressee",
+                "Dispatcher",
+                "Sender",
+                "Receiver",
+                "Emitter",
+                "Status",
+                "Taker",
+                "IBSCBS",
+                "AccessKeyPrev",
+                "AccessKeysComp"
+              ]
+            }
+          },
+          "Limit": {
+            "type": "integer",
+            "description": "Tamanho da página.",
+            "default": 500,
+            "maximum": 500
+          },
+          "Paginator": {
+            "type": "string",
+            "description": "Cursor da página anterior."
+          }
+        },
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "arquivei__nota_fiscal__listar__nfse",
+      "title": "Busca de NFSes",
+      "description": "Qive (antiga Arquivei), gestão de documentos fiscais — POST /v1/dfe/nfse. Busca as NFS-e da conta (prestadas e tomadas, de prefeituras e do padrão nacional) com filtros no corpo: emissão, criação na Qive, competência (AAAA-MM), emitente, tomador, papel do dono, origem e cancelamento. Devolve emitente, tomador, status, id da nota e, conforme fields, o XML no padrão ABRASF da Qive, o ABRASF com campos da reforma tributária ou o XML original. Quando usar: Para a planilha de notas de serviço tomadas (ownerRoles=taker) ou prestadas (emitter) num período ou competência. Quando NÃO usar: para o PDF (arquivei.nota_fiscal.baixar_arquivo.danfse). O id da NFS-e (formato dono:emissor:data:número) é o que as rotas de PDF e eventos pedem. Pré-requisitos: Credenciais X-API-ID e X-API-KEY. Autenticação: cabeçalhos X-API-ID e X-API-KEY (par fixo emitido pela Qive; o de sandbox é gerado em developers.qive.com.br/sandbox). Base: produção https://api.arquivei.com.br, sandbox https://sandbox-api.arquivei.com.br. Envie também X-Use-ApiGateway: always.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "filters": {
+            "type": "object",
+            "properties": {
+              "emissionDate": {
+                "type": "object",
+                "properties": {
+                  "from": {
+                    "type": "string",
+                    "description": "Início do período de emissão. Formato: AAAA-MM-DD HH:MM:SS."
+                  },
+                  "to": {
+                    "type": "string",
+                    "description": "Fim do período de emissão. Formato: AAAA-MM-DD HH:MM:SS."
+                  }
+                }
+              },
+              "createdAt": {
+                "type": "object",
+                "properties": {
+                  "from": {
+                    "type": "string",
+                    "description": "Início do período de entrada na Qive. Formato: AAAA-MM-DD HH:MM:SS."
+                  },
+                  "to": {
+                    "type": "string",
+                    "description": "Fim do período de entrada na Qive. Formato: AAAA-MM-DD HH:MM:SS."
+                  }
+                }
+              },
+              "competence": {
+                "type": "array",
+                "description": "Competências no formato AAAA-MM. Formato: AAAA-MM.",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "ownerRoles": {
+                "type": "array",
+                "description": "Papel do dono na nota.",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "emitter",
+                    "taker",
+                    "intermediate"
+                  ]
+                }
+              },
+              "owners": {
+                "type": "array",
+                "description": "CNPJs/CPFs donos.",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "emitterCnpj": {
+                "type": "array",
+                "description": "CNPJs/CPFs dos prestadores.",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "takerCnpj": {
+                "type": "array",
+                "description": "CNPJs/CPFs dos tomadores.",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "isCanceled": {
+                "type": "string",
+                "description": "'true' só canceladas; 'false' só não canceladas.",
+                "enum": [
+                  "true",
+                  "false"
+                ]
+              },
+              "origin": {
+                "type": "string",
+                "description": "Origem (ex.: nacional, upload, ginfes)."
+              },
+              "documentIdentifier": {
+                "type": "string",
+                "description": "Id da NFS-e: cnpjOuCpfDono:cnpjEmissor:AAAA-MM-DD:numero."
+              },
+              "customData": {
+                "type": "array",
+                "description": "Filtro por properties {Name, Values}.",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "fields": {
+            "type": "array",
+            "description": "Campos a devolver.",
+            "items": {
+              "type": "string",
+              "enum": [
+                "xmlAbrasf",
+                "xmlAbrasfRtc",
+                "originalXml",
+                "origin",
+                "flagErp",
+                "customData",
+                "document"
+              ]
+            }
+          },
+          "paginator": {
+            "type": "string",
+            "description": "Cursor da página anterior."
+          }
+        },
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "arquivei__nota_fiscal__listar__cteos",
+      "title": "Busca de CTe-OS",
+      "description": "Qive (antiga Arquivei), gestão de documentos fiscais — POST /v1/dfe/cteos. Busca os CT-e OS (outros serviços: transporte de pessoas, valores, bagagem) da conta com filtros no corpo e projeção de campos. Não filtra por papel: devolve os documentos de todos os papéis dos CNPJs informados em Owners. Sem Fields vêm AccessKey e Xml. Quando usar: Para a relação de CT-e OS do período (fretamento, transporte de valores). Quando NÃO usar: para CT-e comum (arquivei.nota_fiscal.listar.cte). Pré-requisitos: Credenciais X-API-ID e X-API-KEY. Autenticação: cabeçalhos X-API-ID e X-API-KEY (par fixo emitido pela Qive; o de sandbox é gerado em developers.qive.com.br/sandbox). Base: produção https://api.arquivei.com.br, sandbox https://sandbox-api.arquivei.com.br. Envie também X-Use-ApiGateway: always.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "Filters": {
+            "type": "object",
+            "properties": {
+              "EmissionDate": {
+                "type": "object",
+                "properties": {
+                  "From": {
+                    "type": "string",
+                    "description": "Início do período de emissão. Formato: AAAA-MM-DD HH:MM:SS."
+                  },
+                  "To": {
+                    "type": "string",
+                    "description": "Fim do período de emissão. Formato: AAAA-MM-DD HH:MM:SS."
+                  }
+                }
+              },
+              "CreatedAt": {
+                "type": "object",
+                "properties": {
+                  "From": {
+                    "type": "string",
+                    "description": "Início do período de entrada na Qive."
+                  },
+                  "To": {
+                    "type": "string",
+                    "description": "Fim do período de entrada na Qive."
+                  }
+                }
+              },
+              "Owners": {
+                "type": "array",
+                "description": "CNPJs/CPFs donos.",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "EmitterCnpj": {
+                "type": "array",
+                "description": "CNPJs/CPFs dos emitentes.",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "Status": {
+                "type": "string",
+                "description": "Situação.",
+                "enum": [
+                  "authorized",
+                  "canceled"
+                ]
+              },
+              "DocumentIdentifier": {
+                "type": "string",
+                "description": "Chave de acesso (44)."
+              },
+              "Origin": {
+                "type": "string",
+                "description": "Origem.",
+                "enum": [
+                  "sefaz",
+                  "upload",
+                  "upload_zip",
+                  "upload_daemon",
+                  "upload_api",
+                  "email",
+                  "integracoes"
+                ]
+              },
+              "Cfops": {
+                "type": "array",
+                "description": "CFOPs.",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "Types": {
+                "type": "array",
+                "description": "Tipos de CT-e OS.",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "Tags": {
+                "type": "array",
+                "description": "IDs de etiquetas.",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "HasCCE": {
+                "type": "boolean",
+                "description": "Com carta de correção."
+              },
+              "HasManifestation": {
+                "type": "boolean",
+                "description": "Com manifestação."
+              }
+            }
+          },
+          "Fields": {
+            "type": "array",
+            "description": "Campos a devolver.",
+            "items": {
+              "type": "string",
+              "enum": [
+                "Xml",
+                "Origin",
+                "Events",
+                "Tags",
+                "Cfops",
+                "AccessKey",
+                "EmissionDate",
+                "CreatedAt",
+                "HasCCE",
+                "Manifestations",
+                "Number",
+                "Owner",
+                "OwnerRole",
+                "Emitter",
+                "Status",
+                "Taker"
+              ]
+            }
+          },
+          "Limit": {
+            "type": "integer",
+            "description": "Tamanho da página.",
+            "default": 500,
+            "maximum": 500
+          },
+          "Paginator": {
+            "type": "string",
+            "description": "Cursor da página anterior."
+          }
+        },
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "arquivei__nota_fiscal__listar__mdfe",
+      "title": "Busca de MDFes",
+      "description": "Qive (antiga Arquivei), gestão de documentos fiscais — POST /v1/dfe/mdfe. Busca os MDF-e da conta com filtros no corpo (chave, papel da empresa, emissão, criação, emitente, modal, número, origem, status, tipo de emitente e de transportador) e projeção de campos, incluindo totais de carga, UFs de percurso, municípios de carga e descarga, dados do transporte rodoviário e eventos. Sem Fields vêm AccessKey, Origin e Owner. Quando usar: Para relação de manifestos (MDF-e) por período e status (authorized, canceled, closed). Quando NÃO usar: para CT-e ou NF-e transportadas, que têm rotas próprias. Pré-requisitos: Credenciais X-API-ID e X-API-KEY. Autenticação: cabeçalhos X-API-ID e X-API-KEY (par fixo emitido pela Qive; o de sandbox é gerado em developers.qive.com.br/sandbox). Base: produção https://api.arquivei.com.br, sandbox https://sandbox-api.arquivei.com.br. Envie também X-Use-ApiGateway: always.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "Filter": {
+            "type": "object",
+            "properties": {
+              "EmissionDate": {
+                "type": "object",
+                "properties": {
+                  "From": {
+                    "type": "string",
+                    "description": "Início do período de emissão. Formato: AAAA-MM-DD HH:MM:SS."
+                  },
+                  "To": {
+                    "type": "string",
+                    "description": "Fim do período de emissão. Formato: AAAA-MM-DD HH:MM:SS."
+                  }
+                }
+              },
+              "CreatedAt": {
+                "type": "object",
+                "properties": {
+                  "From": {
+                    "type": "string",
+                    "description": "Início do período de entrada na Qive."
+                  },
+                  "To": {
+                    "type": "string",
+                    "description": "Fim do período de entrada na Qive."
+                  }
+                }
+              },
+              "CompanyRole": {
+                "type": "array",
+                "description": "Papel da empresa.",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "emitted",
+                    "received",
+                    "waiting",
+                    "transporter",
+                    "intermediate",
+                    "intermediate_shipper",
+                    "intermediate_dispatcher",
+                    "intermediate_receiver",
+                    "other"
+                  ]
+                }
+              },
+              "Status": {
+                "type": "array",
+                "description": "Situação.",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "authorized",
+                    "canceled",
+                    "closed"
+                  ]
+                }
+              },
+              "AccessKeys": {
+                "type": "array",
+                "description": "Chaves de acesso.",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "EmitterCnpj": {
+                "type": "array",
+                "description": "CNPJ do emitente.",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "Owners": {
+                "type": "array",
+                "description": "CNPJ dos donos.",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "Modals": {
+                "type": "array",
+                "description": "1 rodoviário, 2 aéreo, 3 aquaviário, 4 ferroviário.",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "Number": {
+                "type": "integer",
+                "description": "Número do MDF-e."
+              },
+              "Origin": {
+                "type": "array",
+                "description": "Origem.",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "sefaz",
+                    "upload",
+                    "upload_zip",
+                    "email",
+                    "upload_daemon",
+                    "integracoes_ocr",
+                    "upload_api"
+                  ]
+                }
+              },
+              "EmitterType": {
+                "type": "array",
+                "description": "1 prestador de transporte, 2 carga própria, 3 CT-e globalizado.",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "TransporterType": {
+                "type": "array",
+                "description": "1 ETC, 2 TAC, 3 CTC.",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "Fields": {
+            "type": "array",
+            "description": "Campos a devolver (ex.: AccessKey, Number, Serie, Status, EmissionDate, Modal, Totals, EmitterInfo, RouteStates, XML, Events).",
+            "items": {
+              "type": "string"
+            }
+          },
+          "Limit": {
+            "type": "integer",
+            "description": "Máximo de resultados por página (máximo não documentado)."
+          },
+          "Paginator": {
+            "type": "string",
+            "description": "Cursor da página anterior."
+          }
+        },
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "arquivei__nota_fiscal__listar__nfe_por_papel",
+      "title": "Busca de NFes",
+      "description": "Qive (antiga Arquivei), gestão de documentos fiscais — GET /v1/nfe/{role}. Rota clássica (API 1.0) que devolve os XMLs (Base64) das NF-e por papel na URL: received (recebidas), emitted (emitidas), transporter ou authorized (citado no autXML). Pagina por cursor numérico fixo por documento e filtra por chave, CNPJ dono, data de entrada na Qive e property customizada. Quando usar: Para sincronização incremental do ERP (fila de XMLs pelo cursor ou por property 'processed'). Quando NÃO usar: para planilha por data de emissão ou com emitente e status já separados; aí prefira arquivei.nota_fiscal.listar.nfe (POST /v2/dfe/nfe). A resposta só traz chave e XML: todas as colunas saem do XML. Pré-requisitos: Credenciais X-API-ID e X-API-KEY. Autenticação: cabeçalhos X-API-ID e X-API-KEY (par fixo emitido pela Qive; o de sandbox é gerado em developers.qive.com.br/sandbox). Base: produção https://api.arquivei.com.br, sandbox https://sandbox-api.arquivei.com.br.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "role": {
+            "type": "string",
+            "description": "Papel do CNPJ da conta no documento.",
+            "enum": [
+              "received",
+              "emitted",
+              "transporter",
+              "authorized"
+            ]
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Quantidade de documentos por resposta.",
+            "default": 50,
+            "maximum": 50
+          },
+          "cursor": {
+            "type": "integer",
+            "description": "Posição a partir da qual buscar. Cada documento tem um cursor fixo; 0 reprocessa desde o início. O próximo valor vem em page.next."
+          },
+          "cnpj[]": {
+            "type": "array",
+            "description": "Filtra pelos CNPJs/CPFs donos do documento (repetir o parâmetro para vários). Formato: 14 posições.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "created_at[from]": {
+            "type": "string",
+            "description": "Início do período de ENTRADA na Qive (não é emissão). Obrigatório junto com created_at[to]. Formato: AAAA-MM-DD ou AAAA-MM-DD HH:MM:SS."
+          },
+          "created_at[to]": {
+            "type": "string",
+            "description": "Fim do período de entrada na Qive. Obrigatório junto com created_at[from]. Formato: AAAA-MM-DD ou AAAA-MM-DD HH:MM:SS."
+          },
+          "access_key[]": {
+            "type": "array",
+            "description": "Lista de chaves de acesso. Formato: 44 dígitos.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "filter": {
+            "type": "string",
+            "description": "Filtro por property customizada, em notação prefixada: (= processed true), (NOT_EXISTS processed), (AND ...), (OR ...)."
+          },
+          "format_type": {
+            "type": "string",
+            "description": "Formato do conteúdo devolvido.",
+            "enum": [
+              "xml",
+              "json"
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "role"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "arquivei__nota_fiscal__listar__nfse_por_papel",
+      "title": "Busca de NFSes",
+      "description": "Qive (antiga Arquivei), gestão de documentos fiscais — GET /v1/nfse/{role}. Rota clássica de NFS-e: devolve id e XML (Base64) das notas de serviço recebidas (received, papel de tomador) ou emitidas (emitted), com cursor numérico, filtro por id, CNPJ dono, entrada na Qive, property e escolha do formato do XML (original do município, ABRASF da Qive ou ABRASF com campos da reforma tributária). Quando usar: Para sincronizar NFS-e no ERP ou obter o XML original da prefeitura. Quando NÃO usar: para filtrar por emissão, competência, prestador ou cancelamento; use arquivei.nota_fiscal.listar.nfse (POST /v1/dfe/nfse). Pré-requisitos: Credenciais X-API-ID e X-API-KEY. Autenticação: cabeçalhos X-API-ID e X-API-KEY (par fixo emitido pela Qive; o de sandbox é gerado em developers.qive.com.br/sandbox). Base: produção https://api.arquivei.com.br, sandbox https://sandbox-api.arquivei.com.br.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "role": {
+            "type": "string",
+            "description": "Papel do CNPJ da conta no documento.",
+            "enum": [
+              "received",
+              "emitted"
+            ]
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Quantidade de documentos por resposta.",
+            "default": 50,
+            "maximum": 50
+          },
+          "cursor": {
+            "type": "integer",
+            "description": "Posição a partir da qual buscar. Cada documento tem um cursor fixo; 0 reprocessa desde o início. O próximo valor vem em page.next."
+          },
+          "cnpj[]": {
+            "type": "array",
+            "description": "Filtra pelos CNPJs/CPFs donos do documento (repetir o parâmetro para vários). Formato: 14 posições.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "created_at[from]": {
+            "type": "string",
+            "description": "Início do período de ENTRADA na Qive (não é emissão). Obrigatório junto com created_at[to]. Formato: AAAA-MM-DD ou AAAA-MM-DD HH:MM:SS."
+          },
+          "created_at[to]": {
+            "type": "string",
+            "description": "Fim do período de entrada na Qive. Obrigatório junto com created_at[from]. Formato: AAAA-MM-DD ou AAAA-MM-DD HH:MM:SS."
+          },
+          "id[]": {
+            "type": "array",
+            "description": "Lista de ids de NFS-e (40 posições, devolvidos nesta rota). Formato: 40 posições.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "filter": {
+            "type": "string",
+            "description": "Filtro por property customizada, em notação prefixada: (= processed true), (NOT_EXISTS processed), (AND ...), (OR ...)."
+          },
+          "format_type": {
+            "type": "string",
+            "description": "Formato do conteúdo devolvido.",
+            "enum": [
+              "xml",
+              "json"
+            ]
+          },
+          "xml_format": {
+            "type": "string",
+            "description": "Formato do XML.",
+            "enum": [
+              "original",
+              "abrasf",
+              "abrasf_rtc"
+            ],
+            "default": "abrasf"
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "role"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "arquivei__nota_fiscal__listar__nfse_recebidas_v2",
+      "title": "Busca de NFSes v2",
+      "description": "Qive (antiga Arquivei), gestão de documentos fiscais — GET /v2/nfse/received. Variante da busca de NFS-e recebidas que, além de id e XML (Base64), devolve as properties (pares chave-valor do cliente) associadas a cada nota. Mesmos filtros e cursor da rota v1. Quando usar: Quando a integração marca as NFS-e com properties (ex.: processed, status) e precisa ler as marcas junto com o XML. Quando NÃO usar: para emitidas (só existe received). Pré-requisitos: Credenciais X-API-ID e X-API-KEY. Autenticação: cabeçalhos X-API-ID e X-API-KEY (par fixo emitido pela Qive; o de sandbox é gerado em developers.qive.com.br/sandbox). Base: produção https://api.arquivei.com.br, sandbox https://sandbox-api.arquivei.com.br.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "limit": {
+            "type": "integer",
+            "description": "Quantidade de documentos por resposta.",
+            "default": 50,
+            "maximum": 50
+          },
+          "cursor": {
+            "type": "integer",
+            "description": "Posição a partir da qual buscar. Cada documento tem um cursor fixo; 0 reprocessa desde o início. O próximo valor vem em page.next."
+          },
+          "cnpj[]": {
+            "type": "array",
+            "description": "Filtra pelos CNPJs/CPFs donos do documento (repetir o parâmetro para vários). Formato: 14 posições.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "created_at[from]": {
+            "type": "string",
+            "description": "Início do período de ENTRADA na Qive (não é emissão). Obrigatório junto com created_at[to]. Formato: AAAA-MM-DD ou AAAA-MM-DD HH:MM:SS."
+          },
+          "created_at[to]": {
+            "type": "string",
+            "description": "Fim do período de entrada na Qive. Obrigatório junto com created_at[from]. Formato: AAAA-MM-DD ou AAAA-MM-DD HH:MM:SS."
+          },
+          "id[]": {
+            "type": "array",
+            "description": "Lista de ids de NFS-e (40 posições). Formato: 40 posições.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "filter": {
+            "type": "string",
+            "description": "Filtro por property customizada, em notação prefixada: (= processed true), (NOT_EXISTS processed), (AND ...), (OR ...)."
+          },
+          "format_type": {
+            "type": "string",
+            "description": "Formato do conteúdo devolvido.",
+            "enum": [
+              "xml",
+              "json"
+            ]
+          },
+          "xml_format": {
+            "type": "string",
+            "description": "Formato do XML.",
+            "enum": [
+              "original",
+              "abrasf",
+              "abrasf_rtc"
+            ],
+            "default": "abrasf"
+          }
+        },
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "arquivei__nota_fiscal__listar__cte_por_papel",
+      "title": "Busca de CTes",
+      "description": "Qive (antiga Arquivei), gestão de documentos fiscais — GET /v1/cte/{role}. Rota clássica de CT-e: XMLs (Base64) dos CT-e em que o CNPJ da conta é tomador (taker) ou não tomador (not-taker), com cursor, filtro por chave, CNPJ dono, entrada na Qive e property. A descrição geral do grupo cita também o papel authorized. Quando usar: Para sincronizar XMLs de CT-e no ERP. Quando NÃO usar: para planilha por emissão e com tomador/emitente separados; use arquivei.nota_fiscal.listar.cte (POST /v1/dfe/cte). Pré-requisitos: Credenciais X-API-ID e X-API-KEY. Autenticação: cabeçalhos X-API-ID e X-API-KEY (par fixo emitido pela Qive; o de sandbox é gerado em developers.qive.com.br/sandbox). Base: produção https://api.arquivei.com.br, sandbox https://sandbox-api.arquivei.com.br.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "role": {
+            "type": "string",
+            "description": "Papel do CNPJ da conta no documento.",
+            "enum": [
+              "taker",
+              "not-taker",
+              "authorized"
+            ]
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Quantidade de documentos por resposta.",
+            "default": 50,
+            "maximum": 50
+          },
+          "cursor": {
+            "type": "integer",
+            "description": "Posição a partir da qual buscar. Cada documento tem um cursor fixo; 0 reprocessa desde o início. O próximo valor vem em page.next."
+          },
+          "cnpj[]": {
+            "type": "array",
+            "description": "Filtra pelos CNPJs/CPFs donos do documento (repetir o parâmetro para vários). Formato: 14 posições.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "created_at[from]": {
+            "type": "string",
+            "description": "Início do período de ENTRADA na Qive (não é emissão). Obrigatório junto com created_at[to]. Formato: AAAA-MM-DD ou AAAA-MM-DD HH:MM:SS."
+          },
+          "created_at[to]": {
+            "type": "string",
+            "description": "Fim do período de entrada na Qive. Obrigatório junto com created_at[from]. Formato: AAAA-MM-DD ou AAAA-MM-DD HH:MM:SS."
+          },
+          "access_key[]": {
+            "type": "array",
+            "description": "Lista de chaves de acesso. Formato: 44 dígitos.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "filter": {
+            "type": "string",
+            "description": "Filtro por property customizada, em notação prefixada: (= processed true), (NOT_EXISTS processed), (AND ...), (OR ...)."
+          },
+          "format_type": {
+            "type": "string",
+            "description": "Formato do conteúdo devolvido.",
+            "enum": [
+              "xml",
+              "json"
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "role"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "arquivei__nota_fiscal__listar__cteos_por_papel",
+      "title": "Busca de CTe-OS",
+      "description": "Qive (antiga Arquivei), gestão de documentos fiscais — GET /v1/cte-os/{role}. Rota clássica de CT-e OS: XMLs (Base64) por papel taker ou not-taker, com cursor e filtros por chave, CNPJ dono, entrada na Qive e property. Quando usar: Para sincronizar XMLs de CT-e OS. Quando NÃO usar: para planilha por emissão; use arquivei.nota_fiscal.listar.cteos. Pré-requisitos: Credenciais X-API-ID e X-API-KEY. Autenticação: cabeçalhos X-API-ID e X-API-KEY (par fixo emitido pela Qive; o de sandbox é gerado em developers.qive.com.br/sandbox). Base: produção https://api.arquivei.com.br, sandbox https://sandbox-api.arquivei.com.br.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "role": {
+            "type": "string",
+            "description": "Papel do CNPJ da conta no documento.",
+            "enum": [
+              "taker",
+              "not-taker"
+            ]
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Quantidade de documentos por resposta.",
+            "default": 50,
+            "maximum": 50
+          },
+          "cursor": {
+            "type": "integer",
+            "description": "Posição a partir da qual buscar. Cada documento tem um cursor fixo; 0 reprocessa desde o início. O próximo valor vem em page.next."
+          },
+          "cnpj[]": {
+            "type": "array",
+            "description": "Filtra pelos CNPJs/CPFs donos do documento (repetir o parâmetro para vários). Formato: 14 posições.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "created_at[from]": {
+            "type": "string",
+            "description": "Início do período de ENTRADA na Qive (não é emissão). Obrigatório junto com created_at[to]. Formato: AAAA-MM-DD ou AAAA-MM-DD HH:MM:SS."
+          },
+          "created_at[to]": {
+            "type": "string",
+            "description": "Fim do período de entrada na Qive. Obrigatório junto com created_at[from]. Formato: AAAA-MM-DD ou AAAA-MM-DD HH:MM:SS."
+          },
+          "access_key[]": {
+            "type": "array",
+            "description": "Lista de chaves de acesso. Formato: 44 dígitos.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "filter": {
+            "type": "string",
+            "description": "Filtro por property customizada, em notação prefixada: (= processed true), (NOT_EXISTS processed), (AND ...), (OR ...)."
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "role"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "arquivei__nota_fiscal__listar__nfce_emitidas",
+      "title": "Busca de NFCes",
+      "description": "Qive (antiga Arquivei), gestão de documentos fiscais — GET /v1/nfce/emitted. Devolve os XMLs (Base64) das NFC-e emitidas pelos CNPJs da conta, com cursor e filtros por chave, CNPJ dono e entrada na Qive. É a única rota de NFC-e documentada (só papel emitted). Quando usar: Para relação de cupons fiscais eletrônicos (NFC-e) emitidos no varejo. Quando NÃO usar: para NF-e modelo 55 (use arquivei.nota_fiscal.listar.nfe). Pré-requisitos: Credenciais X-API-ID e X-API-KEY. Autenticação: cabeçalhos X-API-ID e X-API-KEY (par fixo emitido pela Qive; o de sandbox é gerado em developers.qive.com.br/sandbox). Base: produção https://api.arquivei.com.br, sandbox https://sandbox-api.arquivei.com.br.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "limit": {
+            "type": "integer",
+            "description": "Quantidade de documentos por resposta.",
+            "default": 50,
+            "maximum": 50
+          },
+          "cursor": {
+            "type": "integer",
+            "description": "Posição a partir da qual buscar. Cada documento tem um cursor fixo; 0 reprocessa desde o início. O próximo valor vem em page.next."
+          },
+          "cnpj[]": {
+            "type": "array",
+            "description": "Filtra pelos CNPJs/CPFs donos do documento (repetir o parâmetro para vários). Formato: 14 posições.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "created_at[from]": {
+            "type": "string",
+            "description": "Início do período de ENTRADA na Qive (não é emissão). Obrigatório junto com created_at[to]. Formato: AAAA-MM-DD ou AAAA-MM-DD HH:MM:SS."
+          },
+          "created_at[to]": {
+            "type": "string",
+            "description": "Fim do período de entrada na Qive. Obrigatório junto com created_at[from]. Formato: AAAA-MM-DD ou AAAA-MM-DD HH:MM:SS."
+          },
+          "access_key[]": {
+            "type": "array",
+            "description": "Lista de chaves de acesso. Formato: 44 dígitos.",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "arquivei__nota_fiscal__listar__eventos_nfe",
+      "title": "Eventos de NFes (Fila)",
+      "description": "Qive (antiga Arquivei), gestão de documentos fiscais — GET /v1/events/nfe. Fila de eventos de NF-e da conta: devolve chave, tipo (6 dígitos, padrão SEFAZ) e XML do evento em Base64, com cursor numérico fixo. Filtra por chaves e por tipos de evento (ex.: 110111 cancelamento, 110110 carta de correção, 210200 a 210240 manifestação). Quando usar: Para acompanhar cancelamentos, cartas de correção e manifestações de toda a conta (planilha de eventos ou atualização do ERP). Quando NÃO usar: para os eventos de uma única nota (arquivei.nota_fiscal.obter.eventos_nfe). A rota não tem filtro de data: o recorte é pelo cursor. Pré-requisitos: Credenciais X-API-ID e X-API-KEY. Autenticação: cabeçalhos X-API-ID e X-API-KEY (par fixo emitido pela Qive; o de sandbox é gerado em developers.qive.com.br/sandbox). Base: produção https://api.arquivei.com.br, sandbox https://sandbox-api.arquivei.com.br.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "access_key[]": {
+            "type": "array",
+            "description": "Chaves de NF-e. Formato: 44 dígitos.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "type[]": {
+            "type": "array",
+            "description": "Tipos de evento de 6 dígitos (ex.: 110111, 110110). Formato: 6 dígitos.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Eventos por resposta.",
+            "default": 50,
+            "maximum": 50
+          },
+          "cursor": {
+            "type": "integer",
+            "description": "Cursor; 0 reprocessa desde o início; próximo valor em page.next."
+          }
+        },
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "arquivei__nota_fiscal__obter__eventos_nfe",
+      "title": "Eventos de uma NFe",
+      "description": "Qive (antiga Arquivei), gestão de documentos fiscais — GET /v2/nfe/events. Devolve todos os eventos disponibilizados pela SEFAZ para uma NF-e (uma chave por chamada), com tipo e XML em Base64, podendo filtrar por tipos. Quando usar: Para ver se uma nota específica foi cancelada, corrigida ou manifestada. Quando NÃO usar: para varrer a conta inteira (use arquivei.nota_fiscal.listar.eventos_nfe). Pré-requisitos: Chave de acesso de uma NF-e da conta. Autenticação: cabeçalhos X-API-ID e X-API-KEY (par fixo emitido pela Qive; o de sandbox é gerado em developers.qive.com.br/sandbox). Base: produção https://api.arquivei.com.br, sandbox https://sandbox-api.arquivei.com.br.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "access_key": {
+            "type": "string",
+            "description": "Chave de acesso da NF-e. Formato: 44 dígitos."
+          },
+          "type[]": {
+            "type": "array",
+            "description": "Tipos de evento de 6 dígitos. Formato: 6 dígitos.",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "access_key"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "arquivei__nota_fiscal__listar__eventos_cte",
+      "title": "Eventos de CTes (Fila)",
+      "description": "Qive (antiga Arquivei), gestão de documentos fiscais — GET /v2/cte/events. Fila de eventos de CT-e da conta (chave, tipo e XML Base64), com cursor numérico e filtros por chaves e tipos de evento. Quando usar: Para acompanhar cancelamentos e outros eventos de CT-e da conta. Quando NÃO usar: para uma única chave (arquivei.nota_fiscal.obter.eventos_cte). Pré-requisitos: Credenciais X-API-ID e X-API-KEY. Autenticação: cabeçalhos X-API-ID e X-API-KEY (par fixo emitido pela Qive; o de sandbox é gerado em developers.qive.com.br/sandbox). Base: produção https://api.arquivei.com.br, sandbox https://sandbox-api.arquivei.com.br.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "access_key[]": {
+            "type": "array",
+            "description": "Chaves de CT-e. Formato: 44 dígitos.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "type[]": {
+            "type": "array",
+            "description": "Tipos de evento (6 dígitos).",
+            "items": {
+              "type": "string"
+            }
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Eventos por resposta.",
+            "default": 50,
+            "maximum": 50
+          },
+          "cursor": {
+            "type": "integer",
+            "description": "Cursor; próximo valor em page.next."
+          }
+        },
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "arquivei__nota_fiscal__obter__eventos_cte",
+      "title": "Eventos de uma CTe",
+      "description": "Qive (antiga Arquivei), gestão de documentos fiscais — GET /v1/cte/events. Devolve todos os eventos disponibilizados pela SEFAZ para um CT-e (uma chave por vez), com tipo e XML em Base64. Quando usar: Para checar cancelamento ou correção de um CT-e específico. Quando NÃO usar: para varrer a conta (arquivei.nota_fiscal.listar.eventos_cte). Pré-requisitos: Chave de um CT-e da conta. Autenticação: cabeçalhos X-API-ID e X-API-KEY (par fixo emitido pela Qive; o de sandbox é gerado em developers.qive.com.br/sandbox). Base: produção https://api.arquivei.com.br, sandbox https://sandbox-api.arquivei.com.br.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "access_key": {
+            "type": "string",
+            "description": "Chave de acesso do CT-e. Formato: 44 dígitos."
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "access_key"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "arquivei__nota_fiscal__obter__eventos_cteos",
+      "title": "Eventos de uma CTe-OS",
+      "description": "Qive (antiga Arquivei), gestão de documentos fiscais — GET /v1/cte-os/events. Devolve os eventos de um CT-e OS (uma chave por vez), com tipo e XML em Base64. Quando usar: Para checar cancelamento de um CT-e OS específico. Não há fila de eventos de CT-e OS documentada. Pré-requisitos: Chave de um CT-e OS da conta. Autenticação: cabeçalhos X-API-ID e X-API-KEY (par fixo emitido pela Qive; o de sandbox é gerado em developers.qive.com.br/sandbox). Base: produção https://api.arquivei.com.br, sandbox https://sandbox-api.arquivei.com.br.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "access_key": {
+            "type": "string",
+            "description": "Chave de acesso do CT-e OS. Formato: 44 dígitos."
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "access_key"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "arquivei__nota_fiscal__listar__eventos_nfse",
+      "title": "Eventos de NFSes (Fila)",
+      "description": "Qive (antiga Arquivei), gestão de documentos fiscais — GET /v1/nfse/events. Fila de eventos de NFS-e. Para notas do ambiente nacional vem o XML do evento; para notas de prefeitura, só o tipo (101101 = cancelamento), porque as prefeituras não disponibilizam XML de evento. Filtra por ids e tipos. Quando usar: Para descobrir NFS-e canceladas e atualizar a planilha ou o ERP. Atenção: a Qive avisa que cancelamentos na prefeitura após a primeira captura não são retroagidos automaticamente. Pré-requisitos: Credenciais X-API-ID e X-API-KEY. Autenticação: cabeçalhos X-API-ID e X-API-KEY (par fixo emitido pela Qive; o de sandbox é gerado em developers.qive.com.br/sandbox). Base: produção https://api.arquivei.com.br, sandbox https://sandbox-api.arquivei.com.br.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "id[]": {
+            "type": "array",
+            "description": "Ids de NFS-e (40 posições).",
+            "items": {
+              "type": "string"
+            }
+          },
+          "type[]": {
+            "type": "array",
+            "description": "Tipos de evento (6 dígitos); 101101 = cancelamento.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Eventos por resposta.",
+            "default": 50,
+            "maximum": 50
+          },
+          "cursor": {
+            "type": "integer",
+            "description": "Cursor; próximo valor em page.next."
+          }
+        },
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "arquivei__nota_fiscal__consultar_status__manifestacao_nfe",
+      "title": "Manifestações de NFes v2",
+      "description": "Qive (antiga Arquivei), gestão de documentos fiscais — GET /v2/nfe/manifest. Devolve a manifestação do destinatário mais recente de cada chave informada (código do evento), desde que feita pela plataforma Qive ou pela API. Pode filtrar a origem: app (plataforma) ou api. Quando usar: Para a coluna 'manifestação' de uma lista de NF-e recebidas (ciência, confirmação, desconhecimento, não realizada). Quando NÃO usar: manifestação feita fora da Qive (ex.: em outro sistema) não aparece aqui; veja os eventos da nota. Pré-requisitos: Chaves de NF-e recebidas pela conta. Autenticação: cabeçalhos X-API-ID e X-API-KEY (par fixo emitido pela Qive; o de sandbox é gerado em developers.qive.com.br/sandbox). Base: produção https://api.arquivei.com.br, sandbox https://sandbox-api.arquivei.com.br.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "access_key[]": {
+            "type": "array",
+            "description": "Chaves de NF-e. Formato: 44 dígitos.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "origin": {
+            "type": "string",
+            "description": "Origem da manifestação.",
+            "enum": [
+              "app",
+              "api"
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "access_key[]"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "arquivei__nota_fiscal__consultar_status__pedido_manifestacao",
+      "title": "Status de Manifestação",
+      "description": "Qive (antiga Arquivei), gestão de documentos fiscais — GET /v1/nfe/manifest/status. Consulta o resultado de pedidos de manifestação assíncronos, por request_id (64 posições) devolvido no POST ou por chave de acesso. Quando usar: Depois de uma manifestação em lote, para saber se cada chave foi aceita pela SEFAZ. Somente leitura. Pré-requisitos: request_id de um pedido de manifestação ou chave. Autenticação: cabeçalhos X-API-ID e X-API-KEY (par fixo emitido pela Qive; o de sandbox é gerado em developers.qive.com.br/sandbox). Base: produção https://api.arquivei.com.br, sandbox https://sandbox-api.arquivei.com.br.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "access_key[]": {
+            "type": "array",
+            "description": "Chaves de NF-e. Formato: 44 dígitos.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "request_id[]": {
+            "type": "array",
+            "description": "Ids de pedido (64 posições). Formato: 64 posições.",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "arquivei__nota_fiscal__manifestar__nfe",
+      "title": "Inclui Manifestação de NFes",
+      "description": "Qive (antiga Arquivei), gestão de documentos fiscais — POST /v1/nfe/manifest. Registra, em lote e de forma assíncrona, a manifestação do destinatário (confirmação, ciência, desconhecimento ou operação não realizada) para NF-e recebidas. Devolve um request_id para acompanhar. Quando usar: Quando o cliente quer manifestar notas pela integração. ESCRITA com efeito fiscal na SEFAZ: o assistente explica e entrega o código, mas não executa. Pré-requisitos: NF-e recebida pela conta. Decisão do responsável fiscal: a manifestação é evento fiscal registrado na SEFAZ. Autenticação: cabeçalhos X-API-ID e X-API-KEY (par fixo emitido pela Qive; o de sandbox é gerado em developers.qive.com.br/sandbox). Base: produção https://api.arquivei.com.br, sandbox https://sandbox-api.arquivei.com.br. ESCRITA: não executar pelo assistente; explicar e entregar o código para o cliente rodar.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "manifests": {
+            "type": "array",
+            "description": "Lista de manifestações: {access_key, code, justification}.",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "manifests"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "arquivei__nota_fiscal__manifestar__nfe_sincrona",
+      "title": "Inclui Manifestação - Sync",
+      "description": "Qive (antiga Arquivei), gestão de documentos fiscais — POST /v1/nfe/manifest/sync. Manifesta uma NF-e e devolve na hora a resposta da SEFAZ (código, descrição e justificativa). Quando usar: Quando o fluxo precisa da resposta imediata da SEFAZ para uma nota. ESCRITA com efeito fiscal: o assistente não executa. Pré-requisitos: NF-e recebida pela conta. Autenticação: cabeçalhos X-API-ID e X-API-KEY (par fixo emitido pela Qive; o de sandbox é gerado em developers.qive.com.br/sandbox). Base: produção https://api.arquivei.com.br, sandbox https://sandbox-api.arquivei.com.br. ESCRITA: não executar pelo assistente; explicar e entregar o código para o cliente rodar.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "manifests": {
+            "type": "array",
+            "description": "Lista de manifestações: {access_key, code, justification}.",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "manifests"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "arquivei__nota_fiscal__manifestar__nfse",
+      "title": "Evento de NFSe",
+      "description": "Qive (antiga Arquivei), gestão de documentos fiscais — POST /v1/nfse/event. Registra, em nome do tomador, a confirmação (ConfirmacaoTomador, evento 203202) ou a rejeição (RejeicaoTomador, 203206, com justificativa de 15 a 255 caracteres) de uma NFS-e do padrão nacional na Sefin Nacional. Síncrono: HTTP 200 só indica que a Sefin respondeu; o registro é confirmado por data.n_dfse e a rejeição vem em data.erros. Quando usar: Quando o tomador quer confirmar ou rejeitar uma NFS-e nacional pela integração. ESCRITA com efeito fiscal: o assistente não executa. Pré-requisitos: NFS-e do padrão nacional tomada por um CNPJ da conta. Autenticação: cabeçalhos X-API-ID e X-API-KEY (par fixo emitido pela Qive; o de sandbox é gerado em developers.qive.com.br/sandbox). Base: produção https://api.arquivei.com.br, sandbox https://sandbox-api.arquivei.com.br. Envie também X-Use-ApiGateway: always. ESCRITA: não executar pelo assistente; explicar e entregar o código para o cliente rodar.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "owner": {
+            "type": "string",
+            "description": "CNPJ do tomador (precisa pertencer à conta)."
+          },
+          "access_key": {
+            "type": "string",
+            "description": "Chave da NFS-e nacional (50 posições, dígitos ou letras maiúsculas). Formato: 50 posições."
+          },
+          "tp_evento": {
+            "type": "string",
+            "description": "Tipo do evento.",
+            "enum": [
+              "ConfirmacaoTomador",
+              "RejeicaoTomador"
+            ]
+          },
+          "x_justificativa": {
+            "type": "string",
+            "description": "Obrigatória para RejeicaoTomador, 15 a 255 caracteres."
+          },
+          "n_seq_evento": {
+            "type": "integer",
+            "description": "Sequencial do evento (padrão 1).",
+            "default": 1
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "owner",
+          "access_key",
+          "tp_evento"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "arquivei__nota_fiscal__baixar_arquivo__danfe",
+      "title": "Busca PDF de NFe",
+      "description": "Qive (antiga Arquivei), gestão de documentos fiscais — GET /v1/nfe/danfe. Devolve o DANFE (documento auxiliar da NF-e) em PDF, codificado em Base64 dentro de um JSON (campo data.encoded_pdf). É a única rota que entrega o PDF desse documento; as rotas de busca só trazem XML. Quando usar: Quando o usuário pede o PDF (DANFE (documento auxiliar da NF-e)) de um documento específico. Quando NÃO usar: para planilhas (o PDF não vira coluna) ou em massa sem necessidade, porque cada PDF é uma chamada. Pré-requisitos: Documento existente na conta. Autenticação: cabeçalhos X-API-ID e X-API-KEY (par fixo emitido pela Qive; o de sandbox é gerado em developers.qive.com.br/sandbox). Base: produção https://api.arquivei.com.br, sandbox https://sandbox-api.arquivei.com.br.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "access_key": {
+            "type": "string",
+            "description": "Chave de acesso. Formato: 44 dígitos."
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "access_key"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "arquivei__nota_fiscal__baixar_arquivo__dacte",
+      "title": "Busca PDF de uma CTe",
+      "description": "Qive (antiga Arquivei), gestão de documentos fiscais — GET /v1/cte/dacte. Devolve o DACTE (documento auxiliar do CT-e) em PDF, codificado em Base64 dentro de um JSON (campo data.encoded_pdf). É a única rota que entrega o PDF desse documento; as rotas de busca só trazem XML. Quando usar: Quando o usuário pede o PDF (DACTE (documento auxiliar do CT-e)) de um documento específico. Quando NÃO usar: para planilhas (o PDF não vira coluna) ou em massa sem necessidade, porque cada PDF é uma chamada. Pré-requisitos: Documento existente na conta. Autenticação: cabeçalhos X-API-ID e X-API-KEY (par fixo emitido pela Qive; o de sandbox é gerado em developers.qive.com.br/sandbox). Base: produção https://api.arquivei.com.br, sandbox https://sandbox-api.arquivei.com.br.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "access_key": {
+            "type": "string",
+            "description": "Chave de acesso. Formato: 44 dígitos."
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "access_key"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "arquivei__nota_fiscal__baixar_arquivo__dacteos",
+      "title": "Busca PDF de uma CTe-OS",
+      "description": "Qive (antiga Arquivei), gestão de documentos fiscais — GET /v1/cte-os/dacteos. Devolve o DACTE OS em PDF, codificado em Base64 dentro de um JSON (campo data.encoded_pdf). É a única rota que entrega o PDF desse documento; as rotas de busca só trazem XML. Quando usar: Quando o usuário pede o PDF (DACTE OS) de um documento específico. Quando NÃO usar: para planilhas (o PDF não vira coluna) ou em massa sem necessidade, porque cada PDF é uma chamada. Pré-requisitos: Documento existente na conta. Autenticação: cabeçalhos X-API-ID e X-API-KEY (par fixo emitido pela Qive; o de sandbox é gerado em developers.qive.com.br/sandbox). Base: produção https://api.arquivei.com.br, sandbox https://sandbox-api.arquivei.com.br.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "access_key": {
+            "type": "string",
+            "description": "Chave de acesso. Formato: 44 dígitos."
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "access_key"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "arquivei__nota_fiscal__baixar_arquivo__danfse",
+      "title": "Busca PDF de NFSe",
+      "description": "Qive (antiga Arquivei), gestão de documentos fiscais — GET /v1/nfse/danfse. Devolve o DANFSE (documento auxiliar da NFS-e, gerado pela Qive) em PDF, codificado em Base64 dentro de um JSON (campo data.encoded_pdf). É a única rota que entrega o PDF desse documento; as rotas de busca só trazem XML. Quando usar: Quando o usuário pede o PDF (DANFSE (documento auxiliar da NFS-e, gerado pela Qive)) de um documento específico. Quando NÃO usar: para planilhas (o PDF não vira coluna) ou em massa sem necessidade, porque cada PDF é uma chamada. Pré-requisitos: Documento existente na conta. Autenticação: cabeçalhos X-API-ID e X-API-KEY (par fixo emitido pela Qive; o de sandbox é gerado em developers.qive.com.br/sandbox). Base: produção https://api.arquivei.com.br, sandbox https://sandbox-api.arquivei.com.br.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Identificador do documento. Formato: 40 posições."
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "id"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "arquivei__empresa__listar",
+      "title": "Lista Empresas da Conta",
+      "description": "Qive (antiga Arquivei), gestão de documentos fiscais — GET /v1/company. Devolve a lista de CNPJs que as credenciais podem acessar (só os números, sem razão social). Quando usar: Primeira chamada para validar as credenciais e descobrir quais CNPJs usar nos filtros Owners/cnpj[]. Barata e sem efeito. Pré-requisitos: Credenciais X-API-ID e X-API-KEY. Autenticação: cabeçalhos X-API-ID e X-API-KEY (par fixo emitido pela Qive; o de sandbox é gerado em developers.qive.com.br/sandbox). Base: produção https://api.arquivei.com.br, sandbox https://sandbox-api.arquivei.com.br.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "arquivei__tabela_auxiliar__listar__properties",
+      "title": "Lista de Property",
+      "description": "Qive (antiga Arquivei), gestão de documentos fiscais — GET /v1/property. Lista as chaves de properties (marcadores chave-valor que o cliente aplica aos documentos) disponíveis na conta. Toda conta já tem a property 'status'. Quando usar: Antes de usar o parâmetro filter nas rotas v1 ou de aplicar properties. Somente leitura. Pré-requisitos: Credenciais. Autenticação: cabeçalhos X-API-ID e X-API-KEY (par fixo emitido pela Qive; o de sandbox é gerado em developers.qive.com.br/sandbox). Base: produção https://api.arquivei.com.br, sandbox https://sandbox-api.arquivei.com.br.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "arquivei__tabela_auxiliar__listar__etiquetas",
+      "title": "Lista Etiquetas da Conta",
+      "description": "Qive (antiga Arquivei), gestão de documentos fiscais — POST /v1/account/tags/list. Lista até 1.000 etiquetas da conta (id, nome, cores, se pertencem ao 'NFe em Etapas' e posição), com filtro por termo e por ids. POST de consulta, sem efeito. Quando usar: Para traduzir os ids de etiqueta (Tags) que vêm nas notas em nomes legíveis na planilha. Pré-requisitos: Credenciais. Autenticação: cabeçalhos X-API-ID e X-API-KEY (par fixo emitido pela Qive; o de sandbox é gerado em developers.qive.com.br/sandbox). Base: produção https://api.arquivei.com.br, sandbox https://sandbox-api.arquivei.com.br. Envie também X-Use-ApiGateway: always.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "IsLane": {
+            "type": "boolean",
+            "description": "true = etiquetas do NFe em Etapas; false = demais.",
+            "default": false
+          },
+          "SearchTerm": {
+            "type": "string",
+            "description": "Parte do nome da etiqueta."
+          },
+          "TagsIds": {
+            "type": "array",
+            "description": "Ids de etiquetas.",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "IsLane"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "arquivei__nota_fiscal__listar__etiquetas_documento",
+      "title": "Lista Etiquetas de um DFe",
+      "description": "Qive (antiga Arquivei), gestão de documentos fiscais — POST /v1/dfe/tags/list. Lista os ids de etiquetas aplicadas a documentos (nfe, nfse ou cte) informados por identificador e dono. POST de consulta. Quando usar: Para saber quais etiquetas estão em notas específicas. Para muitas notas, prefira pedir 'Tags' em Fields na busca v2. Pré-requisitos: Identificadores de documentos da conta. Autenticação: cabeçalhos X-API-ID e X-API-KEY (par fixo emitido pela Qive; o de sandbox é gerado em developers.qive.com.br/sandbox). Base: produção https://api.arquivei.com.br, sandbox https://sandbox-api.arquivei.com.br. Envie também X-Use-ApiGateway: always.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "DocumentType": {
+            "type": "string",
+            "description": "Tipo do documento.",
+            "enum": [
+              "nfe",
+              "nfse",
+              "cte"
+            ]
+          },
+          "Identifiers": {
+            "type": "array",
+            "description": "Chaves (NF-e/CT-e) ou ids de NFS-e (cnpj:data:número).",
+            "items": {
+              "type": "string"
+            }
+          },
+          "Owners": {
+            "type": "array",
+            "description": "CPF/CNPJ do dono.",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "DocumentType",
+          "Identifiers",
+          "Owners"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "arquivei__conta_pagar__listar__boletos",
+      "title": "Boletos Bancários v2",
+      "description": "Qive (antiga Arquivei), gestão de documentos fiscais — POST /v2/bank-billet/search. Busca os boletos capturados pela Gestão de Pagamentos da Qive contra os CNPJs da conta (boletos a pagar), com as notas vinculadas, filtrando por pagador, emissão, vencimento, atualização, status, nível de confiança e tipo de nota vinculada. Pagina por cursor (next) no corpo. Apesar do POST, é consulta. Quando usar: Para a planilha de contas a pagar por boleto (a vencer, vencidos, pagos) cruzada com as NF-e/NFS-e. Quando NÃO usar: para comprovantes de pagamento (arquivei.pagamento.listar.comprovantes). Pré-requisitos: Módulo Gestão de Pagamentos ativo na conta (boletos capturados). Autenticação: cabeçalhos X-API-ID e X-API-KEY (par fixo emitido pela Qive; o de sandbox é gerado em developers.qive.com.br/sandbox). Base: produção https://api.arquivei.com.br, sandbox https://sandbox-api.arquivei.com.br. Envie também X-Use-ApiGateway: always.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "owners": {
+            "type": "array",
+            "description": "CPFs/CNPJs pagadores.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "due_date": {
+            "type": "object",
+            "properties": {
+              "from": {
+                "type": "string",
+                "description": "Vencimento inicial. Formato: AAAA-MM-DD.",
+                "format": "date"
+              },
+              "to": {
+                "type": "string",
+                "description": "Vencimento final. Formato: AAAA-MM-DD.",
+                "format": "date"
+              }
+            }
+          },
+          "issue_date": {
+            "type": "object",
+            "properties": {
+              "from": {
+                "type": "string",
+                "description": "Emissão inicial. Formato: AAAA-MM-DD.",
+                "format": "date"
+              },
+              "to": {
+                "type": "string",
+                "description": "Emissão final. Formato: AAAA-MM-DD.",
+                "format": "date"
+              }
+            }
+          },
+          "updated_at": {
+            "type": "object",
+            "properties": {
+              "from": {
+                "type": "string",
+                "description": "Atualização inicial. Formato: AAAA-MM-DD.",
+                "format": "date"
+              },
+              "to": {
+                "type": "string",
+                "description": "Atualização final. Formato: AAAA-MM-DD.",
+                "format": "date"
+              }
+            }
+          },
+          "status": {
+            "type": "string",
+            "description": "Situação.",
+            "enum": [
+              "open",
+              "overdue",
+              "paid",
+              "canceled",
+              "closed",
+              "blocked"
+            ]
+          },
+          "trust_level": {
+            "type": "string",
+            "description": "Nível de confiança.",
+            "enum": [
+              "high",
+              "medium",
+              "low"
+            ]
+          },
+          "linked_document_type": {
+            "type": "array",
+            "description": "Tipo de nota vinculada.",
+            "items": {
+              "type": "string",
+              "enum": [
+                "nfse",
+                "nfe"
+              ]
+            }
+          },
+          "document_identifier": {
+            "type": "string",
+            "description": "Identificador do boleto."
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Itens por página (máximo não documentado)."
+          },
+          "next": {
+            "type": "string",
+            "description": "Cursor devolvido em meta.next."
+          }
+        },
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "arquivei__conta_pagar__listar__boletos_v1",
+      "title": "Boletos Bancários",
+      "description": "Qive (antiga Arquivei), gestão de documentos fiscais — GET /v1/bank-billet. Versão GET da busca de boletos com notas, com os mesmos filtros em query (owners[] obrigatório) e paginação por número de página (page, limit) e metadados meta.total/last_page. Quando usar: Mesma necessidade da v2, quando é mais simples paginar por página (ex.: executor que só monta query string). Pré-requisitos: Gestão de Pagamentos ativa. Autenticação: cabeçalhos X-API-ID e X-API-KEY (par fixo emitido pela Qive; o de sandbox é gerado em developers.qive.com.br/sandbox). Base: produção https://api.arquivei.com.br, sandbox https://sandbox-api.arquivei.com.br. Envie também X-Use-ApiGateway: always.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "owners[]": {
+            "type": "array",
+            "description": "CPFs/CNPJs pagadores.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "due_date[from]": {
+            "type": "string",
+            "description": "Vencimento inicial. Formato: AAAA-MM-DD.",
+            "format": "date"
+          },
+          "due_date[to]": {
+            "type": "string",
+            "description": "Vencimento final. Formato: AAAA-MM-DD.",
+            "format": "date"
+          },
+          "issue_date[from]": {
+            "type": "string",
+            "description": "Emissão inicial. Formato: AAAA-MM-DD.",
+            "format": "date"
+          },
+          "issue_date[to]": {
+            "type": "string",
+            "description": "Emissão final. Formato: AAAA-MM-DD.",
+            "format": "date"
+          },
+          "updated_at[from]": {
+            "type": "string",
+            "description": "Atualização inicial.",
+            "format": "date"
+          },
+          "updated_at[to]": {
+            "type": "string",
+            "description": "Atualização final.",
+            "format": "date"
+          },
+          "status": {
+            "type": "string",
+            "description": "Situação.",
+            "enum": [
+              "open",
+              "overdue",
+              "paid",
+              "canceled",
+              "closed"
+            ]
+          },
+          "trust_level": {
+            "type": "string",
+            "description": "Confiança.",
+            "enum": [
+              "high",
+              "medium",
+              "low"
+            ]
+          },
+          "linked_document_type": {
+            "type": "array",
+            "description": "nfse ou nfe.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "document_identifier": {
+            "type": "string",
+            "description": "Identificador do boleto."
+          },
+          "page": {
+            "type": "string",
+            "description": "Página atual.",
+            "default": "1"
+          },
+          "limit": {
+            "type": "string",
+            "description": "Itens por página (exemplo oficial: 10)."
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "owners[]"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "arquivei__conta_pagar__baixar_arquivo__boleto_pdf",
+      "title": "Boleto Bancário - PDF",
+      "description": "Qive (antiga Arquivei), gestão de documentos fiscais — GET /v1/bank-billet/{owner}/{digitableLine}/pdf. Devolve o PDF do boleto com notas, em Base64 dentro de JSON (data.encoded_pdf), a partir do CNPJ pagador e da linha digitável. Quando usar: Quando o usuário pede o PDF de um boleto específico. Não serve para planilha. Pré-requisitos: Boleto existente (linha digitável). Autenticação: cabeçalhos X-API-ID e X-API-KEY (par fixo emitido pela Qive; o de sandbox é gerado em developers.qive.com.br/sandbox). Base: produção https://api.arquivei.com.br, sandbox https://sandbox-api.arquivei.com.br. Envie também X-Use-ApiGateway: always.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "owner": {
+            "type": "string",
+            "description": "CPF/CNPJ pagador."
+          },
+          "digitableLine": {
+            "type": "string",
+            "description": "Linha digitável."
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "owner",
+          "digitableLine"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "arquivei__pagamento__listar__comprovantes",
+      "title": "Busca de Comprovantes",
+      "description": "Qive (antiga Arquivei), gestão de documentos fiscais — POST /v1/receipts/list. Lista os comprovantes de pagamento da conta (enviados pelo cliente ou capturados pela conexão bancária) com projeção de campos: data e valor pagos, código de autenticação, linha digitável do boleto pago, vencimento, pagador e recebedor. Filtra por data de pagamento, documento do recebedor, faixa de valor e identificador. Ordenado por data de pagamento decrescente. O mesmo endpoint entrega o PDF se 'EncodedPdf' for pedido em Fields (com até 2 identificadores por chamada em produção). Quando usar: Para a planilha de pagamentos realizados (conciliação de contas a pagar). Quando NÃO usar: para boletos em aberto (arquivei.conta_pagar.listar.boletos). Não peça EncodedPdf na listagem. Pré-requisitos: Gestão de Pagamentos com comprovantes na conta. Autenticação: cabeçalhos X-API-ID e X-API-KEY (par fixo emitido pela Qive; o de sandbox é gerado em developers.qive.com.br/sandbox). Base: produção https://api.arquivei.com.br, sandbox https://sandbox-api.arquivei.com.br. Envie também X-Use-ApiGateway: always.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "Filters": {
+            "type": "object",
+            "properties": {
+              "PaymentDate": {
+                "type": "object",
+                "properties": {
+                  "From": {
+                    "type": "string",
+                    "description": "Pagamento a partir de (inclusivo). Formato: AAAA-MM-DD.",
+                    "format": "date"
+                  },
+                  "To": {
+                    "type": "string",
+                    "description": "Pagamento até (inclusivo). Formato: AAAA-MM-DD.",
+                    "format": "date"
+                  }
+                }
+              },
+              "ReceiverDocument": {
+                "type": "array",
+                "description": "CPF/CNPJ do recebedor (validado por dígito; inválido dá 400).",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "Amount": {
+                "type": "object",
+                "properties": {
+                  "From": {
+                    "type": "number",
+                    "description": "Valor mínimo (inclusivo)."
+                  },
+                  "To": {
+                    "type": "number",
+                    "description": "Valor máximo (inclusivo)."
+                  }
+                }
+              },
+              "Identifier": {
+                "type": "array",
+                "description": "Identificadores opacos de comprovantes; obrigatório com EncodedPdf.",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "Fields": {
+            "type": "array",
+            "description": "Campos a devolver (caixa exata).",
+            "items": {
+              "type": "string",
+              "enum": [
+                "Identifier",
+                "Source",
+                "PaymentDate",
+                "Amount",
+                "CurrencyCode",
+                "CodeAuth",
+                "BankSlipNumber",
+                "DueDate",
+                "Payer",
+                "Receiver",
+                "EncodedPdf"
+              ]
+            }
+          },
+          "Limit": {
+            "type": "integer",
+            "description": "Tamanho da página.",
+            "default": 50,
+            "maximum": 500
+          },
+          "Paginator": {
+            "type": "string",
+            "description": "Cursor opaco da página anterior; vazio = primeira página."
+          }
+        },
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "arquivei__pessoa__obter__cnpj",
+      "title": "Dados Públicos de um CNPJ",
+      "description": "Qive (antiga Arquivei), gestão de documentos fiscais — GET /v1/cnpj/{CNPJ}. Devolve dados cadastrais públicos de um CNPJ (Receita Federal, no modelo da ReceitaWS): razão social, fantasia, situação, abertura, endereço, CNAEs, natureza jurídica, porte, Simples/MEI e quadro societário. Quando usar: Para enriquecer a planilha de fornecedores com situação cadastral e endereço. Quando NÃO usar: para vários CNPJs de uma vez (arquivei.pessoa.listar.cnpj). Pré-requisitos: CNPJ. Autenticação: cabeçalhos X-API-ID e X-API-KEY (par fixo emitido pela Qive; o de sandbox é gerado em developers.qive.com.br/sandbox). Base: produção https://api.arquivei.com.br, sandbox https://sandbox-api.arquivei.com.br. Envie também X-Use-ApiGateway: always.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "CNPJ": {
+            "type": "string",
+            "description": "CNPJ sem pontuação. Formato: 14 posições."
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "CNPJ"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "arquivei__pessoa__listar__cnpj",
+      "title": "Dados Públicos de CNPJs",
+      "description": "Qive (antiga Arquivei), gestão de documentos fiscais — GET /v1/cnpj. Versão em lote: dados públicos de até 100 CNPJs por chamada (parâmetro cnpj repetido). Quando usar: Para enriquecer uma lista de fornecedores (até 100 por chamada). Pré-requisitos: Lista de CNPJs. Autenticação: cabeçalhos X-API-ID e X-API-KEY (par fixo emitido pela Qive; o de sandbox é gerado em developers.qive.com.br/sandbox). Base: produção https://api.arquivei.com.br, sandbox https://sandbox-api.arquivei.com.br. Envie também X-Use-ApiGateway: always.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "cnpj": {
+            "type": "array",
+            "description": "CNPJs (repetir o parâmetro, sem colchetes: cnpj=...&cnpj=...). Formato: 1 a 100 itens únicos.",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "cnpj"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "arquivei__webhook__assinar_webhook__endpoint",
+      "title": "Cadastra Endpoint",
+      "description": "Qive (antiga Arquivei), gestão de documentos fiscais — POST /v1/webhooks/endpoints. Cadastra a URL de entrega. A Qive valida antes de salvar: só https na porta 443 com IP público, HEAD na URL com o cabeçalho X-Qive-Webhook: Qive-Webhooks/1.0 respondendo 2xx em até 5 s, sem seguir redirecionamentos. Devolve o Secret (prefixo whsec_) uma única vez. A mesma URL não pode ser cadastrada duas vezes. Quando usar: Primeiro passo para receber avisos de NF-e recebida ou cancelada. ESCRITA de configuração: o assistente explica e entrega o código. Pré-requisitos: URL pública https:443 que responda 2xx a HEAD. Autenticação: cabeçalhos X-API-ID e X-API-KEY (par fixo emitido pela Qive; o de sandbox é gerado em developers.qive.com.br/sandbox). Base: produção https://api.arquivei.com.br, sandbox https://sandbox-api.arquivei.com.br. Envie também X-Use-ApiGateway: always. ESCRITA: não executar pelo assistente; explicar e entregar o código para o cliente rodar.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "Url": {
+            "type": "string",
+            "description": "URL https na porta 443."
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "Url"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "arquivei__webhook__listar__endpoints",
+      "title": "Lista Endpoints",
+      "description": "Qive (antiga Arquivei), gestão de documentos fiscais — GET /v1/webhooks/endpoints. Lista os endpoints de webhook da conta, paginados por página e ordenados pelo cadastro, com o estado de entrega (active/unreachable) e falhas consecutivas. Total é o total da conta. Quando usar: Para auditar a configuração de webhooks e achar endpoints desativados por falha. Pré-requisitos: Credenciais. Autenticação: cabeçalhos X-API-ID e X-API-KEY (par fixo emitido pela Qive; o de sandbox é gerado em developers.qive.com.br/sandbox). Base: produção https://api.arquivei.com.br, sandbox https://sandbox-api.arquivei.com.br. Envie também X-Use-ApiGateway: always.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "limit": {
+            "type": "integer",
+            "description": "Tamanho da página.",
+            "default": 50,
+            "maximum": 200
+          },
+          "page": {
+            "type": "integer",
+            "description": "Página (começa em 1).",
+            "default": 1
+          }
+        },
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "arquivei__webhook__obter__endpoint",
+      "title": "Consulta Endpoint",
+      "description": "Qive (antiga Arquivei), gestão de documentos fiscais — GET /v1/webhooks/endpoints/{id}. Devolve um endpoint e seu estado de entrega (sem o Secret). Quando usar: Para diagnosticar um endpoint específico. Pré-requisitos: Id do endpoint. Autenticação: cabeçalhos X-API-ID e X-API-KEY (par fixo emitido pela Qive; o de sandbox é gerado em developers.qive.com.br/sandbox). Base: produção https://api.arquivei.com.br, sandbox https://sandbox-api.arquivei.com.br. Envie também X-Use-ApiGateway: always.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "UUID do recurso, devolvido no cadastro. Formato: uuid."
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "id"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "arquivei__webhook__atualizar__endpoint",
+      "title": "Altera URL do Endpoint",
+      "description": "Qive (antiga Arquivei), gestão de documentos fiscais — PATCH /v1/webhooks/endpoints/{id}. Troca a URL do endpoint (mesma verificação do cadastro). Trocar a URL reativa o endpoint e zera as falhas; o Secret não muda. Quando usar: Quando o sistema que recebe os avisos mudou de endereço. ESCRITA: o assistente não executa. Pré-requisitos: Id do endpoint. Autenticação: cabeçalhos X-API-ID e X-API-KEY (par fixo emitido pela Qive; o de sandbox é gerado em developers.qive.com.br/sandbox). Base: produção https://api.arquivei.com.br, sandbox https://sandbox-api.arquivei.com.br. Envie também X-Use-ApiGateway: always. ESCRITA: não executar pelo assistente; explicar e entregar o código para o cliente rodar.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "UUID do recurso, devolvido no cadastro. Formato: uuid."
+          },
+          "Url": {
+            "type": "string",
+            "description": "Nova URL https:443."
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "Url"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "arquivei__webhook__excluir__endpoint",
+      "title": "Remove Endpoint",
+      "description": "Qive (antiga Arquivei), gestão de documentos fiscais — DELETE /v1/webhooks/endpoints/{id}. Remove o endpoint. Recusa com 409 se ainda houver subscriptions ligadas: apague-as antes. Quando usar: Para desligar um receptor. ESCRITA destrutiva: o assistente não executa. Pré-requisitos: Sem subscriptions ligadas. Autenticação: cabeçalhos X-API-ID e X-API-KEY (par fixo emitido pela Qive; o de sandbox é gerado em developers.qive.com.br/sandbox). Base: produção https://api.arquivei.com.br, sandbox https://sandbox-api.arquivei.com.br. Envie também X-Use-ApiGateway: always. ESCRITA: não executar pelo assistente; explicar e entregar o código para o cliente rodar.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "UUID do recurso, devolvido no cadastro. Formato: uuid."
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "id"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "arquivei__webhook__restaurar__endpoint",
+      "title": "Reativa Endpoint",
+      "description": "Qive (antiga Arquivei), gestão de documentos fiscais — POST /v1/webhooks/endpoints/{id}/reactivate. Depois de 20 falhas consecutivas o endpoint vira unreachable e para de receber. Esta rota volta o estado para active e zera as falhas; só funciona em endpoints unreachable. Quando usar: Depois de corrigir o receptor que estava fora do ar. ESCRITA de configuração: o assistente não executa. Pré-requisitos: Endpoint em unreachable. Autenticação: cabeçalhos X-API-ID e X-API-KEY (par fixo emitido pela Qive; o de sandbox é gerado em developers.qive.com.br/sandbox). Base: produção https://api.arquivei.com.br, sandbox https://sandbox-api.arquivei.com.br. Envie também X-Use-ApiGateway: always. ESCRITA: não executar pelo assistente; explicar e entregar o código para o cliente rodar.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "UUID do recurso, devolvido no cadastro. Formato: uuid."
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "id"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "arquivei__webhook__assinar_webhook__subscription",
+      "title": "Cria Subscription",
+      "description": "Qive (antiga Arquivei), gestão de documentos fiscais — POST /v1/webhooks/subscriptions. Liga um endpoint a um CNPJ/CPF autorizado, a um tipo de documento (hoje só nfe) e a um evento (document.received ou document.canceled). Uma subscription por combinação dono+tipo+evento na conta. Quando usar: Para passar a receber avisos de NF-e recebida ou cancelada de um CNPJ. ESCRITA: o assistente não executa. Pré-requisitos: Endpoint cadastrado. Autenticação: cabeçalhos X-API-ID e X-API-KEY (par fixo emitido pela Qive; o de sandbox é gerado em developers.qive.com.br/sandbox). Base: produção https://api.arquivei.com.br, sandbox https://sandbox-api.arquivei.com.br. Envie também X-Use-ApiGateway: always. ESCRITA: não executar pelo assistente; explicar e entregar o código para o cliente rodar.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "Owner": {
+            "type": "string",
+            "description": "CNPJ (14, aceita alfanumérico) ou CPF (11), sem pontuação, autorizado para a credencial."
+          },
+          "DocumentType": {
+            "type": "string",
+            "description": "Tipo de documento.",
+            "enum": [
+              "nfe"
+            ]
+          },
+          "EventType": {
+            "type": "string",
+            "description": "Evento.",
+            "enum": [
+              "document.received",
+              "document.canceled"
+            ]
+          },
+          "EndpointId": {
+            "type": "string",
+            "description": "UUID do endpoint. Formato: uuid."
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "Owner",
+          "DocumentType",
+          "EventType",
+          "EndpointId"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "arquivei__webhook__listar__subscriptions",
+      "title": "Lista Subscriptions",
+      "description": "Qive (antiga Arquivei), gestão de documentos fiscais — GET /v1/webhooks/subscriptions. Lista as subscriptions da conta (dono, tipo, evento, endpoint, ativa), paginadas por página. Quando usar: Para auditar quais CNPJs e eventos geram avisos. Pré-requisitos: Credenciais. Autenticação: cabeçalhos X-API-ID e X-API-KEY (par fixo emitido pela Qive; o de sandbox é gerado em developers.qive.com.br/sandbox). Base: produção https://api.arquivei.com.br, sandbox https://sandbox-api.arquivei.com.br. Envie também X-Use-ApiGateway: always.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "limit": {
+            "type": "integer",
+            "description": "Tamanho da página.",
+            "default": 50,
+            "maximum": 200
+          },
+          "page": {
+            "type": "integer",
+            "description": "Página (começa em 1).",
+            "default": 1
+          }
+        },
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "arquivei__webhook__excluir__subscription",
+      "title": "Remove Subscription",
+      "description": "Qive (antiga Arquivei), gestão de documentos fiscais — DELETE /v1/webhooks/subscriptions/{id}. Remove a subscription; as notificações correspondentes deixam de ser enviadas. Quando usar: Para parar avisos de um CNPJ/evento. ESCRITA destrutiva: o assistente não executa. Pré-requisitos: Id da subscription. Autenticação: cabeçalhos X-API-ID e X-API-KEY (par fixo emitido pela Qive; o de sandbox é gerado em developers.qive.com.br/sandbox). Base: produção https://api.arquivei.com.br, sandbox https://sandbox-api.arquivei.com.br. Envie também X-Use-ApiGateway: always. ESCRITA: não executar pelo assistente; explicar e entregar o código para o cliente rodar.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "UUID do recurso, devolvido no cadastro. Formato: uuid."
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "id"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "arquivei__webhook__listar__metadata",
+      "title": "Valores de Webhook",
+      "description": "Qive (antiga Arquivei), gestão de documentos fiscais — GET /v1/webhooks/metadata. Lista os valores aceitos em DocumentType e EventType (hoje: nfe; document.received e document.canceled). Todo tipo aceita todos os eventos. Quando usar: Antes de criar subscription, para não chutar valores. Pré-requisitos: Credenciais. Autenticação: cabeçalhos X-API-ID e X-API-KEY (par fixo emitido pela Qive; o de sandbox é gerado em developers.qive.com.br/sandbox). Base: produção https://api.arquivei.com.br, sandbox https://sandbox-api.arquivei.com.br. Envie também X-Use-ApiGateway: always.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "arquivei__nota_fiscal__criar__upload_nfe",
+      "title": "Upload de NFes - Bulk",
+      "description": "Qive (antiga Arquivei), gestão de documentos fiscais — POST /v1/nfe/upload. Envia um lote de XMLs de NF-e (Base64) para a conta, de forma assíncrona; devolve request_id para acompanhar em /v1/nfe/upload/status. Aceita callback_url para avisar o resultado. Quando usar: Para importar notas que não chegaram pela SEFAZ (ex.: históricas). ESCRITA: o assistente não executa. Pré-requisitos: XMLs válidos. Autenticação: cabeçalhos X-API-ID e X-API-KEY (par fixo emitido pela Qive; o de sandbox é gerado em developers.qive.com.br/sandbox). Base: produção https://api.arquivei.com.br, sandbox https://sandbox-api.arquivei.com.br. ESCRITA: não executar pelo assistente; explicar e entregar o código para o cliente rodar.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "invoices": {
+            "type": "array",
+            "description": "Lista de {xml} com o XML em Base64.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "callback_url": {
+            "type": "string",
+            "description": "URL para receber o resultado do processamento."
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "invoices"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "arquivei__nota_fiscal__consultar_status__upload_nfe",
+      "title": "Status de Upload de NFes",
+      "description": "Qive (antiga Arquivei), gestão de documentos fiscais — GET /v1/nfe/upload/status. Consulta o andamento de um lote enviado em /v1/nfe/upload pelo request_id: status do pedido e resultado por nota. Quando usar: Para conferir o resultado de uma importação. Somente leitura. Pré-requisitos: request_id. Autenticação: cabeçalhos X-API-ID e X-API-KEY (par fixo emitido pela Qive; o de sandbox é gerado em developers.qive.com.br/sandbox). Base: produção https://api.arquivei.com.br, sandbox https://sandbox-api.arquivei.com.br.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "request_id": {
+            "type": "string",
+            "description": "request_id devolvido no upload."
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "request_id"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "arquivei__nota_fiscal__criar__upload_dfe",
+      "title": "Upload de DFes",
+      "description": "Qive (antiga Arquivei), gestão de documentos fiscais — POST /v1/dfe/upload. Envia um XML (Base64) de qualquer DF-e suportado (CF-e, CT-e, CT-e OS, NFC-e, NF-e, NFS-e, NF3e, NFAg, NFGas, NFCom) ou de evento, opcionalmente indicando os donos. Em falha, a resposta aponta as tags do XML que não validaram. Quando usar: Para importar um documento avulso. ESCRITA: o assistente não executa. Pré-requisitos: XML válido. Autenticação: cabeçalhos X-API-ID e X-API-KEY (par fixo emitido pela Qive; o de sandbox é gerado em developers.qive.com.br/sandbox). Base: produção https://api.arquivei.com.br, sandbox https://sandbox-api.arquivei.com.br. ESCRITA: não executar pelo assistente; explicar e entregar o código para o cliente rodar.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "xml": {
+            "type": "string",
+            "description": "XML em Base64."
+          },
+          "owner": {
+            "type": "array",
+            "description": "CPFs/CNPJs donos (só números).",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "xml"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": true
+      }
+    }
+  ]
+}

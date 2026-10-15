@@ -1,0 +1,1560 @@
+{
+ "sistema": "mercado-livre",
+ "tools": [
+  {
+   "name": "mercado-livre__autenticacao__autenticar",
+   "title": "Trocar o code por um token / Refresh token",
+   "description": "Mercado Livre (marketplace, site MLB) — POST /oauth/token. Emite o par access_token + refresh_token. Com grant_type=authorization_code troca o code recebido no redirect_uri depois que o vendedor autoriza o aplicativo; com grant_type=refresh_token renova o access_token vencido sem nova interação do vendedor. Quando usar: Na conexão inicial da conta do vendedor (troca do code) e sempre que o access_token expirar (6 horas). Quando não usar: não é consulta de dados; o executor chama esta rota só dentro da renovação de token, nunca como pedido do usuário. Não renove antes de vencer: a doc recomenda renovar apenas quando o token perder a validade. Pré-requisitos: Aplicativo criado no DevCenter (conta administradora, dados validados) com redirect URI HTTPS e scope offline_access; Para a primeira troca: code obtido em https://auth.mercadolivre.com.br/authorization?response_type=code&client_id=...&redirect_uri=.... Autenticação: Authorization: Bearer <access_token> (OAuth 2.0; token de 6 h, refresh_token de uso único). Cabeçalhos obrigatórios: accept: application/json, content-type: application/x-www-form-urlencoded. Atenção: O refresh_token é de uso único e só o último emitido vale: duas renovações em paralelo derrubam a conexão. O usuário que autoriza precisa ser o administrador da conta (colaborador gera invalid_operator_user_id). Parâmetros vão no corpo form-urlencoded, nunca na URL. NÃO execute: operação de escrita; o assistente só explica e entrega o código.",
+   "inputSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+     "grant_type": {
+      "type": "string",
+      "description": "Tipo de troca.",
+      "enum": [
+       "authorization_code",
+       "refresh_token"
+      ]
+     },
+     "client_id": {
+      "type": "string",
+      "description": "APP ID do aplicativo criado no DevCenter."
+     },
+     "client_secret": {
+      "type": "string",
+      "description": "Secret Key do aplicativo (DevCenter > aplicativo > Configurações)."
+     },
+     "code": {
+      "type": "string",
+      "description": "Obrigatório com authorization_code: código devolvido no redirect_uri após a autorização (formato TG-...)."
+     },
+     "redirect_uri": {
+      "type": "string",
+      "description": "Obrigatório com authorization_code: a mesma URL cadastrada no aplicativo, sem partes variáveis. Formato: uri."
+     },
+     "code_verifier": {
+      "type": "string",
+      "description": "Só quando o PKCE está habilitado no aplicativo (aí passa a ser obrigatório)."
+     },
+     "refresh_token": {
+      "type": "string",
+      "description": "Obrigatório com refresh_token: o último refresh_token emitido. É de uso único."
+     }
+    },
+    "additionalProperties": false,
+    "required": [
+     "grant_type",
+     "client_id",
+     "client_secret"
+    ]
+   },
+   "annotations": {
+    "readOnlyHint": false,
+    "destructiveHint": false,
+    "idempotentHint": false,
+    "openWorldHint": true
+   }
+  },
+  {
+   "name": "mercado-livre__empresa__obter__usuario_atual",
+   "title": "Consultar meus dados pessoais (/users/me)",
+   "description": "Mercado Livre (marketplace, site MLB) — GET /users/me. Devolve a conta dona do access_token: id (que é o seller_id usado em quase todas as buscas), apelido, site, tipo de usuário, tags e o resumo da reputação. Quando usar: Primeira chamada depois de conectar a conta: descobre o seller_id e confirma que o token é do vendedor certo. Quando não usar: para dados de outro usuário use GET /users/{user_id}; para métricas de reputação dos últimos 60 dias o mesmo /users/{user_id} traz o bloco metrics. Pré-requisitos: access_token válido do vendedor. Autenticação: Authorization: Bearer <access_token> (OAuth 2.0; token de 6 h, refresh_token de uso único). Atenção: Os ids de usuário novos passam do limite de Int32: guarde como inteiro de 64 bits ou texto. O user_id também volta na resposta do /oauth/token.",
+   "inputSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {},
+    "additionalProperties": false
+   },
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": true
+   }
+  },
+  {
+   "name": "mercado-livre__empresa__obter",
+   "title": "Reputação de vendedores (/users/{user_id})",
+   "description": "Mercado Livre (marketplace, site MLB) — GET /users/{user_id}. Dados da conta de um usuário. Para o próprio vendedor, inclui seller_reputation com nível (termômetro), MercadoLíder, totais históricos e o bloco metrics dos últimos 60 dias (vendas, reclamações, atrasos de despacho e cancelamentos, com taxa e quantidade). Quando usar: Planilha de saúde da conta: nível de reputação e as três métricas que derrubam o termômetro. Quando não usar: para obter o próprio seller_id prefira /users/me. Pré-requisitos: seller_id (GET /users/me). Autenticação: Authorization: Bearer <access_token> (OAuth 2.0; token de 6 h, refresh_token de uso único). Atenção: Vendedor em período de proteção mostra rate/value zerados e os números reais no subcampo excluded (real_value, real_rate) e real_level. As taxas vêm como fração decimal (0.02 = 2%), conforme o exemplo oficial.",
+   "inputSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+     "user_id": {
+      "type": "integer",
+      "description": "ID do usuário (para o próprio vendedor, o id de /users/me)."
+     }
+    },
+    "additionalProperties": false,
+    "required": [
+     "user_id"
+    ]
+   },
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": true
+   }
+  },
+  {
+   "name": "mercado-livre__pedido__listar",
+   "title": "Consultar orders (/orders/search)",
+   "description": "Mercado Livre (marketplace, site MLB) — GET /orders/search. Busca as vendas (orders) do vendedor com filtros por situação, datas de criação, de confirmação e de última alteração, item, tags e texto livre. Cada resultado traz itens, pagamentos, comprador (só id), pack e id do envio. Quando usar: Planilha de vendas por período: recorte por order.date_created (ou date_closed) e, se quiser só vendas pagas, order.status=paid. Quando não usar: para custo de frete, endereço e rastreio use GET /shipments/{id}; para tarifas faturadas pelo Mercado Livre use os relatórios de faturamento; para dados fiscais do comprador há o recurso billing-info. Pré-requisitos: seller_id (GET /users/me); Permissão funcional Vendas e envios com leitura. Autenticação: Authorization: Bearer <access_token> (OAuth 2.0; token de 6 h, refresh_token de uso único). Atenção: Os pedidos ficam disponíveis por até 12 meses. A doc diz que a busca como vendedor continua filtrando os pedidos cancelados (texto ambíguo: confira se cancelados aparecem). O filtro de data considera só a hora. comprador vem só com id. Pedidos de teste trazem a tag test_order. Uma venda de carrinho tem vários pedidos ligados pelo pack_id.",
+   "inputSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+     "seller": {
+      "type": "integer",
+      "description": "ID do vendedor (seller_id de /users/me). A busca não faz nada sem pelo menos um filtro."
+     },
+     "order.status": {
+      "type": "string",
+      "description": "Situação; aceita vários valores separados por vírgula.",
+      "enum": [
+       "confirmed",
+       "payment_required",
+       "payment_in_process",
+       "partially_paid",
+       "paid",
+       "partially_refunded",
+       "pending_cancel",
+       "cancelled",
+       "invalid"
+      ]
+     },
+     "order.date_created.from": {
+      "type": "string",
+      "description": "Início do período pela data de criação. Formato: AAAA-MM-DDThh:mm:ss.000-03:00."
+     },
+     "order.date_created.to": {
+      "type": "string",
+      "description": "Fim do período pela data de criação. Formato: AAAA-MM-DDThh:mm:ss.000-03:00."
+     },
+     "order.date_closed.from": {
+      "type": "string",
+      "description": "Início pela data de confirmação (primeira mudança para confirmed/paid). Formato: AAAA-MM-DDThh:mm:ss.000-03:00."
+     },
+     "order.date_closed.to": {
+      "type": "string",
+      "description": "Fim pela data de confirmação. Formato: AAAA-MM-DDThh:mm:ss.000-03:00."
+     },
+     "order.date_last_updated.from": {
+      "type": "string",
+      "description": "Início pela data da última modificação (bom para extração incremental). Formato: AAAA-MM-DDThh:mm:ss.000-03:00."
+     },
+     "order.date_last_updated.to": {
+      "type": "string",
+      "description": "Fim pela data da última modificação. Formato: AAAA-MM-DDThh:mm:ss.000-03:00."
+     },
+     "q": {
+      "type": "string",
+      "description": "Busca livre por id do pedido, id ou título do item, ou apelido da contraparte (não procura nome nem e-mail)."
+     },
+     "item": {
+      "type": "string",
+      "description": "ID ou título do item."
+     },
+     "tags": {
+      "type": "string",
+      "description": "Tags exigidas, separadas por vírgula."
+     },
+     "tags.not": {
+      "type": "string",
+      "description": "Tags excluídas, separadas por vírgula."
+     },
+     "sort": {
+      "type": "string",
+      "description": "Ordenação. Padrão date_asc (para vendedor, por date_closed).",
+      "enum": [
+       "date_asc",
+       "date_desc"
+      ],
+      "default": "date_asc"
+     },
+     "offset": {
+      "type": "integer",
+      "description": "Deslocamento da paginação.",
+      "default": 0,
+      "minimum": 0
+     },
+     "limit": {
+      "type": "integer",
+      "description": "Registros por página. Os exemplos oficiais devolvem limit 50; o máximo não é publicado.",
+      "default": 50,
+      "minimum": 1
+     }
+    },
+    "additionalProperties": false,
+    "required": [
+     "seller"
+    ]
+   },
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": true
+   }
+  },
+  {
+   "name": "mercado-livre__pedido__obter",
+   "title": "Receba uma ordem (/orders/{order_id})",
+   "description": "Mercado Livre (marketplace, site MLB) — GET /orders/{order_id}. Detalhe de uma venda: datas, situação, itens com preço unitário, quantidade, tarifa de venda (sale_fee) e gross_price, pagamentos, id do envio, pack, tags, contexto (canal e fluxos) e, se houver, cancel_detail. Quando usar: Para completar uma linha da planilha de vendas ou conferir uma venda específica recebida por notificação orders_v2. Quando não usar: para várias vendas de um período use /orders/search, que já traz o mesmo objeto. Pré-requisitos: order_id (de /orders/search ou da notificação orders_v2). Autenticação: Authorization: Bearer <access_token> (OAuth 2.0; token de 6 h, refresh_token de uso único). Atenção: A comissão é calculada quando o pagamento é creditado, não na criação. gross_price pode faltar em pedidos antigos. Pedido com a tag fraud_risk_detected não deve ser enviado. Pedido não concretizado pelo vendedor aparece no site como cancelado, mas pela API com status confirmed.",
+   "inputSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+     "order_id": {
+      "type": "integer",
+      "description": "ID do pedido (Long)."
+     }
+    },
+    "additionalProperties": false,
+    "required": [
+     "order_id"
+    ]
+   },
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": true
+   }
+  },
+  {
+   "name": "mercado-livre__pedido__obter__descontos",
+   "title": "Obter descontos aplicados em uma venda",
+   "description": "Mercado Livre (marketplace, site MLB) — GET /orders/{order_id}/discounts. Lista os descontos que afetaram a venda (campanha/promoção, cupom, cashback), com o valor total por item e a parte bancada pelo vendedor. Quando usar: Margem por venda: separar quanto do desconto saiu do bolso do vendedor (amounts.seller). Quando não usar: não inclui taxas adicionais nem reembolsos posteriores; para tarifas cobradas use os relatórios de faturamento. Pré-requisitos: order_id. Autenticação: Authorization: Bearer <access_token> (OAuth 2.0; token de 6 h, refresh_token de uso único). Atenção: Os valores são por item já multiplicados pela quantidade (p × q). Pedidos com mais de 12 meses não são guardados.",
+   "inputSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+     "order_id": {
+      "type": "integer",
+      "description": "ID do pedido."
+     }
+    },
+    "additionalProperties": false,
+    "required": [
+     "order_id"
+    ]
+   },
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": true
+   }
+  },
+  {
+   "name": "mercado-livre__pedido__obter__pack",
+   "title": "Consultar ordens de um pack (/packs/{pack_id})",
+   "description": "Mercado Livre (marketplace, site MLB) — GET /packs/{pack_id}. Mostra o pack (carrinho): os pedidos que o compõem, o envio único, o comprador e a situação do pack (released, error, pending_cancel, cancelled). Quando usar: Quando uma venda de carrinho gerou vários pedidos e você precisa agrupá-los ou achar o envio comum. Quando não usar: para o detalhe de cada pedido use /orders/{order_id}. Pré-requisitos: pack_id. Autenticação: Authorization: Bearer <access_token> (OAuth 2.0; token de 6 h, refresh_token de uso único). Atenção: As datas do pack vêm com fuso sem dois-pontos (-0400), diferente dos pedidos. Pack pode não ter envio (itens not_specified).",
+   "inputSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+     "pack_id": {
+      "type": "integer",
+      "description": "ID do pack (campo pack_id do pedido)."
+     }
+    },
+    "additionalProperties": false,
+    "required": [
+     "pack_id"
+    ]
+   },
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": true
+   }
+  },
+  {
+   "name": "mercado-livre__envio__listar__pedido",
+   "title": "Consultar envios associados a uma venda",
+   "description": "Mercado Livre (marketplace, site MLB) — GET /orders/{order_id}/shipments. A partir do pedido, lista os envios ligados a ele: o de compra (forward) e, quando houver, devoluções (return, return_to_buyer). Na Hosted View devolve sempre um array de {id, type}. Quando usar: Para descobrir o envio de ida e os de devolução de uma venda. Quando não usar: para o detalhe (custo, rastreio, endereço) chame /shipments/{shipment_id} com cada id. Pré-requisitos: order_id. Autenticação: Authorization: Bearer <access_token> (OAuth 2.0; token de 6 h, refresh_token de uso único). Cabeçalhos obrigatórios: X-New-Domain: true. Atenção: Não assuma que o primeiro elemento é o envio de compra: filtre type == forward. A vista atual (objeto único, ou array com list_all) estava marcada para descontinuação no fim de setembro de 2026; em 2026-10-14 a doc ainda descreve as duas.",
+   "inputSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+     "order_id": {
+      "type": "integer",
+      "description": "ID do pedido."
+     },
+     "hosted": {
+      "type": "boolean",
+      "description": "Vista suportada pelo APICore, sem o detalhe dos envios.",
+      "default": false
+     },
+     "list_all": {
+      "type": "boolean",
+      "description": "Vista atual (descontinuada a partir do fim de setembro de 2026): true devolve forward + return.",
+      "default": false
+     }
+    },
+    "additionalProperties": false,
+    "required": [
+     "order_id"
+    ]
+   },
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": true
+   }
+  },
+  {
+   "name": "mercado-livre__envio__obter",
+   "title": "Consultar envios (/shipments/{shipment_id})",
+   "description": "Mercado Livre (marketplace, site MLB) — GET /shipments/{shipment_id}. Detalhe do envio: situação e subsituação, modo e tipo logístico (me2, drop_off, cross_docking, fulfillment, self_service...), rastreio, custo e prazo (lead_time), origem, destino, dimensões e valor declarado. Quando usar: Planilha de envios: situação, logística, rastreio, frete cobrado do comprador (lead_time.cost) e custo de tabela (list_cost). Quando não usar: o custo dividido entre comprador e vendedor está em /shipments/{id}/costs; a linha do tempo está em /history. Pré-requisitos: shipment_id (shipping.id do pedido). Autenticação: Authorization: Bearer <access_token> (OAuth 2.0; token de 6 h, refresh_token de uso único). Cabeçalhos obrigatórios: x-format-new: true. Atenção: Sem o header x-format-new: true a chamada falha (obrigatório desde 2025-10-12). Desde então shipments não devolve mais order_id nem external_reference: ligue pelo pedido. O endereço do comprador fica ofuscado até o pagamento ser confirmado e o telefone só vem em ME1.",
+   "inputSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+     "shipment_id": {
+      "type": "integer",
+      "description": "ID do envio (shipping.id do pedido)."
+     }
+    },
+    "additionalProperties": false,
+    "required": [
+     "shipment_id"
+    ]
+   },
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": true
+   }
+  },
+  {
+   "name": "mercado-livre__envio__obter__custos",
+   "title": "Costs (/shipments/{shipment_id}/costs)",
+   "description": "Mercado Livre (marketplace, site MLB) — GET /shipments/{shipment_id}/costs. Custo do envio sem desconto (gross_amount) e quanto cabe ao comprador (receiver.cost) e a cada vendedor (senders[].cost), com os descontos aplicados a cada lado. Quando usar: Para saber o frete efetivamente pago pelo vendedor em cada venda e montar a margem. Quando não usar: o valor faturado ao vendedor no mês também aparece nos relatórios de faturamento (cobranças CXD); use os dois para conciliar. Pré-requisitos: shipment_id. Autenticação: Authorization: Bearer <access_token> (OAuth 2.0; token de 6 h, refresh_token de uso único). Cabeçalhos obrigatórios: x-format-new: true. Atenção: senders é uma lista (um envio pode ter itens de vendedores diferentes): filtre pelo seu user_id. O campo save foi zerado em 2024 e retirado em 2025.",
+   "inputSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+     "shipment_id": {
+      "type": "integer",
+      "description": "ID do envio."
+     }
+    },
+    "additionalProperties": false,
+    "required": [
+     "shipment_id"
+    ]
+   },
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": true
+   }
+  },
+  {
+   "name": "mercado-livre__envio__consultar_status__historico",
+   "title": "History (/shipments/{shipment_id}/history)",
+   "description": "Mercado Livre (marketplace, site MLB) — GET /shipments/{shipment_id}/history. Linha do tempo do envio: cada mudança de status e substatus com a data. Quando usar: Para medir prazos (pago → despachado → entregue) ou auditar um envio com problema. Quando não usar: para a situação atual basta /shipments/{id}. Pré-requisitos: shipment_id. Autenticação: Authorization: Bearer <access_token> (OAuth 2.0; token de 6 h, refresh_token de uso único). Cabeçalhos obrigatórios: x-format-new: true. Atenção: As datas do histórico vêm em UTC (sufixo Z). Os status e substatus possíveis variam por tipo logístico; a lista completa está em GET /shipment_statuses.",
+   "inputSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+     "shipment_id": {
+      "type": "integer",
+      "description": "ID do envio."
+     }
+    },
+    "additionalProperties": false,
+    "required": [
+     "shipment_id"
+    ]
+   },
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": true
+   }
+  },
+  {
+   "name": "mercado-livre__envio__consultar_status__sla",
+   "title": "Prazo máximo de despacho (SLA)",
+   "description": "Mercado Livre (marketplace, site MLB) — GET /shipments/{shipment_id}/sla. Data e hora limite para despachar o pacote e se o envio está a tempo, atrasado ou adiantado. Quando usar: Fila de expedição: ordenar o que despachar primeiro e acompanhar atrasos que afetam a reputação. Quando não usar: não há SLA para envios cancelados nem para Fulfillment. Pré-requisitos: shipment_id de envio ativo (não Fulfillment). Autenticação: Authorization: Bearer <access_token> (OAuth 2.0; token de 6 h, refresh_token de uso único). Atenção: O horário pode mudar até a véspera: consulte no dia do despacho. Em coleta (cross docking) a data é o horário da coleta agendada.",
+   "inputSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+     "shipment_id": {
+      "type": "integer",
+      "description": "ID do envio."
+     }
+    },
+    "additionalProperties": false,
+    "required": [
+     "shipment_id"
+    ]
+   },
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": true
+   }
+  },
+  {
+   "name": "mercado-livre__anuncio__listar",
+   "title": "Obter itens da conta de um vendedor (/users/{user_id}/items/search)",
+   "description": "Mercado Livre (marketplace, site MLB) — GET /users/{user_id}/items/search. Lista os IDs dos anúncios do vendedor, com filtros por status, SKU, tipo de anúncio, identificador de produto e saúde de reputação. Devolve só IDs; os dados de cada anúncio vêm de /items/bulk ou /items/{id}. Quando usar: Primeiro passo da planilha de anúncios e estoque: obter todos os IDs (status=active para os ativos). Quando não usar: não traz preço, título nem estoque; e para mais de 1000 resultados é obrigatório o modo search_type=scan. Pré-requisitos: seller_id (GET /users/me). Autenticação: Authorization: Bearer <access_token> (OAuth 2.0; token de 6 h, refresh_token de uso único). Atenção: results é uma lista de strings (IDs), não de objetos. No modo scan o mesmo scroll_id é reenviado a cada chamada e expira em 5 minutos; não misture scroll com offset/limit de outro modo. Vendedor com mais de 200 mil itens não recebe filters/available_filters (veja /items/search/restrictions).",
+   "inputSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+     "user_id": {
+      "type": "integer",
+      "description": "ID do vendedor."
+     },
+     "status": {
+      "type": "string",
+      "description": "Filtra por situação do anúncio (ex.: active, paused, closed)."
+     },
+     "sku": {
+      "type": "string",
+      "description": "SKU gravado em seller_custom_field."
+     },
+     "seller_sku": {
+      "type": "string",
+      "description": "SKU do atributo SELLER_SKU."
+     },
+     "listing_type_id": {
+      "type": "string",
+      "description": "Tipo de anúncio (ex.: gold_pro, gold_special)."
+     },
+     "missing_product_identifiers": {
+      "type": "boolean",
+      "description": "true = anúncios sem identificador de produto (GTIN etc.)."
+     },
+     "reputation_health_gauge": {
+      "type": "string",
+      "description": "Saúde de exposição (disponível no Brasil).",
+      "enum": [
+       "unhealthy",
+       "warning",
+       "healthy"
+      ]
+     },
+     "orders": {
+      "type": "string",
+      "description": "Ordenação (ex.: start_time_desc, price_asc, available_quantity_desc, last_updated_desc). Padrão stop_time_asc."
+     },
+     "include_filters": {
+      "type": "boolean",
+      "description": "true devolve filters e available_filters (omitidos por padrão)."
+     },
+     "search_type": {
+      "type": "string",
+      "description": "scan para percorrer mais de 1000 itens (sem offset).",
+      "enum": [
+       "scan"
+      ]
+     },
+     "scroll_id": {
+      "type": "string",
+      "description": "Cursor devolvido no modo scan; expira em 5 minutos."
+     },
+     "offset": {
+      "type": "integer",
+      "description": "Deslocamento (modo normal, até 1000 resultados).",
+      "default": 0,
+      "minimum": 0
+     },
+     "limit": {
+      "type": "integer",
+      "description": "Itens por página: padrão 50, máximo 100.",
+      "default": 50,
+      "minimum": 1,
+      "maximum": 100
+     }
+    },
+    "additionalProperties": false,
+    "required": [
+     "user_id"
+    ]
+   },
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": true
+   }
+  },
+  {
+   "name": "mercado-livre__anuncio__listar__bulk",
+   "title": "Consulta de vários itens (/items/bulk?ids=)",
+   "description": "Mercado Livre (marketplace, site MLB) — GET /items/bulk. Devolve vários anúncios numa chamada (multiget). Cada elemento traz status_code, id e body com o anúncio completo (ou só os campos pedidos em attributes com prefixo body.). Quando usar: Segunda etapa da planilha de anúncios: depois de listar os IDs, buscar título, preço, estoque, vendidos, status e SKU em lotes. Quando não usar: um anúncio só, use /items/{id}; o preço de venda efetivo (com promoção) está em /items/{id}/sale_price. Pré-requisitos: IDs de anúncio (de /users/{user_id}/items/search). Autenticação: Authorization: Bearer <access_token> (OAuth 2.0; token de 6 h, refresh_token de uso único). Atenção: Substitui /items?ids= (em descontinuação; migrar até 25/10/2026): o campo code virou status_code e attributes exige o prefixo body. Com token que não é do dono, available_quantity vem como faixa de referência (1, 50, 100...) e sold_quantity some. price, base_price e original_price de /items estão sendo descontinuados em favor de /items/{id}/sale_price.",
+   "inputSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+     "ids": {
+      "type": "string",
+      "description": "IDs separados por vírgula (máximo de 20 por chamada, regra do multiget)."
+     },
+     "attributes": {
+      "type": "string",
+      "description": "Campos desejados, cada um com prefixo body. (ex.: body.id,body.title,body.price,body.available_quantity)."
+     }
+    },
+    "additionalProperties": false,
+    "required": [
+     "ids"
+    ]
+   },
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": true
+   }
+  },
+  {
+   "name": "mercado-livre__anuncio__obter",
+   "title": "Itens (/items/{item_id})",
+   "description": "Mercado Livre (marketplace, site MLB) — GET /items/{item_id}. Anúncio completo: título, categoria, preço, moeda, estoque disponível e vendido (com token do dono), tipo de anúncio, condição, envio (modo, logística, frete grátis), atributos, variações, inventory_id do Full, status e datas. Quando usar: Para um anúncio específico (ex.: notificação items) ou para ler variações e inventory_id. Quando não usar: para muitos anúncios use /items/bulk em lotes de 20. Pré-requisitos: item_id. Autenticação: Authorization: Bearer <access_token> (OAuth 2.0; token de 6 h, refresh_token de uso único). Atenção: O atributo condition está sendo substituído por ITEM_CONDITION em attributes. Em anúncio com variações, o estoque e o inventory_id ficam em cada variação. Datas em UTC (Z).",
+   "inputSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+     "item_id": {
+      "type": "string",
+      "description": "ID do anúncio com prefixo do site (ex.: MLB4000000001)."
+     }
+    },
+    "additionalProperties": false,
+    "required": [
+     "item_id"
+    ]
+   },
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": true
+   }
+  },
+  {
+   "name": "mercado-livre__anuncio__obter__preco_venda",
+   "title": "Obter preço de venda atual (/items/{item_id}/sale_price)",
+   "description": "Mercado Livre (marketplace, site MLB) — GET /items/{item_id}/sale_price. Preço de venda vencedor do anúncio no contexto informado (canal e nível do comprador), o preço sem promoção (regular_amount) e, para o dono, a promoção aplicada. Quando usar: Planilha de preços com promoção ativa; é a fonte recomendada no lugar de price/base_price/original_price de /items. Quando não usar: para todos os preços cadastrados (standard e promoções futuras) há GET /items/{id}/prices. Pré-requisitos: item_id. Autenticação: Authorization: Bearer <access_token> (OAuth 2.0; token de 6 h, refresh_token de uso único). Atenção: Uma chamada por anúncio (sem multiget documentado). Sem token do dono, metadata não vem. Desde 18/03/2026 um PUT em /items que altere só price é recusado quando há automação de preço.",
+   "inputSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+     "item_id": {
+      "type": "string",
+      "description": "ID do anúncio."
+     },
+     "context": {
+      "type": "string",
+      "description": "Canal e, opcionalmente, nível do comprador, separados por vírgula (ex.: channel_marketplace,buyer_loyalty_3)."
+     }
+    },
+    "additionalProperties": false,
+    "required": [
+     "item_id"
+    ]
+   },
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": true
+   }
+  },
+  {
+   "name": "mercado-livre__anuncio__calcular__custos_venda",
+   "title": "Custos por vender (/sites/{site_id}/listing_prices)",
+   "description": "Mercado Livre (marketplace, site MLB) — GET /sites/{site_id}/listing_prices. Calculadora somente leitura das tarifas: para um preço, categoria, tipo de anúncio e logística, devolve a tarifa de venda (percentual, taxa fixa, acréscimo por parcelamento) e o custo de anunciar de cada tipo de anúncio. Quando usar: Simular a margem de um produto antes de publicar ou rever preços. Quando não usar: não é o valor faturado; o cobrado de fato está nos relatórios de faturamento e no sale_fee de cada pedido. Pré-requisitos: Preço e, para precisão, categoria, tipo de anúncio e logística. Autenticação: Authorization: Bearer <access_token> (OAuth 2.0; token de 6 h, refresh_token de uso único). Atenção: Desde 02/03 (Brasil) a taxa fixa depende de logistic_type e shipping_mode: sem eles o cálculo diverge do cobrado. No MLB o percentage_fee pode variar com fatores comerciais e faixas de preço, então o mesmo produto pode ter tarifas diferentes em datas diferentes. Quando a consulta não fixa o tipo de anúncio, a resposta tende a ser uma lista por tipo (formato exato não exemplificado para o MLB).",
+   "inputSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+     "site_id": {
+      "type": "string",
+      "description": "Site (MLB no Brasil).",
+      "default": "MLB"
+     },
+     "price": {
+      "type": "number",
+      "description": "Preço de venda do item."
+     },
+     "category_id": {
+      "type": "string",
+      "description": "Categoria do item."
+     },
+     "listing_type_id": {
+      "type": "string",
+      "description": "Tipo de anúncio (free, gold_special, gold_pro)."
+     },
+     "currency_id": {
+      "type": "string",
+      "description": "Moeda (BRL)."
+     },
+     "logistic_type": {
+      "type": "string",
+      "description": "Tipo logístico; sem ele a taxa fixa calculada não bate com a cobrada.",
+      "enum": [
+       "drop_off",
+       "cross_docking",
+       "xd_drop_off",
+       "self_service",
+       "turbo",
+       "fulfillment",
+       "default",
+       "custom",
+       "not_specified"
+      ]
+     },
+     "shipping_mode": {
+      "type": "string",
+      "description": "Modo de envio.",
+      "enum": [
+       "me2",
+       "me1",
+       "custom",
+       "not_specified"
+      ]
+     },
+     "billable_weight": {
+      "type": "number",
+      "description": "Peso faturável em gramas (obrigatório só na Argentina)."
+     }
+    },
+    "additionalProperties": false,
+    "required": [
+     "site_id",
+     "price"
+    ]
+   },
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": true
+   }
+  },
+  {
+   "name": "mercado-livre__anuncio__atualizar",
+   "title": "Atualizar itens (PUT /items/{item_id})",
+   "description": "Mercado Livre (marketplace, site MLB) — PUT /items/{item_id}. Altera um anúncio: estoque (available_quantity), preço, status (active, paused, closed), título (só sem vendas), imagens, descrição e envio. Documentado como referência de escrita; o assistente não executa. Quando usar: Só quando o próprio vendedor (ou o integrador autorizado) for sincronizar estoque/preço ou pausar anúncios a partir do seu sistema. Quando não usar: o assistente nunca usa esta rota; ele explica e entrega o código. Pré-requisitos: Permissão de escrita (write) concedida pelo vendedor. Autenticação: Authorization: Bearer <access_token> (OAuth 2.0; token de 6 h, refresh_token de uso único). Atenção: Com multi-origem ativa o estoque é por depósito (PUT /user-products/{id}/stock/type/seller_warehouse com header x-version), não por /items. Pausar com estoque zero deixa o substatus out_of_stock e o item volta sozinho quando há estoque. NÃO execute: operação de escrita; o assistente só explica e entrega o código.",
+   "inputSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+     "item_id": {
+      "type": "string",
+      "description": "ID do anúncio."
+     },
+     "available_quantity": {
+      "type": "integer",
+      "description": "Novo estoque. Sem multi-origem, o Mercado Livre replica para os itens do mesmo user_product_id."
+     },
+     "price": {
+      "type": "number",
+      "description": "Novo preço. Desde 18/03/2026, PUT só com price é recusado (400) se houver automação de preço; junto de outros campos é ignorado com aviso."
+     },
+     "status": {
+      "type": "string",
+      "description": "Situação: active, paused ou closed (closed é definitivo). Minúsculas.",
+      "enum": [
+       "active",
+       "paused",
+       "closed"
+      ]
+     },
+     "title": {
+      "type": "string",
+      "description": "Novo título (só para anúncios sem vendas)."
+     }
+    },
+    "additionalProperties": false,
+    "required": [
+     "item_id"
+    ]
+   },
+   "annotations": {
+    "readOnlyHint": false,
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": true
+   }
+  },
+  {
+   "name": "mercado-livre__estoque__obter",
+   "title": "Obter detalhe de estoque (/user-products/{user_product_id}/stock)",
+   "description": "Mercado Livre (marketplace, site MLB) — GET /user-products/{user_product_id}/stock. Estoque de um User Product por local: selling_address (depósito do vendedor para drop off, coleta e Flex), meli_facility (Full) e seller_warehouse (multi-origem, por depósito/loja). Quando usar: Planilha de estoque por local, principalmente quando há Full e Flex juntos ou multi-origem. Quando não usar: para vendedor sem User Products/multi-origem, o available_quantity de /items já é o estoque. Pré-requisitos: user_product_id. Autenticação: Authorization: Bearer <access_token> (OAuth 2.0; token de 6 h, refresh_token de uso único). Atenção: A resposta traz o cabeçalho x-version, exigido por quem for alterar estoque (PUT): não é preciso para leitura. Um UP tem no máximo duas tipologias (selling_address + meli_facility, ou seller_warehouse + meli_facility). No Brasil não dá para ter depósitos em estados diferentes do CNPJ.",
+   "inputSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+     "user_product_id": {
+      "type": "string",
+      "description": "ID do User Product (formato MLBU...); vem no anúncio/pedido (user_product_id)."
+     }
+    },
+    "additionalProperties": false,
+    "required": [
+     "user_product_id"
+    ]
+   },
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": true
+   }
+  },
+  {
+   "name": "mercado-livre__estoque__obter__fulfillment",
+   "title": "Consultar o estoque do vendedor no Full (/inventories/{inventory_id}/stock/fulfillment)",
+   "description": "Mercado Livre (marketplace, site MLB) — GET /inventories/{inventory_id}/stock/fulfillment. Estoque nos centros de distribuição do Mercado Livre (Full) para um inventory_id: total, disponível, indisponível e o motivo da indisponibilidade (avaria, perda, retirada, processo interno, transferência, sem cobertura fiscal). Quando usar: Planilha de estoque Full com unidades bloqueadas por motivo. Quando não usar: estoque próprio (Flex, coleta) não aparece aqui. Pré-requisitos: inventory_id (GET /items/{item_id}; um por variação quando houver). Autenticação: Authorization: Bearer <access_token> (OAuth 2.0; token de 6 h, refresh_token de uso único). Atenção: Uma chamada por inventory_id. Anúncio com variações tem um inventory_id por variação.",
+   "inputSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+     "inventory_id": {
+      "type": "string",
+      "description": "Código do item no Full (campo inventory_id do anúncio ou da variação)."
+     }
+    },
+    "additionalProperties": false,
+    "required": [
+     "inventory_id"
+    ]
+   },
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": true
+   }
+  },
+  {
+   "name": "mercado-livre__estoque__listar__operacoes_fulfillment",
+   "title": "Consultar operações de estoque Full (/stock/fulfillment/operations/search)",
+   "description": "Mercado Livre (marketplace, site MLB) — GET /stock/fulfillment/operations/search. Movimentações do estoque Full de um inventory_id (entradas, vendas, cancelamentos, ajustes, retiradas, transferências, quarentena), com a variação e o saldo resultante de cada operação. Quando usar: Kardex do Full por período (máximo 60 dias por consulta, últimos 12 meses). Quando não usar: para o saldo atual use /inventories/{id}/stock/fulfillment. Pré-requisitos: seller_id; inventory_id. Autenticação: Authorization: Bearer <access_token> (OAuth 2.0; token de 6 h, refresh_token de uso único). Atenção: Intervalo máximo de 60 dias e só os últimos 12 meses. O scroll aparece dentro de paging num exemplo e na raiz em outro: leia os dois. Fim quando scroll vier nulo.",
+   "inputSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+     "seller_id": {
+      "type": "integer",
+      "description": "ID do vendedor."
+     },
+     "inventory_id": {
+      "type": "string",
+      "description": "Um ou mais inventory_id separados por vírgula."
+     },
+     "date_from": {
+      "type": "string",
+      "description": "Início (AAAA-MM-DD). Sem datas, vêm os últimos 15 dias. Formato: AAAA-MM-DD.",
+      "format": "date"
+     },
+     "date_to": {
+      "type": "string",
+      "description": "Fim (AAAA-MM-DD). Intervalo máximo de 60 dias. Formato: AAAA-MM-DD.",
+      "format": "date"
+     },
+     "type": {
+      "type": "string",
+      "description": "Tipo de operação (ex.: INBOUND_RECEPTION, SALE_CONFIRMATION, SALE_CANCELATION, ADJUSTMENT)."
+     },
+     "external_references.shipment_id": {
+      "type": "string",
+      "description": "Envio ao comprador relacionado."
+     },
+     "limit": {
+      "type": "integer",
+      "description": "Registros por página (padrão e máximo 1000).",
+      "default": 1000,
+      "maximum": 1000
+     },
+     "sort": {
+      "type": "string",
+      "description": "Campo e ordem."
+     },
+     "scroll": {
+      "type": "string",
+      "description": "Cursor da página seguinte (expira em 5 minutos)."
+     }
+    },
+    "additionalProperties": false,
+    "required": [
+     "seller_id",
+     "inventory_id"
+    ]
+   },
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": true
+   }
+  },
+  {
+   "name": "mercado-livre__mensagem__listar__perguntas",
+   "title": "Busca de perguntas (/questions/search)",
+   "description": "Mercado Livre (marketplace, site MLB) — GET /questions/search. Perguntas pré-venda recebidas pelo vendedor (ou de um anúncio), com texto, situação, data, anúncio, quem perguntou (id) e a resposta. Quando usar: Planilha de perguntas sem resposta (status=UNANSWERED) ou de atendimento por anúncio. Quando não usar: mensagens pós-venda ficam em /messages; o tempo médio de resposta tem rota própria. Pré-requisitos: seller_id. Autenticação: Authorization: Bearer <access_token> (OAuth 2.0; token de 6 h, refresh_token de uso único). Atenção: Não há filtro de data documentado: ordene por date_created DESC e corte no cliente. Perguntas e respostas BANNED vêm com texto vazio. Perguntas sem resposta há mais de 7 meses são excluídas. Uma página da doc escreve searchtype=scan (sem _); use search_type.",
+   "inputSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+     "seller_id": {
+      "type": "integer",
+      "description": "Perguntas recebidas pelo vendedor."
+     },
+     "item": {
+      "type": "string",
+      "description": "Perguntas de um anúncio (ID MLB...)."
+     },
+     "from": {
+      "type": "integer",
+      "description": "Perguntas feitas por um usuário."
+     },
+     "status": {
+      "type": "string",
+      "description": "Situação da pergunta.",
+      "enum": [
+       "ANSWERED",
+       "BANNED",
+       "CLOSED_UNANSWERED",
+       "DELETED",
+       "DISABLED",
+       "UNANSWERED",
+       "UNDER_REVIEW"
+      ]
+     },
+     "api_version": {
+      "type": "integer",
+      "description": "Use 4 para a estrutura JSON atual.",
+      "default": 4
+     },
+     "sort_fields": {
+      "type": "string",
+      "description": "Ordenar por item_id, seller_id, from_id ou date_created (vírgula)."
+     },
+     "sort_types": {
+      "type": "string",
+      "description": "ASC ou DESC.",
+      "enum": [
+       "ASC",
+       "DESC"
+      ]
+     },
+     "offset": {
+      "type": "integer",
+      "description": "Deslocamento.",
+      "default": 0
+     },
+     "limit": {
+      "type": "integer",
+      "description": "Por página; exemplos com 50.",
+      "default": 50
+     },
+     "search_type": {
+      "type": "string",
+      "description": "scan para mais de 1000 perguntas.",
+      "enum": [
+       "scan"
+      ]
+     },
+     "scroll_id": {
+      "type": "string",
+      "description": "Cursor do modo scan (expira em 5 minutos)."
+     }
+    },
+    "additionalProperties": false
+   },
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": true
+   }
+  },
+  {
+   "name": "mercado-livre__mensagem__obter__tempo_resposta",
+   "title": "Calcular tempo de resposta (/users/{user_id}/questions/response_time)",
+   "description": "Mercado Livre (marketplace, site MLB) — GET /users/{user_id}/questions/response_time. Tempo médio de resposta às perguntas, em minutos, nos últimos 14 dias: total, dias úteis em horário comercial, dias úteis à noite e fim de semana, com a estimativa de aumento de vendas se responder em menos de 1 hora. Quando usar: Indicador de atendimento pré-venda. Quando não usar: para a lista de perguntas use /questions/search. Pré-requisitos: seller_id. Autenticação: Authorization: Bearer <access_token> (OAuth 2.0; token de 6 h, refresh_token de uso único). Atenção: Atualizado uma vez por dia. Perguntas sem resposta contam como respondidas no momento do cálculo, até 1 semana.",
+   "inputSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+     "user_id": {
+      "type": "integer",
+      "description": "ID do vendedor."
+     }
+    },
+    "additionalProperties": false,
+    "required": [
+     "user_id"
+    ]
+   },
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": true
+   }
+  },
+  {
+   "name": "mercado-livre__mensagem__enviar__resposta",
+   "title": "Resposta a perguntas (POST /answers)",
+   "description": "Mercado Livre (marketplace, site MLB) — POST /answers. Publica a resposta do vendedor a uma pergunta. Documentado como referência de escrita; o assistente não executa. Quando usar: Só pelo sistema do vendedor, com revisão humana. Quando não usar: o assistente nunca responde perguntas em nome do vendedor. Pré-requisitos: Escopo write concedido pelo vendedor. Autenticação: Authorization: Bearer <access_token> (OAuth 2.0; token de 6 h, refresh_token de uso único). Atenção: Mensagens automáticas repetitivas são proibidas pelas boas práticas e podem gerar sanção à conta. NÃO execute: operação de escrita; o assistente só explica e entrega o código.",
+   "inputSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+     "question_id": {
+      "type": "integer",
+      "description": "ID da pergunta."
+     },
+     "text": {
+      "type": "string",
+      "description": "Texto da resposta (até 2.000 caracteres, UTF-8)."
+     }
+    },
+    "additionalProperties": false,
+    "required": [
+     "question_id",
+     "text"
+    ]
+   },
+   "annotations": {
+    "readOnlyHint": false,
+    "destructiveHint": false,
+    "idempotentHint": false,
+    "openWorldHint": true
+   }
+  },
+  {
+   "name": "mercado-livre__contestacao__listar",
+   "title": "Buscar reclamações (/post-purchase/v1/claims/search)",
+   "description": "Mercado Livre (marketplace, site MLB) — GET /post-purchase/v1/claims/search. Busca reclamações, mediações, devoluções, cancelamentos e trocas em que o vendedor é parte, com etapa, motivo, recurso afetado (pedido, envio, pagamento), ações pendentes com prazo e resolução. Quando usar: Planilha de pós-venda por período: players.user_id + players.role=respondent e range por date_created. Quando não usar: o detalhe da devolução (envio de retorno, dinheiro retido) está em /post-purchase/v2/claims/{id}/returns. Pré-requisitos: seller_id. Autenticação: Authorization: Bearer <access_token> (OAuth 2.0; token de 6 h, refresh_token de uso único). Atenção: Datas do range precisam de milissegundos (2026-08-01T00:00:00.000-0300). status=opened sozinho é aceito mas caro e pode levar a rate limit/bloqueio. O exemplo oficial usa type returns enquanto a tabela lista return: confira o valor aceito. Players.user_id sempre com players.role.",
+   "inputSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+     "players.user_id": {
+      "type": "integer",
+      "description": "ID do usuário parte da reclamação; exige players.role."
+     },
+     "players.role": {
+      "type": "string",
+      "description": "Papel do usuário; exige players.user_id.",
+      "enum": [
+       "complainant",
+       "respondent"
+      ]
+     },
+     "status": {
+      "type": "string",
+      "description": "Situação. Não use como único filtro.",
+      "enum": [
+       "opened",
+       "closed"
+      ]
+     },
+     "type": {
+      "type": "string",
+      "description": "Tipo.",
+      "enum": [
+       "mediations",
+       "return",
+       "fulfillment",
+       "ml_case",
+       "cancel_sale",
+       "cancel_purchase",
+       "change",
+       "service"
+      ]
+     },
+     "stage": {
+      "type": "string",
+      "description": "Etapa.",
+      "enum": [
+       "claim",
+       "dispute",
+       "recontact",
+       "stale",
+       "none"
+      ]
+     },
+     "reason_id": {
+      "type": "string",
+      "description": "Motivo (prefixos PNR produto não recebido, PDD diferente/defeituoso, CS compra cancelada)."
+     },
+     "resource": {
+      "type": "string",
+      "description": "Recurso; exige resource_id ou players.role + players.user_id.",
+      "enum": [
+       "shipment",
+       "payment",
+       "order",
+       "purchase"
+      ]
+     },
+     "resource_id": {
+      "type": "integer",
+      "description": "Id do recurso; exige resource."
+     },
+     "order_id": {
+      "type": "integer",
+      "description": "Pedido (não combinar com pack_id)."
+     },
+     "pack_id": {
+      "type": "integer",
+      "description": "Pack (não combinar com order_id)."
+     },
+     "payment_id": {
+      "type": "integer",
+      "description": "Pagamento (convertido para order_id)."
+     },
+     "range": {
+      "type": "string",
+      "description": "Intervalo de datas: campo:after:data,before:data (date_created ou last_updated). Datas com milissegundos. Formato: date_created:after:AAAA-MM-DDThh:mm:ss.000-0300,before:AAAA-MM-DDThh:mm:ss.000-0300."
+     },
+     "sort": {
+      "type": "string",
+      "description": "campo:asc ou campo:desc (ex.: date_created:desc)."
+     },
+     "offset": {
+      "type": "integer",
+      "description": "Máximo 9999; offset + limit precisa ser menor que 10000.",
+      "default": 0,
+      "maximum": 9999
+     },
+     "limit": {
+      "type": "integer",
+      "description": "Padrão 30, máximo 100 (acima é ajustado para 100).",
+      "default": 30,
+      "maximum": 100
+     }
+    },
+    "additionalProperties": false
+   },
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": true
+   }
+  },
+  {
+   "name": "mercado-livre__contestacao__obter",
+   "title": "Consultar uma reclamação (/post-purchase/v1/claims/{claim_id})",
+   "description": "Mercado Livre (marketplace, site MLB) — GET /post-purchase/v1/claims/{claim_id}. Situação atual de uma reclamação: tipo, etapa, motivo, recurso, partes com ações disponíveis e prazos, resolução e entidades relacionadas (ex.: return). Quando usar: Ao receber notificação claims/claims_actions ou para conferir prazos de um caso. Quando não usar: para listar várias, /claims/search. Pré-requisitos: claim_id. Autenticação: Authorization: Bearer <access_token> (OAuth 2.0; token de 6 h, refresh_token de uso único). Atenção: Se related_entities contém return, a devolução está em /post-purchase/v2/claims/{id}/returns. Só uma parte tem ação obrigatória por vez; o due_date é o prazo.",
+   "inputSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+     "claim_id": {
+      "type": "integer",
+      "description": "ID da reclamação."
+     }
+    },
+    "additionalProperties": false,
+    "required": [
+     "claim_id"
+    ]
+   },
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": true
+   }
+  },
+  {
+   "name": "mercado-livre__contestacao__obter__devolucao",
+   "title": "Consultar uma devolução (/post-purchase/v2/claims/{claim_id}/returns)",
+   "description": "Mercado Livre (marketplace, site MLB) — GET /post-purchase/v2/claims/{claim_id}/returns. Devolução ligada a uma reclamação: situação, subtipo (total/parcial), situação do dinheiro (retido, devolvido), quando o reembolso acontece, envios de retorno com rastreio e destino (vendedor ou depósito) e pedidos/itens devolvidos. Quando usar: Planilha de devoluções: para cada reclamação com related_entities = return. Quando não usar: não existe busca de devoluções por período documentada; parta de /claims/search. Pré-requisitos: claim_id com devolução associada. Autenticação: Authorization: Bearer <access_token> (OAuth 2.0; token de 6 h, refresh_token de uso único). Atenção: Quantidades em orders vêm como texto com decimal ('1.0'). Datas aqui usam +00:00 (UTC), diferente das reclamações.",
+   "inputSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+     "claim_id": {
+      "type": "integer",
+      "description": "ID da reclamação que gerou a devolução."
+     }
+    },
+    "additionalProperties": false,
+    "required": [
+     "claim_id"
+    ]
+   },
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": true
+   }
+  },
+  {
+   "name": "mercado-livre__conta_pagar__listar",
+   "title": "Obter períodos de faturamento (/billing/integration/monthly/periods)",
+   "description": "Mercado Livre (marketplace, site MLB) — GET /billing/integration/monthly/periods. Períodos de faturamento do vendedor junto ao Mercado Livre (ou Mercado Pago): valor total do período, valor em aberto, datas de início e fim, vencimento da dívida e se o período está aberto ou fechado. Quando usar: Ver quanto o vendedor deve de tarifas por mês e se o período fechou. Quando não usar: a key do período é sempre o primeiro dia do mês (AAAA-MM-01); não é preciso consultar esta rota repetidamente para montá-la. Pré-requisitos: Permissão funcional Faturamento. Autenticação: Authorization: Bearer <access_token> (OAuth 2.0; token de 6 h, refresh_token de uso único). Atenção: O 429 dos relatórios de faturamento é bloqueio preventivo por IP; a doc cita esta rota entre as mais afetadas por polling. Consulte no máximo uma vez por dia. O período não coincide com o mês civil (ex.: 19/07 a 18/08).",
+   "inputSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+     "group": {
+      "type": "string",
+      "description": "Grupo de faturamento; sem ele vêm os dois.",
+      "enum": [
+       "ML",
+       "MP"
+      ]
+     },
+     "document_type": {
+      "type": "string",
+      "description": "Tipo de documento.",
+      "enum": [
+       "BILL",
+       "CREDIT_NOTE"
+      ]
+     },
+     "offset": {
+      "type": "integer",
+      "description": "Deslocamento.",
+      "default": 0
+     },
+     "limit": {
+      "type": "integer",
+      "description": "Quantidade; por padrão 6 períodos, máximo de 12.",
+      "default": 6,
+      "maximum": 12
+     }
+    },
+    "additionalProperties": false,
+    "required": [
+     "document_type"
+    ]
+   },
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": true
+   }
+  },
+  {
+   "name": "mercado-livre__conta_pagar__listar__documentos",
+   "title": "Obter documentos de um período (/billing/integration/periods/key/{key}/documents)",
+   "description": "Mercado Livre (marketplace, site MLB) — GET /billing/integration/periods/key/{key}/documents. Faturas e notas de crédito emitidas ao vendedor num período de faturamento, com valor, saldo em aberto, situação, vencimento e os arquivos (PDF/XML) para download. Quando usar: Conciliar o que foi faturado pelo Mercado Livre e baixar as faturas. Quando não usar: o detalhe venda a venda das cobranças está em /group/ML/details. Pré-requisitos: key do período (AAAA-MM-01). Autenticação: Authorization: Bearer <access_token> (OAuth 2.0; token de 6 h, refresh_token de uso único). Atenção: Documentos só existem depois que o período fecha, e o PDF pode levar alguns dias úteis. O download do PDF/XML é outra rota (/billing/integration/legal_document/{file_id}).",
+   "inputSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+     "key": {
+      "type": "string",
+      "description": "Primeiro dia do mês do período (AAAA-MM-01). Formato: AAAA-MM-01.",
+      "format": "date"
+     },
+     "group": {
+      "type": "string",
+      "description": "ML ou MP.",
+      "enum": [
+       "ML",
+       "MP"
+      ]
+     },
+     "document_id": {
+      "type": "integer",
+      "description": "Uma fatura específica."
+     },
+     "document_type": {
+      "type": "string",
+      "description": "Tipo.",
+      "enum": [
+       "BILL",
+       "CREDIT_NOTE"
+      ]
+     },
+     "offset": {
+      "type": "integer",
+      "description": "Deslocamento.",
+      "default": 0
+     },
+     "limit": {
+      "type": "integer",
+      "description": "Padrão 150, máximo 1000.",
+      "default": 150,
+      "maximum": 1000
+     }
+    },
+    "additionalProperties": false,
+    "required": [
+     "key"
+    ]
+   },
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": true
+   }
+  },
+  {
+   "name": "mercado-livre__conta_pagar__obter__resumo",
+   "title": "Resumo de faturamento (/billing/integration/periods/key/{key}/summary/details)",
+   "description": "Mercado Livre (marketplace, site MLB) — GET /billing/integration/periods/key/{key}/summary/details. Resumo do período: total faturado, percepções, cobranças e bonificações agrupadas por tipo (tarifa de venda CV, Mercado Envios CXD, Product Ads PADS...) e o que foi pago, descontado das vendas e ainda devido. Quando usar: Visão mensal das tarifas por tipo e conferência com a soma do detalhe. Quando não usar: não é para processamento em lote; a doc recomenda uma consulta por dia por usuário, em sequência. Pré-requisitos: key do período. Autenticação: Authorization: Bearer <access_token> (OAuth 2.0; token de 6 h, refresh_token de uso único). Atenção: Os rótulos (label) vêm traduzidos e podem mudar; use type (CV, CXD, PADS, BV...) como chave. Para conciliar, a soma de detail_amount por detail_sub_type no detalhe deve bater com o amount do mesmo type aqui.",
+   "inputSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+     "key": {
+      "type": "string",
+      "description": "Primeiro dia do mês (AAAA-MM-01). Formato: AAAA-MM-01.",
+      "format": "date"
+     },
+     "group": {
+      "type": "string",
+      "description": "ML ou MP.",
+      "enum": [
+       "ML",
+       "MP"
+      ]
+     }
+    },
+    "additionalProperties": false,
+    "required": [
+     "key"
+    ]
+   },
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": true
+   }
+  },
+  {
+   "name": "mercado-livre__transacao__listar__tarifas",
+   "title": "Obter detalhes de faturamento ML (/billing/integration/periods/key/{key}/group/ML/details)",
+   "description": "Mercado Livre (marketplace, site MLB) — GET /billing/integration/periods/key/{key}/group/ML/details. Cada cobrança e bonificação do período, venda a venda: tarifa de venda, custo de envio, parcelamento, publicidade, com o pedido, o item, o envio, o desconto aplicado, a composição da tarifa (bruta, líquida, rebate) e o documento fiscal. Quando usar: Planilha de tarifas e margem por venda num mês de faturamento, ou conciliação com a fatura. Quando não usar: não é fonte operacional em tempo real (a doc proíbe esse uso); para vendas do dia use /orders/search. Pré-requisitos: key do período; Permissão funcional Faturamento. Autenticação: Authorization: Bearer <access_token> (OAuth 2.0; token de 6 h, refresh_token de uso único). Atenção: Datas sem fuso (2026-08-14T10:36:38). A estrutura de tarifa do MLB separa custo por vender, custo de cobrar com Mercado Pago e taxa de parcelamento (esta não gera nota). Paginação recomendada é from_id + last_id (offset trava em 10.000). Não faça lotes paralelos: 429 por IP.",
+   "inputSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+     "key": {
+      "type": "string",
+      "description": "Primeiro dia do mês (AAAA-MM-01). Formato: AAAA-MM-01.",
+      "format": "date"
+     },
+     "document_type": {
+      "type": "string",
+      "description": "Tipo.",
+      "enum": [
+       "BILL",
+       "CREDIT_NOTE"
+      ]
+     },
+     "limit": {
+      "type": "integer",
+      "description": "Padrão 150, mínimo 1, máximo 1000.",
+      "default": 150,
+      "minimum": 1,
+      "maximum": 1000
+     },
+     "from_id": {
+      "type": "integer",
+      "description": "Paginação por id: last_id da página anterior (padrão 0).",
+      "default": 0
+     },
+     "sort_by": {
+      "type": "string",
+      "description": "ID (padrão; recomendado para paginar) ou DATE.",
+      "enum": [
+       "ID",
+       "DATE"
+      ],
+      "default": "ID"
+     },
+     "order_by": {
+      "type": "string",
+      "description": "ASC ou DESC.",
+      "enum": [
+       "ASC",
+       "DESC"
+      ]
+     },
+     "date_sort": {
+      "type": "string",
+      "description": "asc (padrão) ou desc.",
+      "enum": [
+       "asc",
+       "desc"
+      ]
+     },
+     "detail_type": {
+      "type": "string",
+      "description": "charge (só cobranças) ou bonus (só bonificações).",
+      "enum": [
+       "charge",
+       "bonus"
+      ]
+     },
+     "detail_sub_types": {
+      "type": "string",
+      "description": "Subtipos separados por vírgula (ex.: CV,BV)."
+     },
+     "detail_excluded_sub_types": {
+      "type": "string",
+      "description": "Subtipos a excluir (ex.: CXD,BXD)."
+     },
+     "marketplace_type": {
+      "type": "string",
+      "description": "Marketplace da cobrança (ex.: SHIPPING)."
+     },
+     "order_ids": {
+      "type": "string",
+      "description": "Um ou mais pedidos."
+     },
+     "item_ids": {
+      "type": "string",
+      "description": "Um ou mais anúncios."
+     },
+     "document_ids": {
+      "type": "string",
+      "description": "Uma ou mais faturas."
+     },
+     "detail_ids": {
+      "type": "string",
+      "description": "Um ou mais lançamentos."
+     },
+     "offset": {
+      "type": "integer",
+      "description": "Alternativa ao from_id; máximo 10000.",
+      "default": 0,
+      "maximum": 10000
+     }
+    },
+    "additionalProperties": false,
+    "required": [
+     "key",
+     "document_type"
+    ]
+   },
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": true
+   }
+  },
+  {
+   "name": "mercado-livre__transacao__listar__tarifas_por_pedido",
+   "title": "Relatórios de faturamento por orders e packs (/billing/integration/group/ML/order/details)",
+   "description": "Mercado Livre (marketplace, site MLB) — GET /billing/integration/group/ML/order/details. Faturamento de pedidos específicos: pagamentos (com liberação do dinheiro e impostos retidos), composição da tarifa de venda e os lançamentos de cobrança de cada pedido. Quando usar: Quando você já tem a lista de pedidos e quer as tarifas deles (até 60 por chamada). Quando não usar: para o mês inteiro use /periods/key/{key}/group/ML/details; não consulte o mesmo pedido mais de uma vez (a doc cita esta rota como a mais sujeita a 429). Pré-requisitos: order_ids (até 60) ou pack_id. Autenticação: Authorization: Bearer <access_token> (OAuth 2.0; token de 6 h, refresh_token de uso único). Atenção: Mais de 60 order_ids por consulta e reconsultar pedidos já processados são as causas citadas de 429. Datas sem fuso.",
+   "inputSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+     "order_ids": {
+      "type": "string",
+      "description": "Um ou mais pedidos separados por vírgula (máximo 60)."
+     },
+     "pack_id": {
+      "type": "integer",
+      "description": "Um pack."
+     },
+     "sort_by": {
+      "type": "string",
+      "description": "ID (padrão) ou DATE.",
+      "enum": [
+       "ID",
+       "DATE"
+      ],
+      "default": "ID"
+     },
+     "order_by": {
+      "type": "string",
+      "description": "ASC (padrão) ou DESC.",
+      "enum": [
+       "ASC",
+       "DESC"
+      ],
+      "default": "ASC"
+     }
+    },
+    "additionalProperties": false
+   },
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": true
+   }
+  },
+  {
+   "name": "mercado-livre__anuncio__obter__visitas",
+   "title": "Visitas por anúncios entre intervalos de datas (/items/visits)",
+   "description": "Mercado Livre (marketplace, site MLB) — GET /items/visits. Total de visitas de um anúncio num intervalo de datas (até 150 dias). Quando usar: Conversão por anúncio (visitas x vendidos) num período. Quando não usar: aceita um anúncio por chamada; para a curva diária do vendedor use /users/{id}/items_visits/time_window. Pré-requisitos: item_id. Autenticação: Authorization: Bearer <access_token> (OAuth 2.0; token de 6 h, refresh_token de uso único). Atenção: Uma chamada por anúncio: para centenas de anúncios, espaçe as chamadas (a FAQ de rate limit cita esta rota). Ao republicar, o histórico de visitas é herdado do anúncio original.",
+   "inputSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+     "ids": {
+      "type": "string",
+      "description": "Um único ID de anúncio (mais de um dá 400)."
+     },
+     "date_from": {
+      "type": "string",
+      "description": "Início (ISO, AAAA-MM-DD). Formato: AAAA-MM-DD.",
+      "format": "date"
+     },
+     "date_to": {
+      "type": "string",
+      "description": "Fim (ISO, AAAA-MM-DD). Intervalo máximo de 150 dias. Formato: AAAA-MM-DD.",
+      "format": "date"
+     }
+    },
+    "additionalProperties": false,
+    "required": [
+     "ids",
+     "date_from",
+     "date_to"
+    ]
+   },
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": true
+   }
+  },
+  {
+   "name": "mercado-livre__anuncio__listar__visitas_diarias",
+   "title": "Visitantes por data por usuário (/users/{user_id}/items_visits/time_window)",
+   "description": "Mercado Livre (marketplace, site MLB) — GET /users/{user_id}/items_visits/time_window. Visitas a todos os anúncios do vendedor, dia a dia, numa janela que termina na data informada. Quando usar: Curva diária de tráfego da loja. Quando não usar: por anúncio, use /items/{id}/visits/time_window ou /items/visits. Pré-requisitos: seller_id. Autenticação: Authorization: Bearer <access_token> (OAuth 2.0; token de 6 h, refresh_token de uso único). Atenção: O limite de 150 dias vale para date_from/date_to; para last a doc não fixa máximo. Datas da resposta em UTC.",
+   "inputSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+     "user_id": {
+      "type": "integer",
+      "description": "ID do vendedor."
+     },
+     "last": {
+      "type": "integer",
+      "description": "Quantos dias para trás."
+     },
+     "unit": {
+      "type": "string",
+      "description": "Unidade (day).",
+      "enum": [
+       "day"
+      ]
+     },
+     "ending": {
+      "type": "string",
+      "description": "Data final da amostra (AAAA-MM-DD); padrão hoje. Formato: AAAA-MM-DD.",
+      "format": "date"
+     }
+    },
+    "additionalProperties": false,
+    "required": [
+     "user_id",
+     "last",
+     "unit"
+    ]
+   },
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": true
+   }
+  },
+  {
+   "name": "mercado-livre__nota_fiscal__obter__pedido",
+   "title": "Consultar notas fiscais por order_id (/users/{user_id}/invoices/orders/{order_id})",
+   "description": "Mercado Livre (marketplace, site MLB) — GET /users/{user_id}/invoices/orders/{order_id}. NF-e emitida pelo Faturador Mercado Livre para uma venda: número, série, chave de acesso, situação na SEFAZ, data de emissão, valores, itens com tributos e os caminhos do XML e do DANFE. Quando usar: Planilha fiscal das vendas para vendedores que emitem NF-e pelo Faturador do Mercado Livre. Quando não usar: vendedor que emite em ERP próprio não terá nota aqui; o download em lote (zip) tem rota própria. Pré-requisitos: Vendedor usando o Faturador Mercado Livre; order_id. Autenticação: Authorization: Bearer <access_token> (OAuth 2.0; token de 6 h, refresh_token de uso único). Atenção: Uma chamada por pedido. issued_date em UTC; authorization_date sem fuso. A resposta traz CNPJ/IE de emitente e destinatário (dado pessoal quando o comprador é pessoa física).",
+   "inputSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+     "user_id": {
+      "type": "integer",
+      "description": "ID do vendedor."
+     },
+     "order_id": {
+      "type": "integer",
+      "description": "ID do pedido."
+     }
+    },
+    "additionalProperties": false,
+    "required": [
+     "user_id",
+     "order_id"
+    ]
+   },
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": true
+   }
+  },
+  {
+   "name": "mercado-livre__webhook__listar__perdidas",
+   "title": "Histórico das notificações (/missed_feeds)",
+   "description": "Mercado Livre (marketplace, site MLB) — GET /missed_feeds. Notificações que não foram aceitas pelo callback depois de 8 tentativas em 1 hora, guardadas por até 2 dias, com o pedido enviado e a resposta do servidor. Quando usar: Recuperar eventos perdidos quando o callback ficou fora do ar. Quando não usar: não substitui a busca de dados; depois de ler o resource, consulte o recurso. Pré-requisitos: app_id (client_id do aplicativo). Autenticação: Authorization: Bearer <access_token> (OAuth 2.0; token de 6 h, refresh_token de uso único). Atenção: Só 2 dias de histórico. Desde 15/06/2026 o Mercado Livre desativa as notificações de aplicações com mais de 80% de erro; durante a desativação nada vai para o missed_feeds.",
+   "inputSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+     "app_id": {
+      "type": "integer",
+      "description": "ID do aplicativo."
+     },
+     "topic": {
+      "type": "string",
+      "description": "Filtra por tópico (ex.: orders_v2, items, questions)."
+     },
+     "site_id": {
+      "type": "string",
+      "description": "Obrigatório quando topic=items (ex.: MLB); sem ele, 400."
+     },
+     "offset": {
+      "type": "integer",
+      "description": "Deslocamento.",
+      "default": 0
+     },
+     "limit": {
+      "type": "integer",
+      "description": "Quantidade (exemplo usa 10)."
+     }
+    },
+    "additionalProperties": false,
+    "required": [
+     "app_id"
+    ]
+   },
+   "annotations": {
+    "readOnlyHint": true,
+    "destructiveHint": false,
+    "idempotentHint": true,
+    "openWorldHint": true
+   }
+  }
+ ]
+}

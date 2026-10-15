@@ -1,0 +1,3974 @@
+openapi: 3.1.0
+info:
+  title: Qive (antiga Arquivei) — API de documentos fiscais (recorte do catálogo)
+  version: 1.105.0 (Swagger oficial consultado em 2026-10-14)
+  summary: Reconstrução das leituras de NF-e, CT-e, CT-e OS, NFS-e, NFC-e, MDF-e, eventos, PDFs, boletos e comprovantes, mais webhooks e escritas
+    de referência.
+  description: Reconstruído do Swagger 2.0 oficial https://docs.arquivei.com.br/arquivei-apis-swagger/dfe-api.json (título 'Qive API', versão
+    1.105.0), que alimenta o Portal do Desenvolvedor https://developers.qive.com.br. Descrições autorais; caminhos, parâmetros e campos exatos.
+    Operações não detalhadas estão em endpoints.json > endpoints_secundarios.
+  contact:
+    name: Suporte Qive
+    url: https://developers.qive.com.br/help
+  x-fonte-url: https://docs.arquivei.com.br/arquivei-apis-swagger/dfe-api.json
+  x-data-consulta: '2026-10-14'
+externalDocs:
+  description: Portal do Desenvolvedor Qive
+  url: https://developers.qive.com.br
+servers:
+- url: https://api.arquivei.com.br
+  description: Produção (host único; a marca mudou para Qive, o host continua arquivei.com.br)
+- url: https://sandbox-api.arquivei.com.br
+  description: Sandbox (credenciais de teste geradas em https://developers.qive.com.br/sandbox; notas sintéticas)
+security:
+- XApiId: []
+  XApiKey: []
+components:
+  securitySchemes:
+    XApiId:
+      type: apiKey
+      in: header
+      name: X-API-ID
+      description: Identificador da credencial emitida pela Qive.
+    XApiKey:
+      type: apiKey
+      in: header
+      name: X-API-KEY
+      description: Chave secreta da credencial.
+    XApiPermissionKey:
+      type: apiKey
+      in: header
+      name: X-API-PERMISSION-KEY
+      description: Chave de permissão para parceiros (declarada no Swagger; uso não detalhado na documentação).
+paths:
+  /v2/dfe/nfe:
+    post:
+      operationId: arquivei__nota_fiscal__listar__nfe
+      summary: Busca de NFes (API 2.0) — Lista as NFes da conta com base nos filtros aplicados
+      description: 'Busca as NF-e da conta (recebidas, emitidas, como transportadora ou autorizada no autXML) com filtros no corpo JSON e projeção
+        de campos: o integrador escolhe em Fields o que quer receber (chave, número, datas, emitente, destinatário, status, CFOPs, manifestações,
+        eventos, tags e, se pedir, o XML em Base64 ou o documento em JSON). É a rota recomendada pela Qive para buscas desde a API 2.0. Apesar
+        do POST, é uma consulta: não grava nada. Para a planilha de NF-e do período: recebidas (OwnerRoles=received) ou emitidas (emitted), por
+        data de emissão, status (authorized/canceled), CNPJ do emitente ou destinatário, CFOP, finalidade ou tags. Quando NÃO usar: para o PDF
+        (use arquivei.nota_fiscal.baixar_arquivo.danfe) ou para os XMLs de evento de uma chave (arquivei.nota_fiscal.obter.eventos_nfe). Valor
+        total e série não vêm como campo próprio: estão no XML (peça ''Xml'' em Fields e leia total/ICMSTot/vNF).'
+      tags:
+      - NotaFiscal
+      x-confianca: verificado
+      x-fonte-url: https://docs.arquivei.com.br/arquivei-apis-swagger/dfe-api.json
+      x-data-consulta: '2026-10-14'
+      x-seguro-para-executar: true
+      parameters:
+      - name: X-Use-ApiGateway
+        in: header
+        required: true
+        schema:
+          type: string
+          enum: &id001
+          - always
+          default: always
+          description: 'Cabeçalho exigido pela documentação para rotear a chamada pelo API Gateway da Qive; o valor é sempre ''always''. Não é
+            credencial: é fixo. Sem ele a rota pode não ser atendida.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                Filters:
+                  type: object
+                  properties:
+                    EmissionDate:
+                      type: object
+                      properties:
+                        From:
+                          type: string
+                          description: 'Início do período de emissão. Formato: AAAA-MM-DD ou AAAA-MM-DD HH:MM:SS. Sem EmissionDate a API aplica
+                            os últimos 30 dias. A ajuda oficial usa AAAA-MM-DD HH:MM:SS.'
+                        To:
+                          type: string
+                          description: 'Fim do período de emissão. Formato: AAAA-MM-DD HH:MM:SS.'
+                    CreatedAt:
+                      type: object
+                      properties:
+                        From:
+                          type: string
+                          description: 'Início do período de entrada do documento na Qive (captura/importação), não de emissão. Formato: AAAA-MM-DD
+                            HH:MM:SS.'
+                        To:
+                          type: string
+                          description: 'Fim do período de entrada na Qive. Formato: AAAA-MM-DD HH:MM:SS.'
+                    OwnerRoles:
+                      type: array
+                      items:
+                        type: string
+                        enum:
+                        - received
+                        - emitted
+                        - transporter
+                        - authorized
+                      description: Papel do CNPJ da conta na nota. A descrição e a ajuda usam received/emitted/transporter/authorized; o exemplo
+                        do schema mostra receiver/emitter. Use os valores da descrição e valide no sandbox.
+                    Owners:
+                      type: array
+                      items:
+                        type: string
+                      description: CNPJs/CPFs donos dos documentos na Qive (os CNPJs da conta).
+                    Status:
+                      type: string
+                      enum:
+                      - authorized
+                      - canceled
+                      description: Situação do documento.
+                    DocumentIdentifier:
+                      type: string
+                      description: 'Chave de acesso para busca exata. Formato: 44 dígitos.'
+                    EmitterCnpj:
+                      type: array
+                      items:
+                        type: string
+                      description: CNPJs/CPFs dos emitentes.
+                    ReceiverCnpj:
+                      type: array
+                      items:
+                        type: string
+                      description: CNPJs/CPFs dos destinatários.
+                    TransporterCnpj:
+                      type: array
+                      items:
+                        type: string
+                      description: CNPJs/CPFs dos transportadores.
+                    Cfops:
+                      type: array
+                      items:
+                        type: string
+                      description: CFOPs.
+                    FinNFe:
+                      type: array
+                      items:
+                        type: string
+                        enum:
+                        - '1'
+                        - '2'
+                        - '3'
+                        - '4'
+                        - '5'
+                        - '6'
+                      description: Finalidade (campo finNFe do XML). 1 normal, 2 complementar, 3 ajuste, 4 devolução, 5 crédito, 6 débito.
+                    NfeNumber:
+                      type: object
+                      properties:
+                        From:
+                          type: integer
+                          description: Número inicial da faixa.
+                        To:
+                          type: integer
+                          description: Número final da faixa.
+                    HasCCE:
+                      type: boolean
+                      description: Só notas com (true) ou sem (false) carta de correção.
+                    HasEvent:
+                      type: boolean
+                      description: Só notas com eventos associados.
+                    HasManifestation:
+                      type: boolean
+                      description: Só notas com manifestação do destinatário.
+                    Origins:
+                      type: array
+                      items:
+                        type: string
+                        enum:
+                        - sefaz
+                        - upload
+                        - upload_zip
+                        - upload_daemon
+                        - upload_api
+                        - email
+                        - integracoes
+                      description: Origem do documento na Qive. O schema chama o campo Origins; a descrição do corpo, Origin.
+                    Tags:
+                      type: array
+                      items:
+                        type: string
+                      description: IDs de etiquetas (pelo menos uma).
+                    TagsAll:
+                      type: array
+                      items:
+                        type: string
+                      description: IDs de etiquetas (todas).
+                    XPeds:
+                      type: array
+                      items:
+                        type: string
+                      description: Números de pedido (xPed) citados na nota.
+                    CustomData:
+                      type: array
+                      items:
+                        type: string
+                      description: 'Filtro por properties: lista de {Name, Values}; E entre itens, OU entre valores.'
+                Fields:
+                  type: array
+                  items:
+                    type: string
+                    enum:
+                    - Xml
+                    - Origin
+                    - FlagErp
+                    - CustomData
+                    - Document
+                    - Events
+                    - Tags
+                    - Cfops
+                    - AccessKey
+                    - EmissionDate
+                    - CreatedAt
+                    - HasCCE
+                    - Manifestations
+                    - Number
+                    - Owner
+                    - OwnerRole
+                    - Receiver
+                    - Emitter
+                    - Status
+                  description: Campos a devolver. Sem Fields vêm só Xml e AccessKey.
+                Limit:
+                  type: integer
+                  default: 500
+                  maximum: 500
+                  description: Tamanho da página. Padrão e máximo 500; a ajuda oficial recomenda até 100 por bloco.
+                Paginator:
+                  type: string
+                  description: Cursor devolvido em Paginator na página anterior; vazio na primeira chamada.
+            example:
+              Filters:
+                EmissionDate:
+                  From: '2026-09-01 00:00:00'
+                  To: '2026-09-30 23:59:59'
+                OwnerRoles:
+                - received
+                Status: authorized
+              Fields:
+              - AccessKey
+              - Number
+              - EmissionDate
+              - CreatedAt
+              - Status
+              - Owner
+              - OwnerRole
+              - Emitter
+              - Receiver
+              - Cfops
+              - HasCCE
+              - Manifestations
+              - Origin
+              - FlagErp
+              - Xml
+              Limit: 100
+      responses:
+        '200':
+          description: Sucesso.
+          content:
+            application/json:
+              example:
+                Nfes:
+                - AccessKey: '35260900000000000191550010000012341000012345'
+                  Number: '1234'
+                  EmissionDate: '2026-09-15 10:22:31'
+                  CreatedAt: '2026-09-15 10:40:02'
+                  Status: authorized
+                  Owner: 00000000000191
+                  OwnerRole: received
+                  Origin: sefaz
+                  FlagErp: false
+                  HasCCE: false
+                  Cfops:
+                  - '5102'
+                  Emitter:
+                    EmitterCnpj: 00000000000191
+                    EmitterName: FORNECEDOR EXEMPLO LTDA
+                    EmitterAddressUf: SP
+                  Receiver:
+                    ReceiverCnpj: 00000000000191
+                    ReceiverName: EMPRESA EXEMPLO SA
+                    ReceiverAddressUf: SP
+                  Manifestations: []
+                  Xml: PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4...
+                Paginator: '["<<cursor-opaco>>"]'
+                Total: 1
+        '400':
+          description: Corpo JSON malformado, filtro com tipo errado ou valor não aceito.
+        '401':
+          description: X-API-ID ou X-API-KEY ausente, errado, revogado ou de outro ambiente (credencial de sandbox chamando produção, ou o contrário).
+        '429':
+          description: Limite de requisições da conta atingido. A Qive define o limite por cliente, conforme contrato e volume.
+        '500':
+          description: Falha interna da Qive.
+  /v1/dfe/cte:
+    post:
+      operationId: arquivei__nota_fiscal__listar__cte
+      summary: Busca de CTes — Lista os CTes da conta com base nos filtros aplicados
+      description: 'Busca os CT-e da conta com filtros no corpo JSON e projeção de campos: chave, número, datas, status, emitente, tomador, remetente,
+        destinatário, expedidor, CFOPs, NF-e relacionadas, eventos, manifestações, grupo IBS/CBS da reforma e, se pedido, o XML em Base64. Consulta,
+        sem efeito colateral. Para a planilha de fretes (CT-e) do período, em especial os tomados pela empresa (IsTaker=true), por emissão, status,
+        emitente ou NF-e transportada. Quando NÃO usar: para CT-e OS (use arquivei.nota_fiscal.listar.cteos) ou para o PDF (arquivei.nota_fiscal.baixar_arquivo.dacte).
+        O valor da prestação está no XML (vPrest/vTPrest).'
+      tags:
+      - NotaFiscal
+      x-confianca: verificado
+      x-fonte-url: https://docs.arquivei.com.br/arquivei-apis-swagger/dfe-api.json
+      x-data-consulta: '2026-10-14'
+      x-seguro-para-executar: true
+      parameters:
+      - name: X-Use-ApiGateway
+        in: header
+        required: true
+        schema:
+          type: string
+          enum: *id001
+          default: always
+          description: 'Cabeçalho exigido pela documentação para rotear a chamada pelo API Gateway da Qive; o valor é sempre ''always''. Não é
+            credencial: é fixo. Sem ele a rota pode não ser atendida.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                Filters:
+                  type: object
+                  properties:
+                    EmissionDate:
+                      type: object
+                      properties:
+                        From:
+                          type: string
+                          description: 'Início do período de emissão. Formato: AAAA-MM-DD HH:MM:SS.'
+                        To:
+                          type: string
+                          description: 'Fim do período de emissão. Formato: AAAA-MM-DD HH:MM:SS.'
+                    CreatedAt:
+                      type: object
+                      properties:
+                        From:
+                          type: string
+                          description: 'Início do período de entrada na Qive. Formato: AAAA-MM-DD HH:MM:SS.'
+                        To:
+                          type: string
+                          description: 'Fim do período de entrada na Qive. Formato: AAAA-MM-DD HH:MM:SS.'
+                    IsTaker:
+                      type: boolean
+                      description: true = só CT-e em que o CNPJ da conta é o tomador.
+                    Owners:
+                      type: array
+                      items:
+                        type: string
+                      description: CNPJs/CPFs donos dos documentos na Qive.
+                    EmitterCnpj:
+                      type: array
+                      items:
+                        type: string
+                      description: CNPJs/CPFs dos emitentes (transportadoras).
+                    Status:
+                      type: string
+                      enum:
+                      - authorized
+                      - canceled
+                      description: Situação.
+                    DocumentIdentifier:
+                      type: string
+                      description: 'Chave de acesso do CT-e. Formato: 44 dígitos.'
+                    Nfes:
+                      type: array
+                      items:
+                        type: string
+                      description: Chaves de NF-e relacionadas ao CT-e.
+                    Types:
+                      type: array
+                      items:
+                        type: string
+                      description: 'Tipos de CT-e (ex.: normal, complemento).'
+                    Cfops:
+                      type: array
+                      items:
+                        type: string
+                      description: CFOPs.
+                    Origin:
+                      type: array
+                      items:
+                        type: string
+                      description: 'Origem (ex.: sefaz, upload).'
+                    HasCCE:
+                      type: boolean
+                      description: Com carta de correção.
+                    HasManifestation:
+                      type: boolean
+                      description: Com manifestação.
+                    Tags:
+                      type: array
+                      items:
+                        type: string
+                      description: IDs de etiquetas (pelo menos uma).
+                    CustomData:
+                      type: array
+                      items:
+                        type: string
+                      description: Filtro por properties {Name, Values}.
+                fields:
+                  type: array
+                  items:
+                    type: string
+                    enum:
+                    - Xml
+                    - Origin
+                    - FlagErp
+                    - CustomData
+                    - Document
+                    - Events
+                    - Tags
+                    - Cfops
+                    - AccessKey
+                    - EmissionDate
+                    - CreatedAt
+                    - HasCCE
+                    - Manifestations
+                    - Number
+                    - Owner
+                    - OwnerRole
+                    - Addressee
+                    - Dispatcher
+                    - Sender
+                    - Receiver
+                    - Emitter
+                    - Status
+                    - Taker
+                    - IBSCBS
+                    - AccessKeyPrev
+                    - AccessKeysComp
+                  description: Campos a devolver. O schema grafa 'fields' (minúsculo) e a descrição 'Fields'; a doc não diz o padrão quando ausente.
+                Limit:
+                  type: integer
+                  default: 500
+                  maximum: 500
+                  description: Tamanho da página.
+                Paginator:
+                  type: string
+                  description: Cursor da página anterior.
+            example:
+              Filters:
+                EmissionDate:
+                  From: '2026-09-01 00:00:00'
+                  To: '2026-09-30 23:59:59'
+                IsTaker: true
+              fields:
+              - AccessKey
+              - Number
+              - EmissionDate
+              - Status
+              - Emitter
+              - Taker
+              - Sender
+              - Receiver
+              - Cfops
+              - Xml
+              Limit: 100
+      responses:
+        '200':
+          description: Sucesso.
+          content:
+            application/json:
+              example:
+                Ctes:
+                - AccessKey: '35260900000000000191570010000003211000003214'
+                  Number: '321'
+                  EmissionDate: '2026-09-10 08:00:00'
+                  Status: authorized
+                  Emitter:
+                    EmitterCpfCnpj: 00000000000191
+                    EmitterName: TRANSPORTADORA EXEMPLO LTDA
+                    EmitterAddressUf: SP
+                  Taker:
+                    TakerCpfCnpj: 00000000000191
+                    TakerName: EMPRESA EXEMPLO SA
+                  Cfops:
+                  - '6353'
+                  Xml: PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4...
+                Paginator: '["<<cursor-opaco>>"]'
+                Total: 1
+        '400':
+          description: Corpo JSON malformado, filtro com tipo errado ou valor não aceito.
+        '401':
+          description: X-API-ID ou X-API-KEY ausente, errado, revogado ou de outro ambiente (credencial de sandbox chamando produção, ou o contrário).
+        '429':
+          description: Limite de requisições da conta atingido. A Qive define o limite por cliente, conforme contrato e volume.
+        '500':
+          description: Falha interna da Qive.
+  /v1/dfe/nfse:
+    post:
+      operationId: arquivei__nota_fiscal__listar__nfse
+      summary: Busca de NFSes — Lista as NFses da conta com base nos filtros aplicados
+      description: 'Busca as NFS-e da conta (prestadas e tomadas, de prefeituras e do padrão nacional) com filtros no corpo: emissão, criação
+        na Qive, competência (AAAA-MM), emitente, tomador, papel do dono, origem e cancelamento. Devolve emitente, tomador, status, id da nota
+        e, conforme fields, o XML no padrão ABRASF da Qive, o ABRASF com campos da reforma tributária ou o XML original. Para a planilha de notas
+        de serviço tomadas (ownerRoles=taker) ou prestadas (emitter) num período ou competência. Quando NÃO usar: para o PDF (arquivei.nota_fiscal.baixar_arquivo.danfse).
+        O id da NFS-e (formato dono:emissor:data:número) é o que as rotas de PDF e eventos pedem.'
+      tags:
+      - NotaFiscal
+      x-confianca: verificado
+      x-fonte-url: https://docs.arquivei.com.br/arquivei-apis-swagger/dfe-api.json
+      x-data-consulta: '2026-10-14'
+      x-seguro-para-executar: true
+      parameters:
+      - name: X-Use-ApiGateway
+        in: header
+        required: true
+        schema:
+          type: string
+          enum: *id001
+          default: always
+          description: 'Cabeçalho exigido pela documentação para rotear a chamada pelo API Gateway da Qive; o valor é sempre ''always''. Não é
+            credencial: é fixo. Sem ele a rota pode não ser atendida.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                filters:
+                  type: object
+                  properties:
+                    emissionDate:
+                      type: object
+                      properties:
+                        from:
+                          type: string
+                          description: 'Início do período de emissão. Formato: AAAA-MM-DD HH:MM:SS. A descrição grafa from/to (minúsculo); o objeto
+                            TimeRange do schema usa From/To.'
+                        to:
+                          type: string
+                          description: 'Fim do período de emissão. Formato: AAAA-MM-DD HH:MM:SS.'
+                    createdAt:
+                      type: object
+                      properties:
+                        from:
+                          type: string
+                          description: 'Início do período de entrada na Qive. Formato: AAAA-MM-DD HH:MM:SS.'
+                        to:
+                          type: string
+                          description: 'Fim do período de entrada na Qive. Formato: AAAA-MM-DD HH:MM:SS.'
+                    competence:
+                      type: array
+                      items:
+                        type: string
+                      description: 'Competências no formato AAAA-MM. Formato: AAAA-MM.'
+                    ownerRoles:
+                      type: array
+                      items:
+                        type: string
+                        enum:
+                        - emitter
+                        - taker
+                        - intermediate
+                      description: Papel do dono na nota.
+                    owners:
+                      type: array
+                      items:
+                        type: string
+                      description: CNPJs/CPFs donos.
+                    emitterCnpj:
+                      type: array
+                      items:
+                        type: string
+                      description: CNPJs/CPFs dos prestadores.
+                    takerCnpj:
+                      type: array
+                      items:
+                        type: string
+                      description: CNPJs/CPFs dos tomadores.
+                    isCanceled:
+                      type: string
+                      enum:
+                      - 'true'
+                      - 'false'
+                      description: '''true'' só canceladas; ''false'' só não canceladas.'
+                    origin:
+                      type: string
+                      description: 'Origem (ex.: nacional, upload, ginfes).'
+                    documentIdentifier:
+                      type: string
+                      description: 'Id da NFS-e: cnpjOuCpfDono:cnpjEmissor:AAAA-MM-DD:numero.'
+                    customData:
+                      type: array
+                      items:
+                        type: string
+                      description: Filtro por properties {Name, Values}.
+                fields:
+                  type: array
+                  items:
+                    type: string
+                    enum:
+                    - xmlAbrasf
+                    - xmlAbrasfRtc
+                    - originalXml
+                    - origin
+                    - flagErp
+                    - customData
+                    - document
+                  description: Campos a devolver.
+                paginator:
+                  type: string
+                  description: Cursor da página anterior.
+            example:
+              filters:
+                emissionDate:
+                  from: '2026-09-01 00:00:00'
+                  to: '2026-09-30 23:59:59'
+                ownerRoles:
+                - taker
+              fields:
+              - origin
+              - flagErp
+              - xmlAbrasf
+      responses:
+        '200':
+          description: Sucesso.
+          content:
+            application/json:
+              example:
+                nfses:
+                - id: 00000000000191:00000000000191:2026-09-12:1
+                  status: authorized
+                  origin: nacional
+                  emitter:
+                    emitterCpfCnpj: 00000000000191
+                    emitterName: PRESTADOR EXEMPLO LTDA
+                    emitterAddressCity: Campinas
+                  taker:
+                    takerCpfCnpj: 00000000000191
+                    takerName: EMPRESA EXEMPLO SA
+                  xmlAbrasf: PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4...
+                paginator: <<cursor-opaco>>
+                total: 1
+        '400':
+          description: Corpo JSON malformado, filtro com tipo errado ou valor não aceito.
+        '401':
+          description: X-API-ID ou X-API-KEY ausente, errado, revogado ou de outro ambiente (credencial de sandbox chamando produção, ou o contrário).
+        '429':
+          description: Limite de requisições da conta atingido. A Qive define o limite por cliente, conforme contrato e volume.
+        '500':
+          description: Falha interna da Qive.
+  /v1/dfe/cteos:
+    post:
+      operationId: arquivei__nota_fiscal__listar__cteos
+      summary: Busca de CTe-OS — Lista os CTe-OS da conta com base nos filtros aplicados
+      description: 'Busca os CT-e OS (outros serviços: transporte de pessoas, valores, bagagem) da conta com filtros no corpo e projeção de campos.
+        Não filtra por papel: devolve os documentos de todos os papéis dos CNPJs informados em Owners. Sem Fields vêm AccessKey e Xml. Para a
+        relação de CT-e OS do período (fretamento, transporte de valores). Quando NÃO usar: para CT-e comum (arquivei.nota_fiscal.listar.cte).'
+      tags:
+      - NotaFiscal
+      x-confianca: verificado
+      x-fonte-url: https://docs.arquivei.com.br/arquivei-apis-swagger/dfe-api.json
+      x-data-consulta: '2026-10-14'
+      x-seguro-para-executar: true
+      parameters:
+      - name: X-Use-ApiGateway
+        in: header
+        required: true
+        schema:
+          type: string
+          enum: *id001
+          default: always
+          description: 'Cabeçalho exigido pela documentação para rotear a chamada pelo API Gateway da Qive; o valor é sempre ''always''. Não é
+            credencial: é fixo. Sem ele a rota pode não ser atendida.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                Filters:
+                  type: object
+                  properties:
+                    EmissionDate:
+                      type: object
+                      properties:
+                        From:
+                          type: string
+                          description: 'Início do período de emissão. Formato: AAAA-MM-DD HH:MM:SS.'
+                        To:
+                          type: string
+                          description: 'Fim do período de emissão. Formato: AAAA-MM-DD HH:MM:SS.'
+                    CreatedAt:
+                      type: object
+                      properties:
+                        From:
+                          type: string
+                          description: Início do período de entrada na Qive.
+                        To:
+                          type: string
+                          description: Fim do período de entrada na Qive.
+                    Owners:
+                      type: array
+                      items:
+                        type: string
+                      description: CNPJs/CPFs donos.
+                    EmitterCnpj:
+                      type: array
+                      items:
+                        type: string
+                      description: CNPJs/CPFs dos emitentes.
+                    Status:
+                      type: string
+                      enum:
+                      - authorized
+                      - canceled
+                      description: Situação.
+                    DocumentIdentifier:
+                      type: string
+                      description: Chave de acesso (44).
+                    Origin:
+                      type: string
+                      enum:
+                      - sefaz
+                      - upload
+                      - upload_zip
+                      - upload_daemon
+                      - upload_api
+                      - email
+                      - integracoes
+                      description: Origem.
+                    Cfops:
+                      type: array
+                      items:
+                        type: string
+                      description: CFOPs.
+                    Types:
+                      type: array
+                      items:
+                        type: string
+                      description: Tipos de CT-e OS.
+                    Tags:
+                      type: array
+                      items:
+                        type: string
+                      description: IDs de etiquetas.
+                    HasCCE:
+                      type: boolean
+                      description: Com carta de correção.
+                    HasManifestation:
+                      type: boolean
+                      description: Com manifestação.
+                Fields:
+                  type: array
+                  items:
+                    type: string
+                    enum:
+                    - Xml
+                    - Origin
+                    - Events
+                    - Tags
+                    - Cfops
+                    - AccessKey
+                    - EmissionDate
+                    - CreatedAt
+                    - HasCCE
+                    - Manifestations
+                    - Number
+                    - Owner
+                    - OwnerRole
+                    - Emitter
+                    - Status
+                    - Taker
+                  description: Campos a devolver.
+                Limit:
+                  type: integer
+                  default: 500
+                  maximum: 500
+                  description: Tamanho da página.
+                Paginator:
+                  type: string
+                  description: Cursor da página anterior.
+            example:
+              Filters:
+                EmissionDate:
+                  From: '2026-09-01 00:00:00'
+                  To: '2026-09-30 23:59:59'
+              Fields:
+              - AccessKey
+              - Number
+              - EmissionDate
+              - Status
+              - Emitter
+              - Taker
+              - Owner
+              - OwnerRole
+              Limit: 100
+      responses:
+        '200':
+          description: Sucesso.
+          content:
+            application/json:
+              example:
+                CteOs:
+                - AccessKey: '35260900000000000191670010000000771000000772'
+                  Number: '77'
+                  EmissionDate: '2026-09-05T14:00:00-03:00'
+                  Status: authorized
+                  Emitter:
+                    EmitterCpfCnpj: 00000000000191
+                    EmitterName: FRETAMENTO EXEMPLO LTDA
+                  Taker:
+                    TakerCpfCnpj: 00000000000191
+                    TakerName: EMPRESA EXEMPLO SA
+                Paginator: ''
+                Total: 1
+        '400':
+          description: Corpo JSON malformado, filtro com tipo errado ou valor não aceito.
+        '401':
+          description: X-API-ID ou X-API-KEY ausente, errado, revogado ou de outro ambiente (credencial de sandbox chamando produção, ou o contrário).
+        '429':
+          description: Limite de requisições da conta atingido. A Qive define o limite por cliente, conforme contrato e volume.
+        '500':
+          description: Falha interna da Qive.
+  /v1/dfe/mdfe:
+    post:
+      operationId: arquivei__nota_fiscal__listar__mdfe
+      summary: Busca de MDFes — Lista os MDFes da conta com base nos filtros aplicados
+      description: 'Busca os MDF-e da conta com filtros no corpo (chave, papel da empresa, emissão, criação, emitente, modal, número, origem,
+        status, tipo de emitente e de transportador) e projeção de campos, incluindo totais de carga, UFs de percurso, municípios de carga e descarga,
+        dados do transporte rodoviário e eventos. Sem Fields vêm AccessKey, Origin e Owner. Para relação de manifestos (MDF-e) por período e status
+        (authorized, canceled, closed). Quando NÃO usar: para CT-e ou NF-e transportadas, que têm rotas próprias.'
+      tags:
+      - NotaFiscal
+      x-confianca: verificado
+      x-fonte-url: https://docs.arquivei.com.br/arquivei-apis-swagger/dfe-api.json
+      x-data-consulta: '2026-10-14'
+      x-seguro-para-executar: true
+      parameters:
+      - name: X-Use-ApiGateway
+        in: header
+        required: true
+        schema:
+          type: string
+          enum: *id001
+          default: always
+          description: 'Cabeçalho exigido pela documentação para rotear a chamada pelo API Gateway da Qive; o valor é sempre ''always''. Não é
+            credencial: é fixo. Sem ele a rota pode não ser atendida.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                Filter:
+                  type: object
+                  properties:
+                    EmissionDate:
+                      type: object
+                      properties:
+                        From:
+                          type: string
+                          description: 'Início do período de emissão. Formato: AAAA-MM-DD HH:MM:SS. Nesta rota o objeto de filtros se chama Filter
+                            (singular).'
+                        To:
+                          type: string
+                          description: 'Fim do período de emissão. Formato: AAAA-MM-DD HH:MM:SS.'
+                    CreatedAt:
+                      type: object
+                      properties:
+                        From:
+                          type: string
+                          description: Início do período de entrada na Qive.
+                        To:
+                          type: string
+                          description: Fim do período de entrada na Qive.
+                    CompanyRole:
+                      type: array
+                      items:
+                        type: string
+                        enum:
+                        - emitted
+                        - received
+                        - waiting
+                        - transporter
+                        - intermediate
+                        - intermediate_shipper
+                        - intermediate_dispatcher
+                        - intermediate_receiver
+                        - other
+                      description: Papel da empresa.
+                    Status:
+                      type: array
+                      items:
+                        type: string
+                        enum:
+                        - authorized
+                        - canceled
+                        - closed
+                      description: Situação.
+                    AccessKeys:
+                      type: array
+                      items:
+                        type: string
+                      description: Chaves de acesso.
+                    EmitterCnpj:
+                      type: array
+                      items:
+                        type: string
+                      description: CNPJ do emitente.
+                    Owners:
+                      type: array
+                      items:
+                        type: string
+                      description: CNPJ dos donos.
+                    Modals:
+                      type: array
+                      items:
+                        type: string
+                      description: 1 rodoviário, 2 aéreo, 3 aquaviário, 4 ferroviário.
+                    Number:
+                      type: integer
+                      description: Número do MDF-e.
+                    Origin:
+                      type: array
+                      items:
+                        type: string
+                        enum:
+                        - sefaz
+                        - upload
+                        - upload_zip
+                        - email
+                        - upload_daemon
+                        - integracoes_ocr
+                        - upload_api
+                      description: Origem.
+                    EmitterType:
+                      type: array
+                      items:
+                        type: string
+                      description: 1 prestador de transporte, 2 carga própria, 3 CT-e globalizado.
+                    TransporterType:
+                      type: array
+                      items:
+                        type: string
+                      description: 1 ETC, 2 TAC, 3 CTC.
+                Fields:
+                  type: array
+                  items:
+                    type: string
+                  description: 'Campos a devolver (ex.: AccessKey, Number, Serie, Status, EmissionDate, Modal, Totals, EmitterInfo, RouteStates,
+                    XML, Events).'
+                Limit:
+                  type: integer
+                  description: Máximo de resultados por página (máximo não documentado).
+                Paginator:
+                  type: string
+                  description: Cursor da página anterior.
+            example:
+              Filter:
+                EmissionDate:
+                  From: '2026-09-01 00:00:00'
+                  To: '2026-09-30 23:59:59'
+                Status:
+                - authorized
+                - closed
+              Fields:
+              - AccessKey
+              - Number
+              - Serie
+              - Status
+              - EmissionDate
+              - Modal
+              - EmitterInfo
+              - Totals
+              - ShipmentState
+              - DischargeState
+              Limit: 25
+      responses:
+        '200':
+          description: Sucesso.
+          content:
+            application/json:
+              example:
+                Mdfes:
+                - AccessKey: '35260900000000000191580010000000451000000453'
+                  Number: 45
+                  Serie: 1
+                  Status: closed
+                  EmissionDate: '2026-09-03 07:30:00'
+                  Modal: 1
+                  EmitterInfo:
+                    Cnpj: 00000000000191
+                    Name: TRANSPORTADORA EXEMPLO LTDA
+                  Totals:
+                    CargoValue: 73103.35
+                    CTe: 1
+                    NFe: 0
+                    WeightUnit: Kg
+                    WeightValue: 13171.15
+                  ShipmentState: SP
+                  DischargeState: MG
+                Paginator: ''
+                Total: 1
+        '400':
+          description: Corpo JSON malformado, filtro com tipo errado ou valor não aceito.
+        '401':
+          description: X-API-ID ou X-API-KEY ausente, errado, revogado ou de outro ambiente (credencial de sandbox chamando produção, ou o contrário).
+        '429':
+          description: Limite de requisições da conta atingido. A Qive define o limite por cliente, conforme contrato e volume.
+        '500':
+          description: Falha interna da Qive.
+  /v1/nfe/{role}:
+    get:
+      operationId: arquivei__nota_fiscal__listar__nfe_por_papel
+      summary: Busca de NFes — Busca XMLs de NFes pelos CNPJs da conta (por papel)
+      description: 'Rota clássica (API 1.0) que devolve os XMLs (Base64) das NF-e por papel na URL: received (recebidas), emitted (emitidas),
+        transporter ou authorized (citado no autXML). Pagina por cursor numérico fixo por documento e filtra por chave, CNPJ dono, data de entrada
+        na Qive e property customizada. Para sincronização incremental do ERP (fila de XMLs pelo cursor ou por property ''processed''). Quando
+        NÃO usar: para planilha por data de emissão ou com emitente e status já separados; aí prefira arquivei.nota_fiscal.listar.nfe (POST /v2/dfe/nfe).
+        A resposta só traz chave e XML: todas as colunas saem do XML.'
+      tags:
+      - NotaFiscal
+      x-confianca: verificado
+      x-fonte-url: https://docs.arquivei.com.br/arquivei-apis-swagger/dfe-api.json
+      x-data-consulta: '2026-10-14'
+      x-seguro-para-executar: true
+      parameters:
+      - name: role
+        in: path
+        required: true
+        schema:
+          type: string
+          enum:
+          - received
+          - emitted
+          - transporter
+          - authorized
+          description: Papel do CNPJ da conta no documento.
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 50
+          maximum: 50
+          description: Quantidade de documentos por resposta.
+      - name: cursor
+        in: query
+        required: false
+        schema:
+          type: integer
+          description: Posição a partir da qual buscar. Cada documento tem um cursor fixo; 0 reprocessa desde o início. O próximo valor vem em
+            page.next.
+      - name: cnpj[]
+        in: query
+        required: false
+        schema:
+          type: array
+          items:
+            type: string
+          description: 'Filtra pelos CNPJs/CPFs donos do documento (repetir o parâmetro para vários). Formato: 14 posições.'
+        style: form
+        explode: true
+      - name: created_at[from]
+        in: query
+        required: false
+        schema:
+          type: string
+          description: 'Início do período de ENTRADA na Qive (não é emissão). Obrigatório junto com created_at[to]. Formato: AAAA-MM-DD ou AAAA-MM-DD
+            HH:MM:SS.'
+      - name: created_at[to]
+        in: query
+        required: false
+        schema:
+          type: string
+          description: 'Fim do período de entrada na Qive. Obrigatório junto com created_at[from]. Formato: AAAA-MM-DD ou AAAA-MM-DD HH:MM:SS.'
+      - name: access_key[]
+        in: query
+        required: false
+        schema:
+          type: array
+          items:
+            type: string
+          description: 'Lista de chaves de acesso. Formato: 44 dígitos.'
+        style: form
+        explode: true
+      - name: filter
+        in: query
+        required: false
+        schema:
+          type: string
+          description: 'Filtro por property customizada, em notação prefixada: (= processed true), (NOT_EXISTS processed), (AND ...), (OR ...).
+            Muito usado para fila de integração: marcar com PUT .../{property} o que já foi lido e buscar (NOT_EXISTS processed).'
+      - name: format_type
+        in: query
+        required: false
+        schema:
+          type: string
+          enum: &id002
+          - xml
+          - json
+          description: Formato do conteúdo devolvido.
+      responses:
+        '200':
+          description: Sucesso.
+          content:
+            application/json:
+              example:
+                status:
+                  code: 200
+                  message: Ok
+                data:
+                - access_key: '35260900000000000191550010000012341000012345'
+                  xml: PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4...
+                page:
+                  next: <<próximo cursor>>
+                  previous: <<cursor anterior>>
+                count: 1
+                signature: <<assinatura>>
+        '400':
+          description: 'Parâmetro fora do formato: chave de acesso sem 44 posições, data inválida, created_at[from] sem created_at[to] (os dois
+            são obrigatórios juntos).'
+        '401':
+          description: X-API-ID ou X-API-KEY ausente, errado, revogado ou de outro ambiente (credencial de sandbox chamando produção, ou o contrário).
+        '404':
+          description: 'Documento não encontrado para os CNPJs da conta, ou rota digitada errada (ex.: papel inválido em {role}).'
+        '429':
+          description: Limite de requisições da conta atingido. A Qive define o limite por cliente, conforme contrato e volume.
+        '500':
+          description: Falha interna da Qive.
+  /v1/nfse/{role}:
+    get:
+      operationId: arquivei__nota_fiscal__listar__nfse_por_papel
+      summary: Busca de NFSes — Busca XMLs de NFSes pelos CNPJs da conta (por papel)
+      description: 'Rota clássica de NFS-e: devolve id e XML (Base64) das notas de serviço recebidas (received, papel de tomador) ou emitidas
+        (emitted), com cursor numérico, filtro por id, CNPJ dono, entrada na Qive, property e escolha do formato do XML (original do município,
+        ABRASF da Qive ou ABRASF com campos da reforma tributária). Para sincronizar NFS-e no ERP ou obter o XML original da prefeitura. Quando
+        NÃO usar: para filtrar por emissão, competência, prestador ou cancelamento; use arquivei.nota_fiscal.listar.nfse (POST /v1/dfe/nfse).'
+      tags:
+      - NotaFiscal
+      x-confianca: verificado
+      x-fonte-url: https://docs.arquivei.com.br/arquivei-apis-swagger/dfe-api.json
+      x-data-consulta: '2026-10-14'
+      x-seguro-para-executar: true
+      parameters:
+      - name: role
+        in: path
+        required: true
+        schema:
+          type: string
+          enum:
+          - received
+          - emitted
+          description: Papel do CNPJ da conta no documento.
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 50
+          maximum: 50
+          description: Quantidade de documentos por resposta.
+      - name: cursor
+        in: query
+        required: false
+        schema:
+          type: integer
+          description: Posição a partir da qual buscar. Cada documento tem um cursor fixo; 0 reprocessa desde o início. O próximo valor vem em
+            page.next.
+      - name: cnpj[]
+        in: query
+        required: false
+        schema:
+          type: array
+          items:
+            type: string
+          description: 'Filtra pelos CNPJs/CPFs donos do documento (repetir o parâmetro para vários). Formato: 14 posições.'
+        style: form
+        explode: true
+      - name: created_at[from]
+        in: query
+        required: false
+        schema:
+          type: string
+          description: 'Início do período de ENTRADA na Qive (não é emissão). Obrigatório junto com created_at[to]. Formato: AAAA-MM-DD ou AAAA-MM-DD
+            HH:MM:SS.'
+      - name: created_at[to]
+        in: query
+        required: false
+        schema:
+          type: string
+          description: 'Fim do período de entrada na Qive. Obrigatório junto com created_at[from]. Formato: AAAA-MM-DD ou AAAA-MM-DD HH:MM:SS.'
+      - name: id[]
+        in: query
+        required: false
+        schema:
+          type: array
+          items:
+            type: string
+          description: 'Lista de ids de NFS-e (40 posições, devolvidos nesta rota). Formato: 40 posições.'
+        style: form
+        explode: true
+      - name: filter
+        in: query
+        required: false
+        schema:
+          type: string
+          description: 'Filtro por property customizada, em notação prefixada: (= processed true), (NOT_EXISTS processed), (AND ...), (OR ...).
+            Muito usado para fila de integração: marcar com PUT .../{property} o que já foi lido e buscar (NOT_EXISTS processed).'
+      - name: format_type
+        in: query
+        required: false
+        schema:
+          type: string
+          enum: *id002
+          description: Formato do conteúdo devolvido.
+      - name: xml_format
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - original
+          - abrasf
+          - abrasf_rtc
+          default: abrasf
+          description: Formato do XML.
+      responses:
+        '200':
+          description: Sucesso.
+          content:
+            application/json:
+              example:
+                status:
+                  code: 200
+                  message: Ok
+                data:
+                - id: '0000000000000000000000000000000000000000'
+                  xml: PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4...
+                page:
+                  next: <<próximo cursor>>
+                  previous: <<cursor anterior>>
+                count: 1
+                signature: <<assinatura>>
+        '400':
+          description: 'Parâmetro fora do formato: chave de acesso sem 44 posições, data inválida, created_at[from] sem created_at[to] (os dois
+            são obrigatórios juntos).'
+        '401':
+          description: X-API-ID ou X-API-KEY ausente, errado, revogado ou de outro ambiente (credencial de sandbox chamando produção, ou o contrário).
+        '404':
+          description: 'Documento não encontrado para os CNPJs da conta, ou rota digitada errada (ex.: papel inválido em {role}).'
+        '429':
+          description: Limite de requisições da conta atingido. A Qive define o limite por cliente, conforme contrato e volume.
+        '500':
+          description: Falha interna da Qive.
+  /v2/nfse/received:
+    get:
+      operationId: arquivei__nota_fiscal__listar__nfse_recebidas_v2
+      summary: Busca de NFSes v2 — Busca XMLs de NFSes recebidas pelos CNPJs da conta
+      description: 'Variante da busca de NFS-e recebidas que, além de id e XML (Base64), devolve as properties (pares chave-valor do cliente)
+        associadas a cada nota. Mesmos filtros e cursor da rota v1. Quando a integração marca as NFS-e com properties (ex.: processed, status)
+        e precisa ler as marcas junto com o XML. Quando NÃO usar: para emitidas (só existe received).'
+      tags:
+      - NotaFiscal
+      x-confianca: verificado
+      x-fonte-url: https://docs.arquivei.com.br/arquivei-apis-swagger/dfe-api.json
+      x-data-consulta: '2026-10-14'
+      x-seguro-para-executar: true
+      parameters:
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 50
+          maximum: 50
+          description: Quantidade de documentos por resposta.
+      - name: cursor
+        in: query
+        required: false
+        schema:
+          type: integer
+          description: Posição a partir da qual buscar. Cada documento tem um cursor fixo; 0 reprocessa desde o início. O próximo valor vem em
+            page.next.
+      - name: cnpj[]
+        in: query
+        required: false
+        schema:
+          type: array
+          items:
+            type: string
+          description: 'Filtra pelos CNPJs/CPFs donos do documento (repetir o parâmetro para vários). Formato: 14 posições.'
+        style: form
+        explode: true
+      - name: created_at[from]
+        in: query
+        required: false
+        schema:
+          type: string
+          description: 'Início do período de ENTRADA na Qive (não é emissão). Obrigatório junto com created_at[to]. Formato: AAAA-MM-DD ou AAAA-MM-DD
+            HH:MM:SS.'
+      - name: created_at[to]
+        in: query
+        required: false
+        schema:
+          type: string
+          description: 'Fim do período de entrada na Qive. Obrigatório junto com created_at[from]. Formato: AAAA-MM-DD ou AAAA-MM-DD HH:MM:SS.'
+      - name: id[]
+        in: query
+        required: false
+        schema:
+          type: array
+          items:
+            type: string
+          description: 'Lista de ids de NFS-e (40 posições). Formato: 40 posições.'
+        style: form
+        explode: true
+      - name: filter
+        in: query
+        required: false
+        schema:
+          type: string
+          description: 'Filtro por property customizada, em notação prefixada: (= processed true), (NOT_EXISTS processed), (AND ...), (OR ...).
+            Muito usado para fila de integração: marcar com PUT .../{property} o que já foi lido e buscar (NOT_EXISTS processed).'
+      - name: format_type
+        in: query
+        required: false
+        schema:
+          type: string
+          enum: *id002
+          description: Formato do conteúdo devolvido.
+      - name: xml_format
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - original
+          - abrasf
+          - abrasf_rtc
+          default: abrasf
+          description: Formato do XML.
+      responses:
+        '200':
+          description: Sucesso.
+          content:
+            application/json:
+              example:
+                status:
+                  code: 200
+                  message: Ok
+                data:
+                - id: '0000000000000000000000000000000000000000'
+                  xml: PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4...
+                  properties:
+                  - key: processed
+                    value: 'true'
+                page:
+                  next: <<próximo cursor>>
+                count: 1
+        '400':
+          description: 'Parâmetro fora do formato: chave de acesso sem 44 posições, data inválida, created_at[from] sem created_at[to] (os dois
+            são obrigatórios juntos).'
+        '401':
+          description: X-API-ID ou X-API-KEY ausente, errado, revogado ou de outro ambiente (credencial de sandbox chamando produção, ou o contrário).
+        '404':
+          description: 'Documento não encontrado para os CNPJs da conta, ou rota digitada errada (ex.: papel inválido em {role}).'
+        '429':
+          description: Limite de requisições da conta atingido. A Qive define o limite por cliente, conforme contrato e volume.
+  /v1/cte/{role}:
+    get:
+      operationId: arquivei__nota_fiscal__listar__cte_por_papel
+      summary: Busca de CTes — Busca XMLs de CTes pelos CNPJs da conta (por papel)
+      description: 'Rota clássica de CT-e: XMLs (Base64) dos CT-e em que o CNPJ da conta é tomador (taker) ou não tomador (not-taker), com cursor,
+        filtro por chave, CNPJ dono, entrada na Qive e property. A descrição geral do grupo cita também o papel authorized. Para sincronizar XMLs
+        de CT-e no ERP. Quando NÃO usar: para planilha por emissão e com tomador/emitente separados; use arquivei.nota_fiscal.listar.cte (POST
+        /v1/dfe/cte).'
+      tags:
+      - NotaFiscal
+      x-confianca: verificado
+      x-fonte-url: https://docs.arquivei.com.br/arquivei-apis-swagger/dfe-api.json
+      x-data-consulta: '2026-10-14'
+      x-seguro-para-executar: true
+      parameters:
+      - name: role
+        in: path
+        required: true
+        schema:
+          type: string
+          enum:
+          - taker
+          - not-taker
+          - authorized
+          description: Papel do CNPJ da conta no documento.
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 50
+          maximum: 50
+          description: Quantidade de documentos por resposta.
+      - name: cursor
+        in: query
+        required: false
+        schema:
+          type: integer
+          description: Posição a partir da qual buscar. Cada documento tem um cursor fixo; 0 reprocessa desde o início. O próximo valor vem em
+            page.next.
+      - name: cnpj[]
+        in: query
+        required: false
+        schema:
+          type: array
+          items:
+            type: string
+          description: 'Filtra pelos CNPJs/CPFs donos do documento (repetir o parâmetro para vários). Formato: 14 posições.'
+        style: form
+        explode: true
+      - name: created_at[from]
+        in: query
+        required: false
+        schema:
+          type: string
+          description: 'Início do período de ENTRADA na Qive (não é emissão). Obrigatório junto com created_at[to]. Formato: AAAA-MM-DD ou AAAA-MM-DD
+            HH:MM:SS.'
+      - name: created_at[to]
+        in: query
+        required: false
+        schema:
+          type: string
+          description: 'Fim do período de entrada na Qive. Obrigatório junto com created_at[from]. Formato: AAAA-MM-DD ou AAAA-MM-DD HH:MM:SS.'
+      - name: access_key[]
+        in: query
+        required: false
+        schema:
+          type: array
+          items:
+            type: string
+          description: 'Lista de chaves de acesso. Formato: 44 dígitos.'
+        style: form
+        explode: true
+      - name: filter
+        in: query
+        required: false
+        schema:
+          type: string
+          description: 'Filtro por property customizada, em notação prefixada: (= processed true), (NOT_EXISTS processed), (AND ...), (OR ...).
+            Muito usado para fila de integração: marcar com PUT .../{property} o que já foi lido e buscar (NOT_EXISTS processed).'
+      - name: format_type
+        in: query
+        required: false
+        schema:
+          type: string
+          enum: *id002
+          description: Formato do conteúdo devolvido.
+      responses:
+        '200':
+          description: Sucesso.
+          content:
+            application/json:
+              example:
+                status:
+                  code: 200
+                  message: Ok
+                data:
+                - access_key: '35260900000000000191570010000003211000003214'
+                  xml: PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4...
+                page:
+                  next: <<próximo cursor>>
+                  previous: <<cursor anterior>>
+                count: 1
+                signature: <<assinatura>>
+        '400':
+          description: 'Parâmetro fora do formato: chave de acesso sem 44 posições, data inválida, created_at[from] sem created_at[to] (os dois
+            são obrigatórios juntos).'
+        '401':
+          description: X-API-ID ou X-API-KEY ausente, errado, revogado ou de outro ambiente (credencial de sandbox chamando produção, ou o contrário).
+        '404':
+          description: 'Documento não encontrado para os CNPJs da conta, ou rota digitada errada (ex.: papel inválido em {role}).'
+        '429':
+          description: Limite de requisições da conta atingido. A Qive define o limite por cliente, conforme contrato e volume.
+        '500':
+          description: Falha interna da Qive.
+  /v1/cte-os/{role}:
+    get:
+      operationId: arquivei__nota_fiscal__listar__cteos_por_papel
+      summary: Busca de CTe-OS — Busca XMLs de CTes-OS pelos CNPJs da conta (por papel)
+      description: 'Rota clássica de CT-e OS: XMLs (Base64) por papel taker ou not-taker, com cursor e filtros por chave, CNPJ dono, entrada na
+        Qive e property. Para sincronizar XMLs de CT-e OS. Quando NÃO usar: para planilha por emissão; use arquivei.nota_fiscal.listar.cteos.'
+      tags:
+      - NotaFiscal
+      x-confianca: verificado
+      x-fonte-url: https://docs.arquivei.com.br/arquivei-apis-swagger/dfe-api.json
+      x-data-consulta: '2026-10-14'
+      x-seguro-para-executar: true
+      parameters:
+      - name: role
+        in: path
+        required: true
+        schema:
+          type: string
+          enum:
+          - taker
+          - not-taker
+          description: Papel do CNPJ da conta no documento.
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 50
+          maximum: 50
+          description: Quantidade de documentos por resposta.
+      - name: cursor
+        in: query
+        required: false
+        schema:
+          type: integer
+          description: Posição a partir da qual buscar. Cada documento tem um cursor fixo; 0 reprocessa desde o início. O próximo valor vem em
+            page.next.
+      - name: cnpj[]
+        in: query
+        required: false
+        schema:
+          type: array
+          items:
+            type: string
+          description: 'Filtra pelos CNPJs/CPFs donos do documento (repetir o parâmetro para vários). Formato: 14 posições.'
+        style: form
+        explode: true
+      - name: created_at[from]
+        in: query
+        required: false
+        schema:
+          type: string
+          description: 'Início do período de ENTRADA na Qive (não é emissão). Obrigatório junto com created_at[to]. Formato: AAAA-MM-DD ou AAAA-MM-DD
+            HH:MM:SS.'
+      - name: created_at[to]
+        in: query
+        required: false
+        schema:
+          type: string
+          description: 'Fim do período de entrada na Qive. Obrigatório junto com created_at[from]. Formato: AAAA-MM-DD ou AAAA-MM-DD HH:MM:SS.'
+      - name: access_key[]
+        in: query
+        required: false
+        schema:
+          type: array
+          items:
+            type: string
+          description: 'Lista de chaves de acesso. Formato: 44 dígitos.'
+        style: form
+        explode: true
+      - name: filter
+        in: query
+        required: false
+        schema:
+          type: string
+          description: 'Filtro por property customizada, em notação prefixada: (= processed true), (NOT_EXISTS processed), (AND ...), (OR ...).
+            Muito usado para fila de integração: marcar com PUT .../{property} o que já foi lido e buscar (NOT_EXISTS processed).'
+      responses:
+        '200':
+          description: Sucesso.
+          content:
+            application/json:
+              example:
+                status:
+                  code: 200
+                  message: Ok
+                data:
+                - access_key: '35260900000000000191670010000000771000000772'
+                  xml: PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4...
+                page:
+                  next: <<próximo cursor>>
+                  previous: <<cursor anterior>>
+                count: 1
+                signature: <<assinatura>>
+        '400':
+          description: 'Parâmetro fora do formato: chave de acesso sem 44 posições, data inválida, created_at[from] sem created_at[to] (os dois
+            são obrigatórios juntos).'
+        '401':
+          description: X-API-ID ou X-API-KEY ausente, errado, revogado ou de outro ambiente (credencial de sandbox chamando produção, ou o contrário).
+        '404':
+          description: 'Documento não encontrado para os CNPJs da conta, ou rota digitada errada (ex.: papel inválido em {role}).'
+        '429':
+          description: Limite de requisições da conta atingido. A Qive define o limite por cliente, conforme contrato e volume.
+        '500':
+          description: Falha interna da Qive.
+  /v1/nfce/emitted:
+    get:
+      operationId: arquivei__nota_fiscal__listar__nfce_emitidas
+      summary: Busca de NFCes — Busca XMLs de NFCes emitidas pelos CNPJs da conta
+      description: 'Devolve os XMLs (Base64) das NFC-e emitidas pelos CNPJs da conta, com cursor e filtros por chave, CNPJ dono e entrada na Qive.
+        É a única rota de NFC-e documentada (só papel emitted). Para relação de cupons fiscais eletrônicos (NFC-e) emitidos no varejo. Quando
+        NÃO usar: para NF-e modelo 55 (use arquivei.nota_fiscal.listar.nfe).'
+      tags:
+      - NotaFiscal
+      x-confianca: verificado
+      x-fonte-url: https://docs.arquivei.com.br/arquivei-apis-swagger/dfe-api.json
+      x-data-consulta: '2026-10-14'
+      x-seguro-para-executar: true
+      parameters:
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 50
+          maximum: 50
+          description: Quantidade de documentos por resposta.
+      - name: cursor
+        in: query
+        required: false
+        schema:
+          type: integer
+          description: Posição a partir da qual buscar. Cada documento tem um cursor fixo; 0 reprocessa desde o início. O próximo valor vem em
+            page.next.
+      - name: cnpj[]
+        in: query
+        required: false
+        schema:
+          type: array
+          items:
+            type: string
+          description: 'Filtra pelos CNPJs/CPFs donos do documento (repetir o parâmetro para vários). Formato: 14 posições.'
+        style: form
+        explode: true
+      - name: created_at[from]
+        in: query
+        required: false
+        schema:
+          type: string
+          description: 'Início do período de ENTRADA na Qive (não é emissão). Obrigatório junto com created_at[to]. Formato: AAAA-MM-DD ou AAAA-MM-DD
+            HH:MM:SS.'
+      - name: created_at[to]
+        in: query
+        required: false
+        schema:
+          type: string
+          description: 'Fim do período de entrada na Qive. Obrigatório junto com created_at[from]. Formato: AAAA-MM-DD ou AAAA-MM-DD HH:MM:SS.'
+      - name: access_key[]
+        in: query
+        required: false
+        schema:
+          type: array
+          items:
+            type: string
+          description: 'Lista de chaves de acesso. Formato: 44 dígitos.'
+        style: form
+        explode: true
+      responses:
+        '200':
+          description: Sucesso.
+          content:
+            application/json:
+              example:
+                status:
+                  code: 200
+                  message: Ok
+                data:
+                - access_key: '35260900000000000191650010000012341000012345'
+                  xml: PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4...
+                page:
+                  next: <<próximo cursor>>
+                  previous: <<cursor anterior>>
+                count: 1
+                signature: <<assinatura>>
+        '400':
+          description: 'Parâmetro fora do formato: chave de acesso sem 44 posições, data inválida, created_at[from] sem created_at[to] (os dois
+            são obrigatórios juntos).'
+        '401':
+          description: X-API-ID ou X-API-KEY ausente, errado, revogado ou de outro ambiente (credencial de sandbox chamando produção, ou o contrário).
+        '404':
+          description: 'Documento não encontrado para os CNPJs da conta, ou rota digitada errada (ex.: papel inválido em {role}).'
+        '429':
+          description: Limite de requisições da conta atingido. A Qive define o limite por cliente, conforme contrato e volume.
+        '500':
+          description: Falha interna da Qive.
+  /v1/events/nfe:
+    get:
+      operationId: arquivei__nota_fiscal__listar__eventos_nfe
+      summary: Eventos de NFes (Fila) — Busca os XMLs de todos os eventos de NFe da conta
+      description: 'Fila de eventos de NF-e da conta: devolve chave, tipo (6 dígitos, padrão SEFAZ) e XML do evento em Base64, com cursor numérico
+        fixo. Filtra por chaves e por tipos de evento (ex.: 110111 cancelamento, 110110 carta de correção, 210200 a 210240 manifestação). Para
+        acompanhar cancelamentos, cartas de correção e manifestações de toda a conta (planilha de eventos ou atualização do ERP). Quando NÃO usar:
+        para os eventos de uma única nota (arquivei.nota_fiscal.obter.eventos_nfe). A rota não tem filtro de data: o recorte é pelo cursor.'
+      tags:
+      - NotaFiscal
+      x-confianca: verificado
+      x-fonte-url: https://docs.arquivei.com.br/arquivei-apis-swagger/dfe-api.json
+      x-data-consulta: '2026-10-14'
+      x-seguro-para-executar: true
+      parameters:
+      - name: access_key[]
+        in: query
+        required: false
+        schema:
+          type: array
+          items:
+            type: string
+          description: 'Chaves de NF-e. Formato: 44 dígitos.'
+        style: form
+        explode: true
+      - name: type[]
+        in: query
+        required: false
+        schema:
+          type: array
+          items:
+            type: string
+          description: 'Tipos de evento de 6 dígitos (ex.: 110111, 110110). Formato: 6 dígitos.'
+        style: form
+        explode: true
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 50
+          maximum: 50
+          description: Eventos por resposta.
+      - name: cursor
+        in: query
+        required: false
+        schema:
+          type: integer
+          description: Cursor; 0 reprocessa desde o início; próximo valor em page.next.
+      responses:
+        '200':
+          description: Sucesso.
+          content:
+            application/json:
+              example: &id003
+                status:
+                  code: 200
+                  message: Ok
+                data:
+                - access_key: '35260900000000000191550010000012341000012345'
+                  type: '110111'
+                  xml: PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4...
+                page:
+                  next: <<próximo cursor>>
+                count: 1
+        '400':
+          description: 'Parâmetro fora do formato: chave de acesso sem 44 posições, data inválida, created_at[from] sem created_at[to] (os dois
+            são obrigatórios juntos).'
+        '401':
+          description: X-API-ID ou X-API-KEY ausente, errado, revogado ou de outro ambiente (credencial de sandbox chamando produção, ou o contrário).
+        '404':
+          description: 'Documento não encontrado para os CNPJs da conta, ou rota digitada errada (ex.: papel inválido em {role}).'
+        '429':
+          description: Limite de requisições da conta atingido. A Qive define o limite por cliente, conforme contrato e volume.
+        '500':
+          description: Falha interna da Qive.
+  /v2/nfe/events:
+    get:
+      operationId: arquivei__nota_fiscal__obter__eventos_nfe
+      summary: Eventos de uma NFe — Busca os XMLs de todos os eventos de uma NFe
+      description: 'Devolve todos os eventos disponibilizados pela SEFAZ para uma NF-e (uma chave por chamada), com tipo e XML em Base64, podendo
+        filtrar por tipos. Para ver se uma nota específica foi cancelada, corrigida ou manifestada. Quando NÃO usar: para varrer a conta inteira
+        (use arquivei.nota_fiscal.listar.eventos_nfe).'
+      tags:
+      - NotaFiscal
+      x-confianca: verificado
+      x-fonte-url: https://docs.arquivei.com.br/arquivei-apis-swagger/dfe-api.json
+      x-data-consulta: '2026-10-14'
+      x-seguro-para-executar: true
+      parameters:
+      - name: access_key
+        in: query
+        required: true
+        schema:
+          type: string
+          description: 'Chave de acesso da NF-e. Formato: 44 dígitos.'
+      - name: type[]
+        in: query
+        required: false
+        schema:
+          type: array
+          items:
+            type: string
+          description: 'Tipos de evento de 6 dígitos. Formato: 6 dígitos.'
+        style: form
+        explode: true
+      responses:
+        '200':
+          description: Sucesso.
+          content:
+            application/json:
+              example:
+                status:
+                  code: 200
+                  message: Ok
+                data:
+                - type: '110111'
+                  xml: PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4...
+        '400':
+          description: 'Parâmetro fora do formato: chave de acesso sem 44 posições, data inválida, created_at[from] sem created_at[to] (os dois
+            são obrigatórios juntos).'
+        '401':
+          description: X-API-ID ou X-API-KEY ausente, errado, revogado ou de outro ambiente (credencial de sandbox chamando produção, ou o contrário).
+        '404':
+          description: 'Documento não encontrado para os CNPJs da conta, ou rota digitada errada (ex.: papel inválido em {role}).'
+        '429':
+          description: Limite de requisições da conta atingido. A Qive define o limite por cliente, conforme contrato e volume.
+        '500':
+          description: Falha interna da Qive.
+  /v2/cte/events:
+    get:
+      operationId: arquivei__nota_fiscal__listar__eventos_cte
+      summary: Eventos de CTes (Fila) — Busca os XMLs de todos os eventos de CTe da conta
+      description: 'Fila de eventos de CT-e da conta (chave, tipo e XML Base64), com cursor numérico e filtros por chaves e tipos de evento. Para
+        acompanhar cancelamentos e outros eventos de CT-e da conta. Quando NÃO usar: para uma única chave (arquivei.nota_fiscal.obter.eventos_cte).'
+      tags:
+      - NotaFiscal
+      x-confianca: verificado
+      x-fonte-url: https://docs.arquivei.com.br/arquivei-apis-swagger/dfe-api.json
+      x-data-consulta: '2026-10-14'
+      x-seguro-para-executar: true
+      parameters:
+      - name: access_key[]
+        in: query
+        required: false
+        schema:
+          type: array
+          items:
+            type: string
+          description: 'Chaves de CT-e. Formato: 44 dígitos.'
+        style: form
+        explode: true
+      - name: type[]
+        in: query
+        required: false
+        schema:
+          type: array
+          items:
+            type: string
+          description: Tipos de evento (6 dígitos).
+        style: form
+        explode: true
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 50
+          maximum: 50
+          description: Eventos por resposta.
+      - name: cursor
+        in: query
+        required: false
+        schema:
+          type: integer
+          description: Cursor; próximo valor em page.next.
+      responses:
+        '200':
+          description: Sucesso.
+          content:
+            application/json:
+              example: *id003
+        '400':
+          description: 'Parâmetro fora do formato: chave de acesso sem 44 posições, data inválida, created_at[from] sem created_at[to] (os dois
+            são obrigatórios juntos).'
+        '401':
+          description: X-API-ID ou X-API-KEY ausente, errado, revogado ou de outro ambiente (credencial de sandbox chamando produção, ou o contrário).
+        '404':
+          description: 'Documento não encontrado para os CNPJs da conta, ou rota digitada errada (ex.: papel inválido em {role}).'
+        '429':
+          description: Limite de requisições da conta atingido. A Qive define o limite por cliente, conforme contrato e volume.
+        '500':
+          description: Falha interna da Qive.
+  /v1/cte/events:
+    get:
+      operationId: arquivei__nota_fiscal__obter__eventos_cte
+      summary: Eventos de uma CTe — Busca os XMLs de todos os eventos de uma CTe
+      description: 'Devolve todos os eventos disponibilizados pela SEFAZ para um CT-e (uma chave por vez), com tipo e XML em Base64. Para checar
+        cancelamento ou correção de um CT-e específico. Quando NÃO usar: para varrer a conta (arquivei.nota_fiscal.listar.eventos_cte).'
+      tags:
+      - NotaFiscal
+      x-confianca: verificado
+      x-fonte-url: https://docs.arquivei.com.br/arquivei-apis-swagger/dfe-api.json
+      x-data-consulta: '2026-10-14'
+      x-seguro-para-executar: true
+      parameters:
+      - name: access_key
+        in: query
+        required: true
+        schema:
+          type: string
+          description: 'Chave de acesso do CT-e. Formato: 44 dígitos.'
+      responses:
+        '200':
+          description: Sucesso.
+          content:
+            application/json:
+              example:
+                status:
+                  code: 200
+                  message: Ok
+                data:
+                - type: '110111'
+                  xml: PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4...
+        '400':
+          description: 'Parâmetro fora do formato: chave de acesso sem 44 posições, data inválida, created_at[from] sem created_at[to] (os dois
+            são obrigatórios juntos).'
+        '401':
+          description: X-API-ID ou X-API-KEY ausente, errado, revogado ou de outro ambiente (credencial de sandbox chamando produção, ou o contrário).
+        '404':
+          description: 'Documento não encontrado para os CNPJs da conta, ou rota digitada errada (ex.: papel inválido em {role}).'
+        '429':
+          description: Limite de requisições da conta atingido. A Qive define o limite por cliente, conforme contrato e volume.
+        '500':
+          description: Falha interna da Qive.
+  /v1/cte-os/events:
+    get:
+      operationId: arquivei__nota_fiscal__obter__eventos_cteos
+      summary: Eventos de uma CTe-OS — Busca os XMLs de todos os eventos de uma CTe-OS
+      description: Devolve os eventos de um CT-e OS (uma chave por vez), com tipo e XML em Base64. Para checar cancelamento de um CT-e OS específico.
+        Não há fila de eventos de CT-e OS documentada.
+      tags:
+      - NotaFiscal
+      x-confianca: verificado
+      x-fonte-url: https://docs.arquivei.com.br/arquivei-apis-swagger/dfe-api.json
+      x-data-consulta: '2026-10-14'
+      x-seguro-para-executar: true
+      parameters:
+      - name: access_key
+        in: query
+        required: true
+        schema:
+          type: string
+          description: 'Chave de acesso do CT-e OS. Formato: 44 dígitos.'
+      responses:
+        '200':
+          description: Sucesso.
+          content:
+            application/json:
+              example:
+                status:
+                  code: 200
+                  message: Ok
+                data:
+                - type: '110111'
+                  xml: PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4...
+        '400':
+          description: 'Parâmetro fora do formato: chave de acesso sem 44 posições, data inválida, created_at[from] sem created_at[to] (os dois
+            são obrigatórios juntos).'
+        '401':
+          description: X-API-ID ou X-API-KEY ausente, errado, revogado ou de outro ambiente (credencial de sandbox chamando produção, ou o contrário).
+        '404':
+          description: 'Documento não encontrado para os CNPJs da conta, ou rota digitada errada (ex.: papel inválido em {role}).'
+        '429':
+          description: Limite de requisições da conta atingido. A Qive define o limite por cliente, conforme contrato e volume.
+        '500':
+          description: Falha interna da Qive.
+  /v1/nfse/events:
+    get:
+      operationId: arquivei__nota_fiscal__listar__eventos_nfse
+      summary: Eventos de NFSes (Fila) — Busca eventos de NFse
+      description: 'Fila de eventos de NFS-e. Para notas do ambiente nacional vem o XML do evento; para notas de prefeitura, só o tipo (101101
+        = cancelamento), porque as prefeituras não disponibilizam XML de evento. Filtra por ids e tipos. Para descobrir NFS-e canceladas e atualizar
+        a planilha ou o ERP. Atenção: a Qive avisa que cancelamentos na prefeitura após a primeira captura não são retroagidos automaticamente.'
+      tags:
+      - NotaFiscal
+      x-confianca: verificado
+      x-fonte-url: https://docs.arquivei.com.br/arquivei-apis-swagger/dfe-api.json
+      x-data-consulta: '2026-10-14'
+      x-seguro-para-executar: true
+      parameters:
+      - name: id[]
+        in: query
+        required: false
+        schema:
+          type: array
+          items:
+            type: string
+          description: Ids de NFS-e (40 posições).
+        style: form
+        explode: true
+      - name: type[]
+        in: query
+        required: false
+        schema:
+          type: array
+          items:
+            type: string
+          description: Tipos de evento (6 dígitos); 101101 = cancelamento.
+        style: form
+        explode: true
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 50
+          maximum: 50
+          description: Eventos por resposta.
+      - name: cursor
+        in: query
+        required: false
+        schema:
+          type: integer
+          description: Cursor; próximo valor em page.next.
+      responses:
+        '200':
+          description: Sucesso.
+          content:
+            application/json:
+              example:
+                status:
+                  code: 200
+                  message: Ok
+                data:
+                - access_key: '0000000000000000000000000000000000000000'
+                  type: '101101'
+                  xml: ''
+                page:
+                  next: <<cursor>>
+                count: 1
+        '400':
+          description: 'Parâmetro fora do formato: chave de acesso sem 44 posições, data inválida, created_at[from] sem created_at[to] (os dois
+            são obrigatórios juntos).'
+        '401':
+          description: X-API-ID ou X-API-KEY ausente, errado, revogado ou de outro ambiente (credencial de sandbox chamando produção, ou o contrário).
+        '404':
+          description: 'Documento não encontrado para os CNPJs da conta, ou rota digitada errada (ex.: papel inválido em {role}).'
+        '429':
+          description: Limite de requisições da conta atingido. A Qive define o limite por cliente, conforme contrato e volume.
+        '500':
+          description: Falha interna da Qive.
+  /v2/nfe/manifest:
+    get:
+      operationId: arquivei__nota_fiscal__consultar_status__manifestacao_nfe
+      summary: Manifestações de NFes v2 — Busca a manifestação de uma NFe
+      description: 'Devolve a manifestação do destinatário mais recente de cada chave informada (código do evento), desde que feita pela plataforma
+        Qive ou pela API. Pode filtrar a origem: app (plataforma) ou api. Para a coluna ''manifestação'' de uma lista de NF-e recebidas (ciência,
+        confirmação, desconhecimento, não realizada). Quando NÃO usar: manifestação feita fora da Qive (ex.: em outro sistema) não aparece aqui;
+        veja os eventos da nota.'
+      tags:
+      - NotaFiscal
+      x-confianca: verificado
+      x-fonte-url: https://docs.arquivei.com.br/arquivei-apis-swagger/dfe-api.json
+      x-data-consulta: '2026-10-14'
+      x-seguro-para-executar: true
+      parameters:
+      - name: access_key[]
+        in: query
+        required: true
+        schema:
+          type: array
+          items:
+            type: string
+          description: 'Chaves de NF-e. Formato: 44 dígitos.'
+        style: form
+        explode: true
+      - name: origin
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - app
+          - api
+          description: Origem da manifestação.
+      responses:
+        '200':
+          description: Sucesso.
+          content:
+            application/json:
+              example:
+                status:
+                  code: 200
+                  message: Ok
+                data:
+                - access_key: '35260900000000000191550010000012341000012345'
+                  code: '210210'
+        '400':
+          description: 'Parâmetro fora do formato: chave de acesso sem 44 posições, data inválida, created_at[from] sem created_at[to] (os dois
+            são obrigatórios juntos).'
+        '401':
+          description: X-API-ID ou X-API-KEY ausente, errado, revogado ou de outro ambiente (credencial de sandbox chamando produção, ou o contrário).
+        '404':
+          description: 'Documento não encontrado para os CNPJs da conta, ou rota digitada errada (ex.: papel inválido em {role}).'
+        '429':
+          description: Limite de requisições da conta atingido. A Qive define o limite por cliente, conforme contrato e volume.
+        '500':
+          description: Falha interna da Qive.
+  /v1/nfe/manifest/status:
+    get:
+      operationId: arquivei__nota_fiscal__consultar_status__pedido_manifestacao
+      summary: Status de Manifestação — status de um pedido feito em POST /v1/nfe/manifest
+      description: Consulta o resultado de pedidos de manifestação assíncronos, por request_id (64 posições) devolvido no POST ou por chave de
+        acesso. Depois de uma manifestação em lote, para saber se cada chave foi aceita pela SEFAZ. Somente leitura.
+      tags:
+      - NotaFiscal
+      x-confianca: verificado
+      x-fonte-url: https://docs.arquivei.com.br/arquivei-apis-swagger/dfe-api.json
+      x-data-consulta: '2026-10-14'
+      x-seguro-para-executar: true
+      parameters:
+      - name: access_key[]
+        in: query
+        required: false
+        schema:
+          type: array
+          items:
+            type: string
+          description: 'Chaves de NF-e. Formato: 44 dígitos.'
+        style: form
+        explode: true
+      - name: request_id[]
+        in: query
+        required: false
+        schema:
+          type: array
+          items:
+            type: string
+          description: 'Ids de pedido (64 posições). Formato: 64 posições.'
+        style: form
+        explode: true
+      responses:
+        '200':
+          description: Sucesso.
+          content:
+            application/json:
+              example:
+                status:
+                  code: 200
+                  message: Ok
+                data:
+                - access_key: '35260900000000000191550010000012341000012345'
+                  code: 210200
+                  status:
+                    code: 135
+                    message: 0
+        '400':
+          description: 'Parâmetro fora do formato: chave de acesso sem 44 posições, data inválida, created_at[from] sem created_at[to] (os dois
+            são obrigatórios juntos).'
+        '401':
+          description: X-API-ID ou X-API-KEY ausente, errado, revogado ou de outro ambiente (credencial de sandbox chamando produção, ou o contrário).
+        '404':
+          description: 'Documento não encontrado para os CNPJs da conta, ou rota digitada errada (ex.: papel inválido em {role}).'
+        '429':
+          description: Limite de requisições da conta atingido. A Qive define o limite por cliente, conforme contrato e volume.
+        '500':
+          description: Falha interna da Qive.
+  /v1/nfe/manifest:
+    post:
+      operationId: arquivei__nota_fiscal__manifestar__nfe
+      summary: Inclui Manifestação de NFes — manifestação assíncrona de uma ou mais NF-e
+      description: 'Registra, em lote e de forma assíncrona, a manifestação do destinatário (confirmação, ciência, desconhecimento ou operação
+        não realizada) para NF-e recebidas. Devolve um request_id para acompanhar. Quando o cliente quer manifestar notas pela integração. ESCRITA
+        com efeito fiscal na SEFAZ: o assistente explica e entrega o código, mas não executa.'
+      tags:
+      - NotaFiscal
+      x-confianca: verificado
+      x-fonte-url: https://docs.arquivei.com.br/arquivei-apis-swagger/dfe-api.json
+      x-data-consulta: '2026-10-14'
+      x-seguro-para-executar: false
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                manifests:
+                  type: array
+                  items:
+                    type: string
+                  description: 'Lista de manifestações: {access_key, code, justification}.'
+              required:
+              - manifests
+            example:
+              manifests:
+              - access_key: '35260900000000000191550010000012341000012345'
+                code: '210210'
+      responses:
+        '200':
+          description: Sucesso.
+          content:
+            application/json:
+              example:
+                status:
+                  code: 200
+                  message: Ok
+                data:
+                  request_id: <<request_id>>
+        '400':
+          description: 'Parâmetro fora do formato: chave de acesso sem 44 posições, data inválida, created_at[from] sem created_at[to] (os dois
+            são obrigatórios juntos).'
+        '401':
+          description: X-API-ID ou X-API-KEY ausente, errado, revogado ou de outro ambiente (credencial de sandbox chamando produção, ou o contrário).
+        '404':
+          description: 'Documento não encontrado para os CNPJs da conta, ou rota digitada errada (ex.: papel inválido em {role}).'
+        '429':
+          description: Limite de requisições da conta atingido. A Qive define o limite por cliente, conforme contrato e volume.
+        '500':
+          description: Falha interna da Qive.
+  /v1/nfe/manifest/sync:
+    post:
+      operationId: arquivei__nota_fiscal__manifestar__nfe_sincrona
+      summary: Inclui Manifestação - Sync — manifestação síncrona de uma NF-e
+      description: 'Manifesta uma NF-e e devolve na hora a resposta da SEFAZ (código, descrição e justificativa). Quando o fluxo precisa da resposta
+        imediata da SEFAZ para uma nota. ESCRITA com efeito fiscal: o assistente não executa.'
+      tags:
+      - NotaFiscal
+      x-confianca: verificado
+      x-fonte-url: https://docs.arquivei.com.br/arquivei-apis-swagger/dfe-api.json
+      x-data-consulta: '2026-10-14'
+      x-seguro-para-executar: false
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                manifests:
+                  type: array
+                  items:
+                    type: string
+                  description: 'Lista de manifestações: {access_key, code, justification}.'
+              required:
+              - manifests
+            example:
+              manifests:
+              - access_key: '35260900000000000191550010000012341000012345'
+                code: '210200'
+      responses:
+        '200':
+          description: Sucesso.
+          content:
+            application/json:
+              example:
+                status:
+                  code: 200
+                  message: Ok
+                data:
+                  access_key: '35260900000000000191550010000012341000012345'
+                  sefaz_response:
+                    code: 135
+                    description: Evento registrado e vinculado a NF-e
+        '400':
+          description: 'Parâmetro fora do formato: chave de acesso sem 44 posições, data inválida, created_at[from] sem created_at[to] (os dois
+            são obrigatórios juntos).'
+        '401':
+          description: X-API-ID ou X-API-KEY ausente, errado, revogado ou de outro ambiente (credencial de sandbox chamando produção, ou o contrário).
+        '404':
+          description: 'Documento não encontrado para os CNPJs da conta, ou rota digitada errada (ex.: papel inválido em {role}).'
+        '429':
+          description: Limite de requisições da conta atingido. A Qive define o limite por cliente, conforme contrato e volume.
+        '500':
+          description: Falha interna da Qive.
+  /v1/nfse/event:
+    post:
+      operationId: arquivei__nota_fiscal__manifestar__nfse
+      summary: Evento de NFSe — Registra evento de manifestação do tomador em uma NFS-e
+      description: 'Registra, em nome do tomador, a confirmação (ConfirmacaoTomador, evento 203202) ou a rejeição (RejeicaoTomador, 203206, com
+        justificativa de 15 a 255 caracteres) de uma NFS-e do padrão nacional na Sefin Nacional. Síncrono: HTTP 200 só indica que a Sefin respondeu;
+        o registro é confirmado por data.n_dfse e a rejeição vem em data.erros. Quando o tomador quer confirmar ou rejeitar uma NFS-e nacional
+        pela integração. ESCRITA com efeito fiscal: o assistente não executa.'
+      tags:
+      - NotaFiscal
+      x-confianca: verificado
+      x-fonte-url: https://docs.arquivei.com.br/arquivei-apis-swagger/dfe-api.json
+      x-data-consulta: '2026-10-14'
+      x-seguro-para-executar: false
+      parameters:
+      - name: X-Use-ApiGateway
+        in: header
+        required: true
+        schema:
+          type: string
+          enum: *id001
+          default: always
+          description: 'Cabeçalho exigido pela documentação para rotear a chamada pelo API Gateway da Qive; o valor é sempre ''always''. Não é
+            credencial: é fixo. Sem ele a rota pode não ser atendida.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                owner:
+                  type: string
+                  description: CNPJ do tomador (precisa pertencer à conta).
+                access_key:
+                  type: string
+                  description: 'Chave da NFS-e nacional (50 posições, dígitos ou letras maiúsculas). Formato: 50 posições.'
+                tp_evento:
+                  type: string
+                  enum:
+                  - ConfirmacaoTomador
+                  - RejeicaoTomador
+                  description: Tipo do evento.
+                x_justificativa:
+                  type: string
+                  description: Obrigatória para RejeicaoTomador, 15 a 255 caracteres.
+                n_seq_evento:
+                  type: integer
+                  default: 1
+                  description: Sequencial do evento (padrão 1).
+              required:
+              - owner
+              - access_key
+              - tp_evento
+            example:
+              owner: 00000000000191
+              access_key: <<chave NFS-e nacional de 50 posições>>
+              tp_evento: ConfirmacaoTomador
+      responses:
+        '200':
+          description: Sucesso.
+          content:
+            application/json:
+              example:
+                status:
+                  code: 200
+                  message: OK
+                data:
+                  tipo_ambiente: '2'
+                  n_dfse: <<número>>
+                  erros: null
+        '400':
+          description: Corpo malformado, chave fora do formato (chave de NF-e de 44 é recusada) ou justificativa fora dos limites.
+        '403':
+          description: owner não pertence à conta.
+        '401':
+          description: X-API-ID ou X-API-KEY ausente, errado, revogado ou de outro ambiente (credencial de sandbox chamando produção, ou o contrário).
+        '500':
+          description: Falha interna da Qive.
+  /v1/nfe/danfe:
+    get:
+      operationId: arquivei__nota_fiscal__baixar_arquivo__danfe
+      summary: Busca PDF de NFe — DANFe em Base64
+      description: 'Devolve o DANFE (documento auxiliar da NF-e) em PDF, codificado em Base64 dentro de um JSON (campo data.encoded_pdf). É a
+        única rota que entrega o PDF desse documento; as rotas de busca só trazem XML. Quando o usuário pede o PDF (DANFE (documento auxiliar
+        da NF-e)) de um documento específico. Quando NÃO usar: para planilhas (o PDF não vira coluna) ou em massa sem necessidade, porque cada
+        PDF é uma chamada.'
+      tags:
+      - NotaFiscal
+      x-confianca: verificado
+      x-fonte-url: https://docs.arquivei.com.br/arquivei-apis-swagger/dfe-api.json
+      x-data-consulta: '2026-10-14'
+      x-seguro-para-executar: true
+      parameters:
+      - name: access_key
+        in: query
+        required: true
+        schema:
+          type: string
+          description: 'Chave de acesso. Formato: 44 dígitos.'
+      responses:
+        '200':
+          description: Sucesso.
+          content:
+            application/json:
+              example:
+                status:
+                  code: 200
+                  message: Ok
+                data:
+                  access_key: '35260900000000000191550010000012341000012345'
+                  encoded_pdf: JVBERi0xLjQK...
+        '400':
+          description: 'Parâmetro fora do formato: chave de acesso sem 44 posições, data inválida, created_at[from] sem created_at[to] (os dois
+            são obrigatórios juntos).'
+        '401':
+          description: X-API-ID ou X-API-KEY ausente, errado, revogado ou de outro ambiente (credencial de sandbox chamando produção, ou o contrário).
+        '404':
+          description: 'Documento não encontrado para os CNPJs da conta, ou rota digitada errada (ex.: papel inválido em {role}).'
+        '422':
+          description: A documentação lista 422 para o download do documento auxiliar, sem detalhar a causa.
+        '429':
+          description: Limite de requisições da conta atingido. A Qive define o limite por cliente, conforme contrato e volume.
+        '500':
+          description: Falha interna da Qive.
+  /v1/cte/dacte:
+    get:
+      operationId: arquivei__nota_fiscal__baixar_arquivo__dacte
+      summary: Busca PDF de uma CTe — DACTe em Base64
+      description: 'Devolve o DACTE (documento auxiliar do CT-e) em PDF, codificado em Base64 dentro de um JSON (campo data.encoded_pdf). É a
+        única rota que entrega o PDF desse documento; as rotas de busca só trazem XML. Quando o usuário pede o PDF (DACTE (documento auxiliar
+        do CT-e)) de um documento específico. Quando NÃO usar: para planilhas (o PDF não vira coluna) ou em massa sem necessidade, porque cada
+        PDF é uma chamada.'
+      tags:
+      - NotaFiscal
+      x-confianca: verificado
+      x-fonte-url: https://docs.arquivei.com.br/arquivei-apis-swagger/dfe-api.json
+      x-data-consulta: '2026-10-14'
+      x-seguro-para-executar: true
+      parameters:
+      - name: access_key
+        in: query
+        required: true
+        schema:
+          type: string
+          description: 'Chave de acesso. Formato: 44 dígitos.'
+      responses:
+        '200':
+          description: Sucesso.
+          content:
+            application/json:
+              example:
+                status:
+                  code: 200
+                  message: Ok
+                data:
+                  access_key: '35260900000000000191570010000003211000003214'
+                  encoded_pdf: JVBERi0xLjQK...
+        '400':
+          description: 'Parâmetro fora do formato: chave de acesso sem 44 posições, data inválida, created_at[from] sem created_at[to] (os dois
+            são obrigatórios juntos).'
+        '401':
+          description: X-API-ID ou X-API-KEY ausente, errado, revogado ou de outro ambiente (credencial de sandbox chamando produção, ou o contrário).
+        '404':
+          description: 'Documento não encontrado para os CNPJs da conta, ou rota digitada errada (ex.: papel inválido em {role}).'
+        '422':
+          description: A documentação lista 422 para o download do documento auxiliar, sem detalhar a causa.
+        '429':
+          description: Limite de requisições da conta atingido. A Qive define o limite por cliente, conforme contrato e volume.
+        '500':
+          description: Falha interna da Qive.
+  /v1/cte-os/dacteos:
+    get:
+      operationId: arquivei__nota_fiscal__baixar_arquivo__dacteos
+      summary: Busca PDF de uma CTe-OS — DACTe-OS em Base64
+      description: 'Devolve o DACTE OS em PDF, codificado em Base64 dentro de um JSON (campo data.encoded_pdf). É a única rota que entrega o PDF
+        desse documento; as rotas de busca só trazem XML. Quando o usuário pede o PDF (DACTE OS) de um documento específico. Quando NÃO usar:
+        para planilhas (o PDF não vira coluna) ou em massa sem necessidade, porque cada PDF é uma chamada.'
+      tags:
+      - NotaFiscal
+      x-confianca: verificado
+      x-fonte-url: https://docs.arquivei.com.br/arquivei-apis-swagger/dfe-api.json
+      x-data-consulta: '2026-10-14'
+      x-seguro-para-executar: true
+      parameters:
+      - name: access_key
+        in: query
+        required: true
+        schema:
+          type: string
+          description: 'Chave de acesso. Formato: 44 dígitos.'
+      responses:
+        '200':
+          description: Sucesso.
+          content:
+            application/json:
+              example:
+                status:
+                  code: 200
+                  message: Ok
+                data:
+                  access_key: '35260900000000000191670010000000771000000772'
+                  encoded_pdf: JVBERi0xLjQK...
+        '400':
+          description: 'Parâmetro fora do formato: chave de acesso sem 44 posições, data inválida, created_at[from] sem created_at[to] (os dois
+            são obrigatórios juntos).'
+        '401':
+          description: X-API-ID ou X-API-KEY ausente, errado, revogado ou de outro ambiente (credencial de sandbox chamando produção, ou o contrário).
+        '404':
+          description: 'Documento não encontrado para os CNPJs da conta, ou rota digitada errada (ex.: papel inválido em {role}).'
+        '422':
+          description: A documentação lista 422 para o download do documento auxiliar, sem detalhar a causa.
+        '429':
+          description: Limite de requisições da conta atingido. A Qive define o limite por cliente, conforme contrato e volume.
+        '500':
+          description: Falha interna da Qive.
+  /v1/nfse/danfse:
+    get:
+      operationId: arquivei__nota_fiscal__baixar_arquivo__danfse
+      summary: Busca PDF de NFSe — DANFSe gerado pela Qive em Base64
+      description: 'Devolve o DANFSE (documento auxiliar da NFS-e, gerado pela Qive) em PDF, codificado em Base64 dentro de um JSON (campo data.encoded_pdf).
+        É a única rota que entrega o PDF desse documento; as rotas de busca só trazem XML. Quando o usuário pede o PDF (DANFSE (documento auxiliar
+        da NFS-e, gerado pela Qive)) de um documento específico. Quando NÃO usar: para planilhas (o PDF não vira coluna) ou em massa sem necessidade,
+        porque cada PDF é uma chamada.'
+      tags:
+      - NotaFiscal
+      x-confianca: verificado
+      x-fonte-url: https://docs.arquivei.com.br/arquivei-apis-swagger/dfe-api.json
+      x-data-consulta: '2026-10-14'
+      x-seguro-para-executar: true
+      parameters:
+      - name: id
+        in: query
+        required: true
+        schema:
+          type: string
+          description: 'Identificador do documento. Formato: 40 posições.'
+      responses:
+        '200':
+          description: Sucesso.
+          content:
+            application/json:
+              example:
+                status:
+                  code: 200
+                  message: Ok
+                data:
+                  id: '0000000000000000000000000000000000000000'
+                  encoded_pdf: JVBERi0xLjQK...
+        '400':
+          description: 'Parâmetro fora do formato: chave de acesso sem 44 posições, data inválida, created_at[from] sem created_at[to] (os dois
+            são obrigatórios juntos).'
+        '401':
+          description: X-API-ID ou X-API-KEY ausente, errado, revogado ou de outro ambiente (credencial de sandbox chamando produção, ou o contrário).
+        '404':
+          description: 'Documento não encontrado para os CNPJs da conta, ou rota digitada errada (ex.: papel inválido em {role}).'
+        '422':
+          description: A documentação lista 422 para o download do documento auxiliar, sem detalhar a causa.
+        '429':
+          description: Limite de requisições da conta atingido. A Qive define o limite por cliente, conforme contrato e volume.
+        '500':
+          description: Falha interna da Qive.
+  /v1/company:
+    get:
+      operationId: arquivei__empresa__listar
+      summary: Lista Empresas da Conta — Busca todos os CNPJs da conta autenticada
+      description: Devolve a lista de CNPJs que as credenciais podem acessar (só os números, sem razão social). Primeira chamada para validar
+        as credenciais e descobrir quais CNPJs usar nos filtros Owners/cnpj[]. Barata e sem efeito.
+      tags:
+      - Empresa
+      x-confianca: verificado
+      x-fonte-url: https://docs.arquivei.com.br/arquivei-apis-swagger/dfe-api.json
+      x-data-consulta: '2026-10-14'
+      x-seguro-para-executar: true
+      responses:
+        '200':
+          description: Sucesso.
+          content:
+            application/json:
+              example:
+                status:
+                  code: 200
+                  message: Ok
+                data:
+                - 00000000000191
+        '401':
+          description: X-API-ID ou X-API-KEY ausente, errado, revogado ou de outro ambiente (credencial de sandbox chamando produção, ou o contrário).
+        '429':
+          description: Limite de requisições da conta atingido. A Qive define o limite por cliente, conforme contrato e volume.
+        '500':
+          description: Falha interna da Qive.
+  /v1/property:
+    get:
+      operationId: arquivei__tabela_auxiliar__listar__properties
+      summary: Lista de Property — chaves de properties disponíveis para a conta
+      description: Lista as chaves de properties (marcadores chave-valor que o cliente aplica aos documentos) disponíveis na conta. Toda conta
+        já tem a property 'status'. Antes de usar o parâmetro filter nas rotas v1 ou de aplicar properties. Somente leitura.
+      tags:
+      - TabelaAuxiliar
+      x-confianca: verificado
+      x-fonte-url: https://docs.arquivei.com.br/arquivei-apis-swagger/dfe-api.json
+      x-data-consulta: '2026-10-14'
+      x-seguro-para-executar: true
+      responses:
+        '200':
+          description: Sucesso.
+          content:
+            application/json:
+              example:
+                status:
+                  code: 200
+                  message: Ok
+                data:
+                - id: 1
+                  key: status
+                  type: string
+        '401':
+          description: X-API-ID ou X-API-KEY ausente, errado, revogado ou de outro ambiente (credencial de sandbox chamando produção, ou o contrário).
+        '429':
+          description: Limite de requisições da conta atingido. A Qive define o limite por cliente, conforme contrato e volume.
+  /v1/account/tags/list:
+    post:
+      operationId: arquivei__tabela_auxiliar__listar__etiquetas
+      summary: Lista Etiquetas da Conta
+      description: Lista até 1.000 etiquetas da conta (id, nome, cores, se pertencem ao 'NFe em Etapas' e posição), com filtro por termo e por
+        ids. POST de consulta, sem efeito. Para traduzir os ids de etiqueta (Tags) que vêm nas notas em nomes legíveis na planilha.
+      tags:
+      - TabelaAuxiliar
+      x-confianca: verificado
+      x-fonte-url: https://docs.arquivei.com.br/arquivei-apis-swagger/dfe-api.json
+      x-data-consulta: '2026-10-14'
+      x-seguro-para-executar: true
+      parameters:
+      - name: X-Use-ApiGateway
+        in: header
+        required: true
+        schema:
+          type: string
+          enum: *id001
+          default: always
+          description: 'Cabeçalho exigido pela documentação para rotear a chamada pelo API Gateway da Qive; o valor é sempre ''always''. Não é
+            credencial: é fixo. Sem ele a rota pode não ser atendida.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                IsLane:
+                  type: boolean
+                  default: false
+                  description: true = etiquetas do NFe em Etapas; false = demais.
+                SearchTerm:
+                  type: string
+                  description: Parte do nome da etiqueta.
+                TagsIds:
+                  type: array
+                  items:
+                    type: string
+                  description: Ids de etiquetas.
+              required:
+              - IsLane
+            example:
+              IsLane: false
+      responses:
+        '200':
+          description: Sucesso.
+          content:
+            application/json:
+              example:
+                Tags:
+                - Id: 1
+                  Name: Revenda
+                  ColorBg: '#FFFFFF'
+                  ColorText: '#000000'
+                  IsLane: false
+                  LanePosition: 0
+        '400':
+          description: Corpo JSON malformado, filtro com tipo errado ou valor não aceito.
+        '401':
+          description: X-API-ID ou X-API-KEY ausente, errado, revogado ou de outro ambiente (credencial de sandbox chamando produção, ou o contrário).
+        '500':
+          description: Falha interna da Qive.
+  /v1/dfe/tags/list:
+    post:
+      operationId: arquivei__nota_fiscal__listar__etiquetas_documento
+      summary: Lista Etiquetas de um DFe
+      description: Lista os ids de etiquetas aplicadas a documentos (nfe, nfse ou cte) informados por identificador e dono. POST de consulta.
+        Para saber quais etiquetas estão em notas específicas. Para muitas notas, prefira pedir 'Tags' em Fields na busca v2.
+      tags:
+      - NotaFiscal
+      x-confianca: verificado
+      x-fonte-url: https://docs.arquivei.com.br/arquivei-apis-swagger/dfe-api.json
+      x-data-consulta: '2026-10-14'
+      x-seguro-para-executar: true
+      parameters:
+      - name: X-Use-ApiGateway
+        in: header
+        required: true
+        schema:
+          type: string
+          enum: *id001
+          default: always
+          description: 'Cabeçalho exigido pela documentação para rotear a chamada pelo API Gateway da Qive; o valor é sempre ''always''. Não é
+            credencial: é fixo. Sem ele a rota pode não ser atendida.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                DocumentType:
+                  type: string
+                  enum:
+                  - nfe
+                  - nfse
+                  - cte
+                  description: Tipo do documento.
+                Identifiers:
+                  type: array
+                  items:
+                    type: string
+                  description: Chaves (NF-e/CT-e) ou ids de NFS-e (cnpj:data:número).
+                Owners:
+                  type: array
+                  items:
+                    type: string
+                  description: CPF/CNPJ do dono.
+              required:
+              - DocumentType
+              - Identifiers
+              - Owners
+            example:
+              DocumentType: nfe
+              Identifiers:
+              - '35260900000000000191550010000012341000012345'
+              Owners:
+              - 00000000000191
+      responses:
+        '200':
+          description: Sucesso.
+          content:
+            application/json:
+              example:
+                Tags:
+                - Identifier: '35260900000000000191550010000012341000012345'
+                  TagIDs:
+                  - 1
+                  - 2
+        '400':
+          description: Corpo JSON malformado, filtro com tipo errado ou valor não aceito.
+        '401':
+          description: X-API-ID ou X-API-KEY ausente, errado, revogado ou de outro ambiente (credencial de sandbox chamando produção, ou o contrário).
+        '500':
+          description: Falha interna da Qive.
+  /v2/bank-billet/search:
+    post:
+      operationId: arquivei__conta_pagar__listar__boletos
+      summary: Boletos Bancários v2 — Retorna uma pesquisa de boleto com notas
+      description: 'Busca os boletos capturados pela Gestão de Pagamentos da Qive contra os CNPJs da conta (boletos a pagar), com as notas vinculadas,
+        filtrando por pagador, emissão, vencimento, atualização, status, nível de confiança e tipo de nota vinculada. Pagina por cursor (next)
+        no corpo. Apesar do POST, é consulta. Para a planilha de contas a pagar por boleto (a vencer, vencidos, pagos) cruzada com as NF-e/NFS-e.
+        Quando NÃO usar: para comprovantes de pagamento (arquivei.pagamento.listar.comprovantes).'
+      tags:
+      - ContaPagar
+      x-confianca: verificado
+      x-fonte-url: https://docs.arquivei.com.br/arquivei-apis-swagger/dfe-api.json
+      x-data-consulta: '2026-10-14'
+      x-seguro-para-executar: true
+      parameters:
+      - name: X-Use-ApiGateway
+        in: header
+        required: true
+        schema:
+          type: string
+          enum: *id001
+          default: always
+          description: 'Cabeçalho exigido pela documentação para rotear a chamada pelo API Gateway da Qive; o valor é sempre ''always''. Não é
+            credencial: é fixo. Sem ele a rota pode não ser atendida.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                owners:
+                  type: array
+                  items:
+                    type: string
+                  description: CPFs/CNPJs pagadores.
+                due_date:
+                  type: object
+                  properties:
+                    from:
+                      type: string
+                      format: date
+                      description: 'Vencimento inicial. Formato: AAAA-MM-DD.'
+                    to:
+                      type: string
+                      format: date
+                      description: 'Vencimento final. Formato: AAAA-MM-DD.'
+                issue_date:
+                  type: object
+                  properties:
+                    from:
+                      type: string
+                      format: date
+                      description: 'Emissão inicial. Formato: AAAA-MM-DD.'
+                    to:
+                      type: string
+                      format: date
+                      description: 'Emissão final. Formato: AAAA-MM-DD.'
+                updated_at:
+                  type: object
+                  properties:
+                    from:
+                      type: string
+                      format: date
+                      description: 'Atualização inicial. Formato: AAAA-MM-DD.'
+                    to:
+                      type: string
+                      format: date
+                      description: 'Atualização final. Formato: AAAA-MM-DD.'
+                status:
+                  type: string
+                  enum:
+                  - open
+                  - overdue
+                  - paid
+                  - canceled
+                  - closed
+                  - blocked
+                  description: Situação.
+                trust_level:
+                  type: string
+                  enum:
+                  - high
+                  - medium
+                  - low
+                  description: Nível de confiança.
+                linked_document_type:
+                  type: array
+                  items:
+                    type: string
+                    enum:
+                    - nfse
+                    - nfe
+                  description: Tipo de nota vinculada.
+                document_identifier:
+                  type: string
+                  description: Identificador do boleto.
+                limit:
+                  type: integer
+                  description: Itens por página (máximo não documentado).
+                next:
+                  type: string
+                  description: Cursor devolvido em meta.next.
+            example:
+              owners:
+              - 00000000000191
+              due_date:
+                from: '2026-10-01'
+                to: '2026-10-31'
+              status: open
+              limit: 50
+      responses:
+        '200':
+          description: Sucesso.
+          content:
+            application/json:
+              example:
+                meta:
+                  limit: 50
+                  next: null
+                  previous: null
+                  current page: 1
+                data:
+                - &id004
+                  beneficiary:
+                    name: FORNECEDOR EXEMPLO LTDA
+                    document: 00000000000191
+                    bank_number: '341'
+                  owner:
+                    name: EMPRESA EXEMPLO SA
+                    document: 00000000000191
+                  issue_date: '2026-09-01'
+                  due_date: '2026-09-30'
+                  currency: BRL
+                  cost: '1500.00'
+                  fine: '0'
+                  interest: '0'
+                  digitable_line: <<linha digitável>>
+                  linked_documents:
+                  - document_type: NFSe
+                    document_identifier: <<id>>
+                  trust_level: high
+                  status: open
+                  our_number: <<nosso número>>
+        '400':
+          description: Corpo JSON malformado, filtro com tipo errado ou valor não aceito.
+        '401':
+          description: X-API-ID ou X-API-KEY ausente, errado, revogado ou de outro ambiente (credencial de sandbox chamando produção, ou o contrário).
+        '500':
+          description: Falha interna da Qive.
+  /v1/bank-billet:
+    get:
+      operationId: arquivei__conta_pagar__listar__boletos_v1
+      summary: Boletos Bancários — Retorna uma pesquisa de boleto com notas (GET, paginação por página)
+      description: 'Versão GET da busca de boletos com notas, com os mesmos filtros em query (owners[] obrigatório) e paginação por número de
+        página (page, limit) e metadados meta.total/last_page. Mesma necessidade da v2, quando é mais simples paginar por página (ex.: executor
+        que só monta query string).'
+      tags:
+      - ContaPagar
+      x-confianca: verificado
+      x-fonte-url: https://docs.arquivei.com.br/arquivei-apis-swagger/dfe-api.json
+      x-data-consulta: '2026-10-14'
+      x-seguro-para-executar: true
+      parameters:
+      - name: X-Use-ApiGateway
+        in: header
+        required: true
+        schema:
+          type: string
+          enum: *id001
+          default: always
+          description: 'Cabeçalho exigido pela documentação para rotear a chamada pelo API Gateway da Qive; o valor é sempre ''always''. Não é
+            credencial: é fixo. Sem ele a rota pode não ser atendida.'
+      - name: owners[]
+        in: query
+        required: true
+        schema:
+          type: array
+          items:
+            type: string
+          description: CPFs/CNPJs pagadores.
+        style: form
+        explode: true
+      - name: due_date[from]
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date
+          description: 'Vencimento inicial. Formato: AAAA-MM-DD.'
+      - name: due_date[to]
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date
+          description: 'Vencimento final. Formato: AAAA-MM-DD.'
+      - name: issue_date[from]
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date
+          description: 'Emissão inicial. Formato: AAAA-MM-DD.'
+      - name: issue_date[to]
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date
+          description: 'Emissão final. Formato: AAAA-MM-DD.'
+      - name: updated_at[from]
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date
+          description: Atualização inicial.
+      - name: updated_at[to]
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date
+          description: Atualização final.
+      - name: status
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - open
+          - overdue
+          - paid
+          - canceled
+          - closed
+          description: Situação.
+      - name: trust_level
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - high
+          - medium
+          - low
+          description: Confiança.
+      - name: linked_document_type
+        in: query
+        required: false
+        schema:
+          type: array
+          items:
+            type: string
+          description: nfse ou nfe.
+        style: form
+        explode: true
+      - name: document_identifier
+        in: query
+        required: false
+        schema:
+          type: string
+          description: Identificador do boleto.
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: string
+          default: '1'
+          description: Página atual.
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: string
+          description: 'Itens por página (exemplo oficial: 10).'
+      responses:
+        '200':
+          description: Sucesso.
+          content:
+            application/json:
+              example:
+                meta:
+                  total: 1
+                  current_page: 1
+                  last_page: 1
+                  per_page: 50
+                  from: 1
+                  to: 1
+                data:
+                - *id004
+        '400':
+          description: Corpo JSON malformado, filtro com tipo errado ou valor não aceito.
+        '401':
+          description: X-API-ID ou X-API-KEY ausente, errado, revogado ou de outro ambiente (credencial de sandbox chamando produção, ou o contrário).
+        '500':
+          description: Falha interna da Qive.
+  /v1/bank-billet/{owner}/{digitableLine}/pdf:
+    get:
+      operationId: arquivei__conta_pagar__baixar_arquivo__boleto_pdf
+      summary: Boleto Bancário - PDF — busca o PDF a partir do owner e da linha digitável
+      description: Devolve o PDF do boleto com notas, em Base64 dentro de JSON (data.encoded_pdf), a partir do CNPJ pagador e da linha digitável.
+        Quando o usuário pede o PDF de um boleto específico. Não serve para planilha.
+      tags:
+      - ContaPagar
+      x-confianca: verificado
+      x-fonte-url: https://docs.arquivei.com.br/arquivei-apis-swagger/dfe-api.json
+      x-data-consulta: '2026-10-14'
+      x-seguro-para-executar: true
+      parameters:
+      - name: X-Use-ApiGateway
+        in: header
+        required: true
+        schema:
+          type: string
+          enum: *id001
+          default: always
+          description: 'Cabeçalho exigido pela documentação para rotear a chamada pelo API Gateway da Qive; o valor é sempre ''always''. Não é
+            credencial: é fixo. Sem ele a rota pode não ser atendida.'
+      - name: owner
+        in: path
+        required: true
+        schema:
+          type: string
+          description: CPF/CNPJ pagador.
+      - name: digitableLine
+        in: path
+        required: true
+        schema:
+          type: string
+          description: Linha digitável.
+      responses:
+        '200':
+          description: Sucesso.
+          content:
+            application/json:
+              example:
+                data:
+                  digitable_line: <<linha digitável>>
+                  owner: 00000000000191
+                  encoded_pdf: JVBERi0xLjQK...
+        '401':
+          description: X-API-ID ou X-API-KEY ausente, errado, revogado ou de outro ambiente (credencial de sandbox chamando produção, ou o contrário).
+        '500':
+          description: Falha interna da Qive.
+  /v1/receipts/list:
+    post:
+      operationId: arquivei__pagamento__listar__comprovantes
+      summary: Busca de Comprovantes — Lista os comprovantes de pagamento da conta
+      description: 'Lista os comprovantes de pagamento da conta (enviados pelo cliente ou capturados pela conexão bancária) com projeção de campos:
+        data e valor pagos, código de autenticação, linha digitável do boleto pago, vencimento, pagador e recebedor. Filtra por data de pagamento,
+        documento do recebedor, faixa de valor e identificador. Ordenado por data de pagamento decrescente. O mesmo endpoint entrega o PDF se
+        ''EncodedPdf'' for pedido em Fields (com até 2 identificadores por chamada em produção). Para a planilha de pagamentos realizados (conciliação
+        de contas a pagar). Quando NÃO usar: para boletos em aberto (arquivei.conta_pagar.listar.boletos). Não peça EncodedPdf na listagem.'
+      tags:
+      - Pagamento
+      x-confianca: verificado
+      x-fonte-url: https://docs.arquivei.com.br/arquivei-apis-swagger/dfe-api.json
+      x-data-consulta: '2026-10-14'
+      x-seguro-para-executar: true
+      parameters:
+      - name: X-Use-ApiGateway
+        in: header
+        required: true
+        schema:
+          type: string
+          enum: *id001
+          default: always
+          description: 'Cabeçalho exigido pela documentação para rotear a chamada pelo API Gateway da Qive; o valor é sempre ''always''. Não é
+            credencial: é fixo. Sem ele a rota pode não ser atendida.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                Filters:
+                  type: object
+                  properties:
+                    PaymentDate:
+                      type: object
+                      properties:
+                        From:
+                          type: string
+                          format: date
+                          description: 'Pagamento a partir de (inclusivo). Formato: AAAA-MM-DD.'
+                        To:
+                          type: string
+                          format: date
+                          description: 'Pagamento até (inclusivo). Formato: AAAA-MM-DD.'
+                    ReceiverDocument:
+                      type: array
+                      items:
+                        type: string
+                      description: CPF/CNPJ do recebedor (validado por dígito; inválido dá 400).
+                    Amount:
+                      type: object
+                      properties:
+                        From:
+                          type: number
+                          description: Valor mínimo (inclusivo).
+                        To:
+                          type: number
+                          description: Valor máximo (inclusivo).
+                    Identifier:
+                      type: array
+                      items:
+                        type: string
+                      description: Identificadores opacos de comprovantes; obrigatório com EncodedPdf.
+                Fields:
+                  type: array
+                  items:
+                    type: string
+                    enum:
+                    - Identifier
+                    - Source
+                    - PaymentDate
+                    - Amount
+                    - CurrencyCode
+                    - CodeAuth
+                    - BankSlipNumber
+                    - DueDate
+                    - Payer
+                    - Receiver
+                    - EncodedPdf
+                  description: Campos a devolver (caixa exata).
+                Limit:
+                  type: integer
+                  default: 50
+                  maximum: 500
+                  description: Tamanho da página. Acima de 500 é limitado, não rejeitado.
+                Paginator:
+                  type: string
+                  description: Cursor opaco da página anterior; vazio = primeira página.
+            example:
+              Filters:
+                PaymentDate:
+                  From: '2026-09-01'
+                  To: '2026-09-30'
+              Fields:
+              - Identifier
+              - Source
+              - PaymentDate
+              - Amount
+              - DueDate
+              - BankSlipNumber
+              - CodeAuth
+              - Payer
+              - Receiver
+              Limit: 100
+      responses:
+        '200':
+          description: Sucesso.
+          content:
+            application/json:
+              example:
+                Receipts:
+                - Identifier: <<identificador opaco>>
+                  Source: automatico
+                  PaymentDate: '2026-09-12'
+                  Amount: 725.72
+                  DueDate: '2026-09-12'
+                  BankSlipNumber: <<linha digitável>>
+                  CodeAuth: <<autenticação>>
+                  Payer:
+                    Name: EMPRESA EXEMPLO SA
+                    Document: 00000000000191
+                    DocType: CNPJ
+                    BankCode: '001'
+                  Receiver:
+                    Name: FORNECEDOR EXEMPLO LTDA
+                    Document: 00000000000191
+                    DocType: CNPJ
+                Paginator: ''
+                Total: 1
+        '400':
+          description: Chave com caixa errada, campo desconhecido, data malformada, documento inválido, Paginator adulterado ou EncodedPdf sem
+            Identifier.
+        '401':
+          description: Credenciais ausentes ou sem nenhum CNPJ autorizado.
+        '404':
+          description: 'Só com Filters.Identifier: comprovante inexistente, fora do escopo ou excluído por outro filtro.'
+        '502':
+          description: Falha ao obter ou gerar o PDF.
+        '500':
+          description: Falha interna da Qive.
+  /v1/cnpj/{CNPJ}:
+    get:
+      operationId: arquivei__pessoa__obter__cnpj
+      summary: Dados Públicos de um CNPJ
+      description: 'Devolve dados cadastrais públicos de um CNPJ (Receita Federal, no modelo da ReceitaWS): razão social, fantasia, situação,
+        abertura, endereço, CNAEs, natureza jurídica, porte, Simples/MEI e quadro societário. Para enriquecer a planilha de fornecedores com situação
+        cadastral e endereço. Quando NÃO usar: para vários CNPJs de uma vez (arquivei.pessoa.listar.cnpj).'
+      tags:
+      - Pessoa
+      x-confianca: verificado
+      x-fonte-url: https://docs.arquivei.com.br/arquivei-apis-swagger/dfe-api.json
+      x-data-consulta: '2026-10-14'
+      x-seguro-para-executar: true
+      parameters:
+      - name: X-Use-ApiGateway
+        in: header
+        required: true
+        schema:
+          type: string
+          enum: *id001
+          default: always
+          description: 'Cabeçalho exigido pela documentação para rotear a chamada pelo API Gateway da Qive; o valor é sempre ''always''. Não é
+            credencial: é fixo. Sem ele a rota pode não ser atendida.'
+      - name: CNPJ
+        in: path
+        required: true
+        schema:
+          type: string
+          description: 'CNPJ sem pontuação. Formato: 14 posições.'
+      responses:
+        '200':
+          description: Sucesso.
+          content:
+            application/json:
+              example:
+                data:
+                  cnpj: 00.000.000/0001-91
+                  nome: EMPRESA EXEMPLO SA
+                  situacao: ATIVA
+                  uf: SP
+                  porte: DEMAIS
+        '400':
+          description: CNPJ inválido.
+        '404':
+          description: CNPJ inexistente na base.
+        '500':
+          description: Falha interna da Qive.
+  /v1/cnpj:
+    get:
+      operationId: arquivei__pessoa__listar__cnpj
+      summary: Dados Públicos de CNPJs — vários CNPJs
+      description: 'Versão em lote: dados públicos de até 100 CNPJs por chamada (parâmetro cnpj repetido). Para enriquecer uma lista de fornecedores
+        (até 100 por chamada).'
+      tags:
+      - Pessoa
+      x-confianca: verificado
+      x-fonte-url: https://docs.arquivei.com.br/arquivei-apis-swagger/dfe-api.json
+      x-data-consulta: '2026-10-14'
+      x-seguro-para-executar: true
+      parameters:
+      - name: X-Use-ApiGateway
+        in: header
+        required: true
+        schema:
+          type: string
+          enum: *id001
+          default: always
+          description: 'Cabeçalho exigido pela documentação para rotear a chamada pelo API Gateway da Qive; o valor é sempre ''always''. Não é
+            credencial: é fixo. Sem ele a rota pode não ser atendida.'
+      - name: cnpj
+        in: query
+        required: true
+        schema:
+          type: array
+          items:
+            type: string
+          description: 'CNPJs (repetir o parâmetro, sem colchetes: cnpj=...&cnpj=...). Formato: 1 a 100 itens únicos.'
+        style: form
+        explode: true
+      responses:
+        '200':
+          description: Sucesso.
+          content:
+            application/json:
+              example:
+                data:
+                - cnpj: 00.000.000/0001-91
+                  nome: EMPRESA EXEMPLO SA
+                  situacao: ATIVA
+                  uf: SP
+        '400':
+          description: Lista vazia, repetida ou acima de 100.
+        '404':
+          description: Nenhum CNPJ achado.
+        '500':
+          description: Falha interna da Qive.
+  /v1/webhooks/endpoints:
+    post:
+      operationId: arquivei__webhook__assinar_webhook__endpoint
+      summary: Cadastra Endpoint — URL que vai receber as notificações
+      description: 'Cadastra a URL de entrega. A Qive valida antes de salvar: só https na porta 443 com IP público, HEAD na URL com o cabeçalho
+        X-Qive-Webhook: Qive-Webhooks/1.0 respondendo 2xx em até 5 s, sem seguir redirecionamentos. Devolve o Secret (prefixo whsec_) uma única
+        vez. A mesma URL não pode ser cadastrada duas vezes. Primeiro passo para receber avisos de NF-e recebida ou cancelada. ESCRITA de configuração:
+        o assistente explica e entrega o código.'
+      tags:
+      - Webhook
+      x-confianca: verificado
+      x-fonte-url: https://docs.arquivei.com.br/arquivei-apis-swagger/dfe-api.json
+      x-data-consulta: '2026-10-14'
+      x-seguro-para-executar: false
+      parameters:
+      - name: X-Use-ApiGateway
+        in: header
+        required: true
+        schema:
+          type: string
+          enum: *id001
+          default: always
+          description: 'Cabeçalho exigido pela documentação para rotear a chamada pelo API Gateway da Qive; o valor é sempre ''always''. Não é
+            credencial: é fixo. Sem ele a rota pode não ser atendida.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                Url:
+                  type: string
+                  description: URL https na porta 443.
+              required:
+              - Url
+            example:
+              Url: https://erp.example.com/webhooks/qive
+      responses:
+        '201':
+          description: Sucesso.
+          content:
+            application/json:
+              example:
+                Id: 0b9f6e2a-0000-4000-8000-000000000001
+                Secret: whsec_<<segredo>>
+                Url: https://erp.example.com/webhooks/qive
+                Status: active
+        '400':
+          description: Validação falhou; cabeçalhos de autenticação ausentes também caem aqui (respondido pelo gateway).
+        '401':
+          description: Credenciais inválidas.
+        '500':
+          description: Erro interno.
+        '409':
+          description: URL já cadastrada.
+        '422':
+          description: A URL não respondeu 2xx ao HEAD de verificação.
+    get:
+      operationId: arquivei__webhook__listar__endpoints
+      summary: Lista Endpoints
+      description: Lista os endpoints de webhook da conta, paginados por página e ordenados pelo cadastro, com o estado de entrega (active/unreachable)
+        e falhas consecutivas. Total é o total da conta. Para auditar a configuração de webhooks e achar endpoints desativados por falha.
+      tags:
+      - Webhook
+      x-confianca: verificado
+      x-fonte-url: https://docs.arquivei.com.br/arquivei-apis-swagger/dfe-api.json
+      x-data-consulta: '2026-10-14'
+      x-seguro-para-executar: true
+      parameters:
+      - name: X-Use-ApiGateway
+        in: header
+        required: true
+        schema:
+          type: string
+          enum: *id001
+          default: always
+          description: 'Cabeçalho exigido pela documentação para rotear a chamada pelo API Gateway da Qive; o valor é sempre ''always''. Não é
+            credencial: é fixo. Sem ele a rota pode não ser atendida.'
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 50
+          maximum: 200
+          minimum: 1
+          description: Tamanho da página.
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 1
+          minimum: 1
+          description: Página (começa em 1).
+      responses:
+        '200':
+          description: Sucesso.
+          content:
+            application/json:
+              example:
+                Endpoints:
+                - &id005
+                  Id: 0b9f6e2a-0000-4000-8000-000000000001
+                  Url: https://erp.example.com/webhooks/qive
+                  Status: active
+                  ConsecutiveFailures: 0
+                  LastFailureAt: null
+                  LastStatusCode: null
+                  VerifiedAt: '2026-10-05T12:00:00Z'
+                  CreatedAt: '2026-10-05T12:00:00Z'
+                  UpdatedAt: '2026-10-05T12:00:00Z'
+                Total: 1
+                Page: 1
+                Limit: 50
+        '400':
+          description: Validação falhou; cabeçalhos de autenticação ausentes também caem aqui (respondido pelo gateway).
+        '401':
+          description: Credenciais inválidas.
+        '500':
+          description: Erro interno.
+  /v1/webhooks/endpoints/{id}:
+    get:
+      operationId: arquivei__webhook__obter__endpoint
+      summary: Consulta Endpoint
+      description: Devolve um endpoint e seu estado de entrega (sem o Secret). Para diagnosticar um endpoint específico.
+      tags:
+      - Webhook
+      x-confianca: verificado
+      x-fonte-url: https://docs.arquivei.com.br/arquivei-apis-swagger/dfe-api.json
+      x-data-consulta: '2026-10-14'
+      x-seguro-para-executar: true
+      parameters:
+      - name: X-Use-ApiGateway
+        in: header
+        required: true
+        schema:
+          type: string
+          enum: *id001
+          default: always
+          description: 'Cabeçalho exigido pela documentação para rotear a chamada pelo API Gateway da Qive; o valor é sempre ''always''. Não é
+            credencial: é fixo. Sem ele a rota pode não ser atendida.'
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          description: 'UUID do recurso, devolvido no cadastro. Formato: uuid.'
+      responses:
+        '200':
+          description: Sucesso.
+          content:
+            application/json:
+              example: *id005
+        '400':
+          description: Validação falhou; cabeçalhos de autenticação ausentes também caem aqui (respondido pelo gateway).
+        '401':
+          description: Credenciais inválidas.
+        '500':
+          description: Erro interno.
+        '404':
+          description: Id de outra conta ou inexistente (nunca 403).
+    patch:
+      operationId: arquivei__webhook__atualizar__endpoint
+      summary: Altera URL do Endpoint
+      description: 'Troca a URL do endpoint (mesma verificação do cadastro). Trocar a URL reativa o endpoint e zera as falhas; o Secret não muda.
+        Quando o sistema que recebe os avisos mudou de endereço. ESCRITA: o assistente não executa.'
+      tags:
+      - Webhook
+      x-confianca: verificado
+      x-fonte-url: https://docs.arquivei.com.br/arquivei-apis-swagger/dfe-api.json
+      x-data-consulta: '2026-10-14'
+      x-seguro-para-executar: false
+      parameters:
+      - name: X-Use-ApiGateway
+        in: header
+        required: true
+        schema:
+          type: string
+          enum: *id001
+          default: always
+          description: 'Cabeçalho exigido pela documentação para rotear a chamada pelo API Gateway da Qive; o valor é sempre ''always''. Não é
+            credencial: é fixo. Sem ele a rota pode não ser atendida.'
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          description: 'UUID do recurso, devolvido no cadastro. Formato: uuid.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                Url:
+                  type: string
+                  description: Nova URL https:443.
+              required:
+              - Url
+            example:
+              Url: https://erp2.example.com/webhooks/qive
+      responses:
+        '204':
+          description: Sucesso.
+        '400':
+          description: Validação falhou; cabeçalhos de autenticação ausentes também caem aqui (respondido pelo gateway).
+        '401':
+          description: Credenciais inválidas.
+        '500':
+          description: Erro interno.
+        '404':
+          description: Id inexistente.
+        '409':
+          description: URL já usada por outro endpoint.
+        '422':
+          description: Nova URL não respondeu 2xx.
+    delete:
+      operationId: arquivei__webhook__excluir__endpoint
+      summary: Remove Endpoint
+      description: 'Remove o endpoint. Recusa com 409 se ainda houver subscriptions ligadas: apague-as antes. Para desligar um receptor. ESCRITA
+        destrutiva: o assistente não executa.'
+      tags:
+      - Webhook
+      x-confianca: verificado
+      x-fonte-url: https://docs.arquivei.com.br/arquivei-apis-swagger/dfe-api.json
+      x-data-consulta: '2026-10-14'
+      x-seguro-para-executar: false
+      parameters:
+      - name: X-Use-ApiGateway
+        in: header
+        required: true
+        schema:
+          type: string
+          enum: *id001
+          default: always
+          description: 'Cabeçalho exigido pela documentação para rotear a chamada pelo API Gateway da Qive; o valor é sempre ''always''. Não é
+            credencial: é fixo. Sem ele a rota pode não ser atendida.'
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          description: 'UUID do recurso, devolvido no cadastro. Formato: uuid.'
+      responses:
+        '204':
+          description: Sucesso.
+        '400':
+          description: Validação falhou; cabeçalhos de autenticação ausentes também caem aqui (respondido pelo gateway).
+        '401':
+          description: Credenciais inválidas.
+        '500':
+          description: Erro interno.
+        '404':
+          description: Id inexistente.
+        '409':
+          description: Há subscriptions ligadas.
+  /v1/webhooks/endpoints/{id}/reactivate:
+    post:
+      operationId: arquivei__webhook__restaurar__endpoint
+      summary: Reativa Endpoint — reativa um endpoint marcado como unreachable
+      description: 'Depois de 20 falhas consecutivas o endpoint vira unreachable e para de receber. Esta rota volta o estado para active e zera
+        as falhas; só funciona em endpoints unreachable. Depois de corrigir o receptor que estava fora do ar. ESCRITA de configuração: o assistente
+        não executa.'
+      tags:
+      - Webhook
+      x-confianca: verificado
+      x-fonte-url: https://docs.arquivei.com.br/arquivei-apis-swagger/dfe-api.json
+      x-data-consulta: '2026-10-14'
+      x-seguro-para-executar: false
+      parameters:
+      - name: X-Use-ApiGateway
+        in: header
+        required: true
+        schema:
+          type: string
+          enum: *id001
+          default: always
+          description: 'Cabeçalho exigido pela documentação para rotear a chamada pelo API Gateway da Qive; o valor é sempre ''always''. Não é
+            credencial: é fixo. Sem ele a rota pode não ser atendida.'
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          description: 'UUID do recurso, devolvido no cadastro. Formato: uuid.'
+      responses:
+        '204':
+          description: Sucesso.
+        '400':
+          description: Validação falhou; cabeçalhos de autenticação ausentes também caem aqui (respondido pelo gateway).
+        '401':
+          description: Credenciais inválidas.
+        '500':
+          description: Erro interno.
+        '404':
+          description: Inexistente ou não está unreachable.
+  /v1/webhooks/subscriptions:
+    post:
+      operationId: arquivei__webhook__assinar_webhook__subscription
+      summary: Cria Subscription — liga endpoint a CNPJ/CPF, tipo de documento e evento
+      description: 'Liga um endpoint a um CNPJ/CPF autorizado, a um tipo de documento (hoje só nfe) e a um evento (document.received ou document.canceled).
+        Uma subscription por combinação dono+tipo+evento na conta. Para passar a receber avisos de NF-e recebida ou cancelada de um CNPJ. ESCRITA:
+        o assistente não executa.'
+      tags:
+      - Webhook
+      x-confianca: verificado
+      x-fonte-url: https://docs.arquivei.com.br/arquivei-apis-swagger/dfe-api.json
+      x-data-consulta: '2026-10-14'
+      x-seguro-para-executar: false
+      parameters:
+      - name: X-Use-ApiGateway
+        in: header
+        required: true
+        schema:
+          type: string
+          enum: *id001
+          default: always
+          description: 'Cabeçalho exigido pela documentação para rotear a chamada pelo API Gateway da Qive; o valor é sempre ''always''. Não é
+            credencial: é fixo. Sem ele a rota pode não ser atendida.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                Owner:
+                  type: string
+                  description: CNPJ (14, aceita alfanumérico) ou CPF (11), sem pontuação, autorizado para a credencial.
+                DocumentType:
+                  type: string
+                  enum:
+                  - nfe
+                  description: Tipo de documento.
+                EventType:
+                  type: string
+                  enum:
+                  - document.received
+                  - document.canceled
+                  description: Evento.
+                EndpointId:
+                  type: string
+                  description: 'UUID do endpoint. Formato: uuid.'
+              required:
+              - Owner
+              - DocumentType
+              - EventType
+              - EndpointId
+            example:
+              Owner: 00000000000191
+              DocumentType: nfe
+              EventType: document.received
+              EndpointId: 0b9f6e2a-0000-4000-8000-000000000001
+      responses:
+        '201':
+          description: Sucesso.
+          content:
+            application/json:
+              example: &id006
+                Id: 7c2d1e4f-0000-4000-8000-000000000002
+                Owner: 00000000000191
+                DocumentType: nfe
+                EventType: document.received
+                EndpointId: 0b9f6e2a-0000-4000-8000-000000000001
+                Active: true
+                CreatedAt: '2026-10-05T12:00:00Z'
+                UpdatedAt: '2026-10-05T12:00:00Z'
+        '400':
+          description: Validação falhou; cabeçalhos de autenticação ausentes também caem aqui (respondido pelo gateway).
+        '401':
+          description: Credenciais inválidas.
+        '500':
+          description: Erro interno.
+        '403':
+          description: Owner fora dos CNPJs autorizados.
+        '404':
+          description: EndpointId inexistente.
+        '409':
+          description: Já existe para dono+tipo+evento.
+    get:
+      operationId: arquivei__webhook__listar__subscriptions
+      summary: Lista Subscriptions
+      description: Lista as subscriptions da conta (dono, tipo, evento, endpoint, ativa), paginadas por página. Para auditar quais CNPJs e eventos
+        geram avisos.
+      tags:
+      - Webhook
+      x-confianca: verificado
+      x-fonte-url: https://docs.arquivei.com.br/arquivei-apis-swagger/dfe-api.json
+      x-data-consulta: '2026-10-14'
+      x-seguro-para-executar: true
+      parameters:
+      - name: X-Use-ApiGateway
+        in: header
+        required: true
+        schema:
+          type: string
+          enum: *id001
+          default: always
+          description: 'Cabeçalho exigido pela documentação para rotear a chamada pelo API Gateway da Qive; o valor é sempre ''always''. Não é
+            credencial: é fixo. Sem ele a rota pode não ser atendida.'
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 50
+          maximum: 200
+          minimum: 1
+          description: Tamanho da página.
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 1
+          minimum: 1
+          description: Página (começa em 1).
+      responses:
+        '200':
+          description: Sucesso.
+          content:
+            application/json:
+              example:
+                Subscriptions:
+                - *id006
+                Total: 1
+                Page: 1
+                Limit: 50
+        '400':
+          description: Validação falhou; cabeçalhos de autenticação ausentes também caem aqui (respondido pelo gateway).
+        '401':
+          description: Credenciais inválidas.
+        '500':
+          description: Erro interno.
+  /v1/webhooks/subscriptions/{id}:
+    delete:
+      operationId: arquivei__webhook__excluir__subscription
+      summary: Remove Subscription
+      description: 'Remove a subscription; as notificações correspondentes deixam de ser enviadas. Para parar avisos de um CNPJ/evento. ESCRITA
+        destrutiva: o assistente não executa.'
+      tags:
+      - Webhook
+      x-confianca: verificado
+      x-fonte-url: https://docs.arquivei.com.br/arquivei-apis-swagger/dfe-api.json
+      x-data-consulta: '2026-10-14'
+      x-seguro-para-executar: false
+      parameters:
+      - name: X-Use-ApiGateway
+        in: header
+        required: true
+        schema:
+          type: string
+          enum: *id001
+          default: always
+          description: 'Cabeçalho exigido pela documentação para rotear a chamada pelo API Gateway da Qive; o valor é sempre ''always''. Não é
+            credencial: é fixo. Sem ele a rota pode não ser atendida.'
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          description: 'UUID do recurso, devolvido no cadastro. Formato: uuid.'
+      responses:
+        '204':
+          description: Sucesso.
+        '400':
+          description: Validação falhou; cabeçalhos de autenticação ausentes também caem aqui (respondido pelo gateway).
+        '401':
+          description: Credenciais inválidas.
+        '500':
+          description: Erro interno.
+        '404':
+          description: Id inexistente.
+  /v1/webhooks/metadata:
+    get:
+      operationId: arquivei__webhook__listar__metadata
+      summary: Valores de Webhook — tipos de documento e de evento aceitos
+      description: 'Lista os valores aceitos em DocumentType e EventType (hoje: nfe; document.received e document.canceled). Todo tipo aceita
+        todos os eventos. Antes de criar subscription, para não chutar valores.'
+      tags:
+      - Webhook
+      x-confianca: verificado
+      x-fonte-url: https://docs.arquivei.com.br/arquivei-apis-swagger/dfe-api.json
+      x-data-consulta: '2026-10-14'
+      x-seguro-para-executar: true
+      parameters:
+      - name: X-Use-ApiGateway
+        in: header
+        required: true
+        schema:
+          type: string
+          enum: *id001
+          default: always
+          description: 'Cabeçalho exigido pela documentação para rotear a chamada pelo API Gateway da Qive; o valor é sempre ''always''. Não é
+            credencial: é fixo. Sem ele a rota pode não ser atendida.'
+      responses:
+        '200':
+          description: Sucesso.
+          content:
+            application/json:
+              example:
+                DocumentTypes:
+                - nfe
+                EventTypes:
+                - document.received
+                - document.canceled
+        '401':
+          description: Credenciais inválidas.
+        '500':
+          description: Erro interno.
+  /v1/nfe/upload:
+    post:
+      operationId: arquivei__nota_fiscal__criar__upload_nfe
+      summary: Upload de NFes - Bulk — upload de um lote de XMLs de NF-e
+      description: 'Envia um lote de XMLs de NF-e (Base64) para a conta, de forma assíncrona; devolve request_id para acompanhar em /v1/nfe/upload/status.
+        Aceita callback_url para avisar o resultado. Para importar notas que não chegaram pela SEFAZ (ex.: históricas). ESCRITA: o assistente
+        não executa.'
+      tags:
+      - NotaFiscal
+      x-confianca: verificado
+      x-fonte-url: https://docs.arquivei.com.br/arquivei-apis-swagger/dfe-api.json
+      x-data-consulta: '2026-10-14'
+      x-seguro-para-executar: false
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                invoices:
+                  type: array
+                  items:
+                    type: string
+                  description: Lista de {xml} com o XML em Base64.
+                callback_url:
+                  type: string
+                  description: URL para receber o resultado do processamento.
+              required:
+              - invoices
+            example:
+              invoices:
+              - xml: PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4...
+      responses:
+        '200':
+          description: Sucesso.
+          content:
+            application/json:
+              example:
+                status:
+                  code: 200
+                  message: Ok
+                request_id: <<request_id>>
+        '400':
+          description: 'Parâmetro fora do formato: chave de acesso sem 44 posições, data inválida, created_at[from] sem created_at[to] (os dois
+            são obrigatórios juntos).'
+        '401':
+          description: X-API-ID ou X-API-KEY ausente, errado, revogado ou de outro ambiente (credencial de sandbox chamando produção, ou o contrário).
+        '429':
+          description: Limite de requisições da conta atingido. A Qive define o limite por cliente, conforme contrato e volume.
+        '500':
+          description: Falha interna da Qive.
+  /v1/nfe/upload/status:
+    get:
+      operationId: arquivei__nota_fiscal__consultar_status__upload_nfe
+      summary: Status de Upload de NFes
+      description: 'Consulta o andamento de um lote enviado em /v1/nfe/upload pelo request_id: status do pedido e resultado por nota. Para conferir
+        o resultado de uma importação. Somente leitura.'
+      tags:
+      - NotaFiscal
+      x-confianca: verificado
+      x-fonte-url: https://docs.arquivei.com.br/arquivei-apis-swagger/dfe-api.json
+      x-data-consulta: '2026-10-14'
+      x-seguro-para-executar: true
+      parameters:
+      - name: request_id
+        in: query
+        required: true
+        schema:
+          type: string
+          description: request_id devolvido no upload.
+      responses:
+        '200':
+          description: Sucesso.
+          content:
+            application/json:
+              example:
+                status:
+                  code: 200
+                  message: Ok
+                data:
+                  request:
+                    request_id: <<request_id>>
+                    status: <<status>>
+                  invoices: []
+        '400':
+          description: 'Parâmetro fora do formato: chave de acesso sem 44 posições, data inválida, created_at[from] sem created_at[to] (os dois
+            são obrigatórios juntos).'
+        '401':
+          description: X-API-ID ou X-API-KEY ausente, errado, revogado ou de outro ambiente (credencial de sandbox chamando produção, ou o contrário).
+        '404':
+          description: 'Documento não encontrado para os CNPJs da conta, ou rota digitada errada (ex.: papel inválido em {role}).'
+        '429':
+          description: Limite de requisições da conta atingido. A Qive define o limite por cliente, conforme contrato e volume.
+        '500':
+          description: Falha interna da Qive.
+  /v1/dfe/upload:
+    post:
+      operationId: arquivei__nota_fiscal__criar__upload_dfe
+      summary: Upload de DFes — envio de qualquer DF-e ou evento em XML
+      description: 'Envia um XML (Base64) de qualquer DF-e suportado (CF-e, CT-e, CT-e OS, NFC-e, NF-e, NFS-e, NF3e, NFAg, NFGas, NFCom) ou de
+        evento, opcionalmente indicando os donos. Em falha, a resposta aponta as tags do XML que não validaram. Para importar um documento avulso.
+        ESCRITA: o assistente não executa.'
+      tags:
+      - NotaFiscal
+      x-confianca: verificado
+      x-fonte-url: https://docs.arquivei.com.br/arquivei-apis-swagger/dfe-api.json
+      x-data-consulta: '2026-10-14'
+      x-seguro-para-executar: false
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                xml:
+                  type: string
+                  description: XML em Base64.
+                owner:
+                  type: array
+                  items:
+                    type: string
+                  description: CPFs/CNPJs donos (só números).
+              required:
+              - xml
+            example:
+              xml: PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4...
+              owner:
+              - 00000000000191
+      responses:
+        '200':
+          description: Sucesso.
+          content:
+            application/json:
+              example:
+                status:
+                  code: 200
+                  message: Ok
+                upload:
+                  success: true
+                  message: ''
+        '400':
+          description: 'Parâmetro fora do formato: chave de acesso sem 44 posições, data inválida, created_at[from] sem created_at[to] (os dois
+            são obrigatórios juntos).'
+        '401':
+          description: X-API-ID ou X-API-KEY ausente, errado, revogado ou de outro ambiente (credencial de sandbox chamando produção, ou o contrário).
+        '403':
+          description: Sem permissão para o dono informado.
+        '429':
+          description: Limite de requisições da conta atingido. A Qive define o limite por cliente, conforme contrato e volume.
+        '500':
+          description: Falha interna da Qive.

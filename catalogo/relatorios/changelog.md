@@ -1,5 +1,12 @@
 # Changelog do catálogo
 
+## 2026-10-14 — Mercado Livre e Qive (Arquivei) documentados (lote P3)
+
+- **mercado-livre documentado** (índice 64), a pedido do usuário: 36 endpoints detalhados (33 leituras executáveis) e 108 catalogados, 17 perguntas de FAQ. OAuth 2.0 com refresh token de uso único (access 6 h, refresh 6 meses); pedidos, envios, anúncios, estoque/Full, perguntas, reclamações, faturamento e visitas. Relatório em `relatorios/mercado-livre.md`.
+- **arquivei documentado como Qive** (índice 54): rebranding confirmado, hosts da API seguem em arquivei.com.br. 49 endpoints detalhados (38 leituras executáveis) e 30 catalogados, 18 perguntas de FAQ. Dois cabeçalhos fixos (`X-API-ID`, `X-API-KEY`), buscas POST com cursor no corpo, sandbox gratuito. Relatório em `relatorios/arquivei.md`.
+- Nenhum dos dois roda ainda no site: o executor precisa de OAuth com refresh rotativo (Mercado Livre) e de dois cabeçalhos, leituras POST e XML em Base64 (Qive).
+- Manifest: lote P3 criado e concluído; mercado-livre sai do lote 5 e arquivei do lote 20.
+
 ## 2026-10-09 — Nomus ERP documentado (lote P2)
 
 - **nomus documentado** (índice 29), adiantado da cauda longa a pedido do usuário: 35 endpoints detalhados (31 leituras executáveis e 4 escritas de referência) e 159 catalogados, 17 perguntas de FAQ. Fontes: coleção Postman oficial (191 requisições) e seção API REST da Central de Ajuda. Relatório em `relatorios/nomus.md`.

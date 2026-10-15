@@ -1,0 +1,3277 @@
+openapi: 3.1.0
+info:
+  title: Mercado Livre — API de marketplace (recorte do catálogo, site MLB)
+  version: sem versão publicada; consultado em 2026-10-14
+  summary: Reconstrução das leituras de vendas, envios, anúncios, estoque, perguntas, pós-venda, faturamento, notas, visitas e reputação.
+  description: Reconstruído a partir do portal oficial https://developers.mercadolivre.com.br/pt_br/api-docs-pt-br, lido em 2026-10-14. Descrições autorais;
+    caminhos, parâmetros e campos são fatos técnicos. O Mercado Livre não publica OpenAPI. As demais operações estão em endpoints.json > endpoints_secundarios.
+  contact:
+    name: Suporte para integradores
+    url: https://developers.mercadolivre.com.br/pt_br/suporte-para-integradores
+  x-fonte-url: https://developers.mercadolivre.com.br/pt_br/api-docs-pt-br
+  x-data-consulta: '2026-10-14'
+externalDocs:
+  description: Autenticação e Autorização
+  url: https://developers.mercadolivre.com.br/pt_br/autenticacao-e-autorizacao
+servers:
+- url: https://api.mercadolibre.com
+  description: Produção (única URL).
+- url: https://api.mercadolibre.com
+  description: 'Testes: a mesma URL, com usuários de teste (POST /users/test_user); não existe sandbox.'
+x-sandbox: Não há sandbox; testes com usuários de teste em produção (até 10 por conta).
+x-limite-requisicoes: 'Sem número global publicado; controle por Client ID e endpoint; 429 local_rate_limited. Mensageria: 500 rpm. Faturamento: 429 por
+  IP.'
+security:
+- oauth2:
+  - read
+components:
+  securitySchemes:
+    oauth2:
+      type: oauth2
+      description: OAuth 2.0 authorization code. Access token de 6 horas; refresh_token de uso único (rotativo).
+      flows:
+        authorizationCode:
+          authorizationUrl: https://auth.mercadolivre.com.br/authorization
+          tokenUrl: https://api.mercadolibre.com/oauth/token
+          refreshUrl: https://api.mercadolibre.com/oauth/token
+          scopes:
+            read: Leitura (métodos GET)
+            write: Escrita (PUT, POST, DELETE)
+            offline_access: Emite refresh_token para operar sem o usuário presente
+paths:
+  /oauth/token:
+    post:
+      operationId: mercado-livre__autenticacao__autenticar
+      summary: Trocar o code por um token / Refresh token
+      description: 'Emite o par access_token + refresh_token. Com grant_type=authorization_code troca o code recebido no redirect_uri depois que o vendedor
+        autoriza o aplicativo; com grant_type=refresh_token renova o access_token vencido sem nova interação do vendedor.
+
+
+        Quando usar: Na conexão inicial da conta do vendedor (troca do code) e sempre que o access_token expirar (6 horas). Quando não usar: não é consulta
+        de dados; o executor chama esta rota só dentro da renovação de token, nunca como pedido do usuário. Não renove antes de vencer: a doc recomenda
+        renovar apenas quando o token perder a validade.
+
+
+        Armadilhas: O refresh_token é de uso único e só o último emitido vale: duas renovações em paralelo derrubam a conexão. O usuário que autoriza precisa
+        ser o administrador da conta (colaborador gera invalid_operator_user_id). Parâmetros vão no corpo form-urlencoded, nunca na URL.'
+      tags:
+      - Autenticacao
+      x-confianca: verificado
+      x-fonte-url: https://developers.mercadolivre.com.br/pt_br/autenticacao-e-autorizacao
+      x-data-consulta: '2026-10-14'
+      x-id-canonico: mercado-livre.autenticacao.autenticar
+      x-entidade-canonica: Autenticacao
+      x-acao-canonica: autenticar
+      x-seguro-para-executar: false
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              example:
+                access_token: APP_USR-<<ACCESS_TOKEN_DE_EXEMPLO>>
+                token_type: bearer
+                expires_in: 21600
+                scope: offline_access read write
+                user_id: 1234567890
+                refresh_token: TG-<<REFRESH_TOKEN_DE_EXEMPLO>>
+        '400':
+          description: invalid_grant Error validating grant. Your authorization code or refresh token may be expired or it was already used — code ou refresh_token
+            inválido, já usado, expirado (refresh dura 6 meses), revogado, de outro client_id, redirect_uri diferente do cadastrado ou vendedor com dados
+            pendentes.
+        '403':
+          description: forbidden forbidden — Token de outro usuário, IP bloqueado ou scopes faltando.
+        '429':
+          description: local_rate_limited Too Many Requests — Excesso de requisições em pouco tempo. O controle é principalmente por Client ID e por endpoint;
+            o número não é publicado.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                grant_type:
+                  type: string
+                  enum:
+                  - authorization_code
+                  - refresh_token
+                  description: Tipo de troca.
+                client_id:
+                  type: string
+                  description: APP ID do aplicativo criado no DevCenter.
+                client_secret:
+                  type: string
+                  description: Secret Key do aplicativo (DevCenter > aplicativo > Configurações).
+                code:
+                  type: string
+                  description: 'Obrigatório com authorization_code: código devolvido no redirect_uri após a autorização (formato TG-...).'
+                redirect_uri:
+                  type: string
+                  description: 'Obrigatório com authorization_code: a mesma URL cadastrada no aplicativo, sem partes variáveis.'
+                code_verifier:
+                  type: string
+                  description: Só quando o PKCE está habilitado no aplicativo (aí passa a ser obrigatório).
+                refresh_token:
+                  type: string
+                  description: 'Obrigatório com refresh_token: o último refresh_token emitido. É de uso único.'
+              required:
+              - grant_type
+              - client_id
+              - client_secret
+  /users/me:
+    get:
+      operationId: mercado-livre__empresa__obter__usuario_atual
+      summary: Consultar meus dados pessoais (/users/me)
+      description: 'Devolve a conta dona do access_token: id (que é o seller_id usado em quase todas as buscas), apelido, site, tipo de usuário, tags e
+        o resumo da reputação.
+
+
+        Quando usar: Primeira chamada depois de conectar a conta: descobre o seller_id e confirma que o token é do vendedor certo. Quando não usar: para
+        dados de outro usuário use GET /users/{user_id}; para métricas de reputação dos últimos 60 dias o mesmo /users/{user_id} traz o bloco metrics.
+
+
+        Armadilhas: Os ids de usuário novos passam do limite de Int32: guarde como inteiro de 64 bits ou texto. O user_id também volta na resposta do /oauth/token.'
+      tags:
+      - Empresa
+      x-confianca: verificado
+      x-fonte-url: https://developers.mercadolivre.com.br/pt_br/consulta-de-usuarios
+      x-data-consulta: '2026-10-14'
+      x-id-canonico: mercado-livre.empresa.obter.usuario_atual
+      x-entidade-canonica: Empresa
+      x-acao-canonica: obter
+      x-seguro-para-executar: true
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              example:
+                id: 1234567890
+                nickname: LOJAEXEMPLO
+                registration_date: '2019-03-10T09:15:00.000-04:00'
+                first_name: Loja
+                last_name: Exemplo
+                country_id: BR
+                email: contato@example.com
+                user_type: normal
+                tags:
+                - normal
+                - user_product_seller
+                site_id: MLB
+                permalink: http://perfil.mercadolivre.com.br/LOJAEXEMPLO
+                seller_reputation:
+                  level_id: 5_green
+                  power_seller_status: gold
+                  transactions:
+                    period: historic
+                    total: 1520
+                    completed: 1480
+                    canceled: 40
+                    ratings:
+                      positive: 0.96
+                      negative: 0.02
+                      neutral: 0.02
+                status:
+                  site_status: active
+        '401':
+          description: invalid access token / authorization value not present — Token ausente, expirado (vale 6 horas) ou invalidado (troca de senha, renovação
+            do Client Secret, revogação pelo vendedor, 4 meses sem uso).
+        '403':
+          description: FORBIDDEN / PA_UNAUTHORIZED_RESULT_FROM_POLICIES access to the requested resource is forbidden / At least one policy returned UNAUTHORIZED.
+            — Token de outro usuário, permissão funcional não habilitada no DevCenter, scope faltando, IP fora da lista, usuário inativo ou com validação
+            de dados pendente, aplicação bloqueada.
+        '429':
+          description: local_rate_limited Too Many Requests — Excesso de requisições em pouco tempo. O controle é principalmente por Client ID e por endpoint;
+            o número não é publicado.
+  /users/{user_id}:
+    get:
+      operationId: mercado-livre__empresa__obter
+      summary: Reputação de vendedores (/users/{user_id})
+      description: 'Dados da conta de um usuário. Para o próprio vendedor, inclui seller_reputation com nível (termômetro), MercadoLíder, totais históricos
+        e o bloco metrics dos últimos 60 dias (vendas, reclamações, atrasos de despacho e cancelamentos, com taxa e quantidade).
+
+
+        Quando usar: Planilha de saúde da conta: nível de reputação e as três métricas que derrubam o termômetro. Quando não usar: para obter o próprio
+        seller_id prefira /users/me.
+
+
+        Armadilhas: Vendedor em período de proteção mostra rate/value zerados e os números reais no subcampo excluded (real_value, real_rate) e real_level.
+        As taxas vêm como fração decimal (0.02 = 2%), conforme o exemplo oficial.'
+      tags:
+      - Empresa
+      x-confianca: verificado
+      x-fonte-url: https://developers.mercadolivre.com.br/pt_br/reputacao-de-vendedores
+      x-data-consulta: '2026-10-14'
+      x-id-canonico: mercado-livre.empresa.obter
+      x-entidade-canonica: Empresa
+      x-acao-canonica: obter
+      x-seguro-para-executar: true
+      parameters:
+      - name: user_id
+        in: path
+        required: true
+        description: ID do usuário (para o próprio vendedor, o id de /users/me).
+        schema:
+          type: integer
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              example:
+                id: 1234567890
+                nickname: LOJAEXEMPLO
+                seller_reputation:
+                  level_id: 5_green
+                  power_seller_status: platinum
+                  transactions:
+                    canceled: 30
+                    completed: 2100
+                    period: historic
+                    ratings:
+                      negative: 0.03
+                      neutral: 0.05
+                      positive: 0.92
+                    total: 2130
+                  metrics:
+                    sales:
+                      period: 60 days
+                      completed: 240
+                    claims:
+                      period: 60 days
+                      rate: 0.01
+                      value: 2
+                    delayed_handling_time:
+                      period: 60 days
+                      rate: 0.02
+                      value: 5
+                    cancellations:
+                      period: 60 days
+                      rate: 0
+                      value: 0
+        '401':
+          description: invalid access token / authorization value not present — Token ausente, expirado (vale 6 horas) ou invalidado (troca de senha, renovação
+            do Client Secret, revogação pelo vendedor, 4 meses sem uso).
+        '403':
+          description: FORBIDDEN / PA_UNAUTHORIZED_RESULT_FROM_POLICIES access to the requested resource is forbidden / At least one policy returned UNAUTHORIZED.
+            — Token de outro usuário, permissão funcional não habilitada no DevCenter, scope faltando, IP fora da lista, usuário inativo ou com validação
+            de dados pendente, aplicação bloqueada.
+        '429':
+          description: local_rate_limited Too Many Requests — Excesso de requisições em pouco tempo. O controle é principalmente por Client ID e por endpoint;
+            o número não é publicado.
+  /orders/search:
+    get:
+      operationId: mercado-livre__pedido__listar
+      summary: Consultar orders (/orders/search)
+      description: 'Busca as vendas (orders) do vendedor com filtros por situação, datas de criação, de confirmação e de última alteração, item, tags e
+        texto livre. Cada resultado traz itens, pagamentos, comprador (só id), pack e id do envio.
+
+
+        Quando usar: Planilha de vendas por período: recorte por order.date_created (ou date_closed) e, se quiser só vendas pagas, order.status=paid. Quando
+        não usar: para custo de frete, endereço e rastreio use GET /shipments/{id}; para tarifas faturadas pelo Mercado Livre use os relatórios de faturamento;
+        para dados fiscais do comprador há o recurso billing-info.
+
+
+        Armadilhas: Os pedidos ficam disponíveis por até 12 meses. A doc diz que a busca como vendedor continua filtrando os pedidos cancelados (texto ambíguo:
+        confira se cancelados aparecem). O filtro de data considera só a hora. comprador vem só com id. Pedidos de teste trazem a tag test_order. Uma venda
+        de carrinho tem vários pedidos ligados pelo pack_id.'
+      tags:
+      - Pedido
+      x-confianca: verificado
+      x-fonte-url: https://developers.mercadolivre.com.br/pt_br/gerenciamento-de-vendas
+      x-data-consulta: '2026-10-14'
+      x-id-canonico: mercado-livre.pedido.listar
+      x-entidade-canonica: Pedido
+      x-acao-canonica: listar
+      x-seguro-para-executar: true
+      parameters:
+      - name: seller
+        in: query
+        required: true
+        description: ID do vendedor (seller_id de /users/me). A busca não faz nada sem pelo menos um filtro.
+        schema:
+          type: integer
+      - name: order.status
+        in: query
+        required: false
+        description: Situação; aceita vários valores separados por vírgula.
+        schema:
+          type: string
+          enum:
+          - confirmed
+          - payment_required
+          - payment_in_process
+          - partially_paid
+          - paid
+          - partially_refunded
+          - pending_cancel
+          - cancelled
+          - invalid
+      - name: order.date_created.from
+        in: query
+        required: false
+        description: 'Início do período pela data de criação. Formato: AAAA-MM-DDThh:mm:ss.000-03:00.'
+        schema:
+          type: string
+      - name: order.date_created.to
+        in: query
+        required: false
+        description: 'Fim do período pela data de criação. Formato: AAAA-MM-DDThh:mm:ss.000-03:00.'
+        schema:
+          type: string
+      - name: order.date_closed.from
+        in: query
+        required: false
+        description: 'Início pela data de confirmação (primeira mudança para confirmed/paid). Formato: AAAA-MM-DDThh:mm:ss.000-03:00.'
+        schema:
+          type: string
+      - name: order.date_closed.to
+        in: query
+        required: false
+        description: 'Fim pela data de confirmação. Formato: AAAA-MM-DDThh:mm:ss.000-03:00.'
+        schema:
+          type: string
+      - name: order.date_last_updated.from
+        in: query
+        required: false
+        description: 'Início pela data da última modificação (bom para extração incremental). Formato: AAAA-MM-DDThh:mm:ss.000-03:00.'
+        schema:
+          type: string
+      - name: order.date_last_updated.to
+        in: query
+        required: false
+        description: 'Fim pela data da última modificação. Formato: AAAA-MM-DDThh:mm:ss.000-03:00.'
+        schema:
+          type: string
+      - name: q
+        in: query
+        required: false
+        description: Busca livre por id do pedido, id ou título do item, ou apelido da contraparte (não procura nome nem e-mail).
+        schema:
+          type: string
+      - name: item
+        in: query
+        required: false
+        description: ID ou título do item.
+        schema:
+          type: string
+      - name: tags
+        in: query
+        required: false
+        description: Tags exigidas, separadas por vírgula.
+        schema:
+          type: string
+      - name: tags.not
+        in: query
+        required: false
+        description: Tags excluídas, separadas por vírgula.
+        schema:
+          type: string
+      - name: sort
+        in: query
+        required: false
+        description: Ordenação. Padrão date_asc (para vendedor, por date_closed).
+        schema:
+          type: string
+          enum:
+          - date_asc
+          - date_desc
+          default: date_asc
+      - name: offset
+        in: query
+        required: false
+        description: Deslocamento da paginação.
+        schema:
+          type: integer
+          default: 0
+          minimum: 0
+      - name: limit
+        in: query
+        required: false
+        description: Registros por página. Os exemplos oficiais devolvem limit 50; o máximo não é publicado.
+        schema:
+          type: integer
+          default: 50
+          minimum: 1
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              example:
+                query: null
+                results:
+                - id: 2000012345678901
+                  date_created: '2026-08-03T14:20:11.000-04:00'
+                  date_closed: '2026-08-03T14:20:15.000-04:00'
+                  last_updated: '2026-08-05T09:01:00.000-04:00'
+                  pack_id: 2000009876543210
+                  status: paid
+                  status_detail: null
+                  total_amount: 189.9
+                  paid_amount: 189.9
+                  currency_id: BRL
+                  order_items:
+                  - item:
+                      id: MLB4000000001
+                      title: Garrafa térmica 1 L
+                      category_id: MLB0000
+                      variation_id: null
+                      seller_sku: GT-1L
+                    quantity: 1
+                    unit_price: 189.9
+                    sale_fee: 22.79
+                    listing_type_id: gold_special
+                    currency_id: BRL
+                  payments:
+                  - id: 900000000001
+                    status: approved
+                    transaction_amount: 189.9
+                    payment_type: credit_card
+                    installments: 3
+                    date_approved: '2026-08-03T14:20:14.000-04:00'
+                  shipping:
+                    id: 450000000001
+                  buyer:
+                    id: 9876543210
+                  seller:
+                    id: 1234567890
+                  tags:
+                  - paid
+                  - not_delivered
+                  context:
+                    channel: marketplace
+                    site: MLB
+                    flows: []
+                sort:
+                  id: date_desc
+                  name: Date descending
+                available_sorts:
+                - id: date_asc
+                  name: Date ascending
+                filters: []
+                paging:
+                  total: 1
+                  offset: 0
+                  limit: 50
+                display: complete
+        '401':
+          description: invalid access token / authorization value not present — Token ausente, expirado (vale 6 horas) ou invalidado (troca de senha, renovação
+            do Client Secret, revogação pelo vendedor, 4 meses sem uso).
+        '403':
+          description: FORBIDDEN / PA_UNAUTHORIZED_RESULT_FROM_POLICIES access to the requested resource is forbidden / At least one policy returned UNAUTHORIZED.
+            — Token de outro usuário, permissão funcional não habilitada no DevCenter, scope faltando, IP fora da lista, usuário inativo ou com validação
+            de dados pendente, aplicação bloqueada.
+        '429':
+          description: local_rate_limited Too Many Requests — Excesso de requisições em pouco tempo. O controle é principalmente por Client ID e por endpoint;
+            o número não é publicado.
+        '206':
+          description: Partial Content (cabeçalho X-Content-Missing) — Algum dado não pôde ser obtido; o cabeçalho X-Content-Missing lista os campos afetados.
+  /orders/{order_id}:
+    get:
+      operationId: mercado-livre__pedido__obter
+      summary: Receba uma ordem (/orders/{order_id})
+      description: 'Detalhe de uma venda: datas, situação, itens com preço unitário, quantidade, tarifa de venda (sale_fee) e gross_price, pagamentos, id
+        do envio, pack, tags, contexto (canal e fluxos) e, se houver, cancel_detail.
+
+
+        Quando usar: Para completar uma linha da planilha de vendas ou conferir uma venda específica recebida por notificação orders_v2. Quando não usar:
+        para várias vendas de um período use /orders/search, que já traz o mesmo objeto.
+
+
+        Armadilhas: A comissão é calculada quando o pagamento é creditado, não na criação. gross_price pode faltar em pedidos antigos. Pedido com a tag
+        fraud_risk_detected não deve ser enviado. Pedido não concretizado pelo vendedor aparece no site como cancelado, mas pela API com status confirmed.'
+      tags:
+      - Pedido
+      x-confianca: verificado
+      x-fonte-url: https://developers.mercadolivre.com.br/pt_br/gerenciamento-de-vendas
+      x-data-consulta: '2026-10-14'
+      x-id-canonico: mercado-livre.pedido.obter
+      x-entidade-canonica: Pedido
+      x-acao-canonica: obter
+      x-seguro-para-executar: true
+      parameters:
+      - name: order_id
+        in: path
+        required: true
+        description: ID do pedido (Long).
+        schema:
+          type: integer
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              example:
+                id: 2000012345678901
+                date_created: '2026-08-03T14:20:11.000-04:00'
+                date_closed: '2026-08-03T14:20:15.000-04:00'
+                last_updated: '2026-08-05T09:01:00.000-04:00'
+                pack_id: 2000009876543210
+                status: paid
+                status_detail: null
+                total_amount: 189.9
+                paid_amount: 189.9
+                currency_id: BRL
+                order_items:
+                - item:
+                    id: MLB4000000001
+                    title: Garrafa térmica 1 L
+                    category_id: MLB0000
+                    variation_id: null
+                    seller_sku: GT-1L
+                  quantity: 1
+                  unit_price: 189.9
+                  sale_fee: 22.79
+                  listing_type_id: gold_special
+                  currency_id: BRL
+                payments:
+                - id: 900000000001
+                  status: approved
+                  transaction_amount: 189.9
+                  payment_type: credit_card
+                  installments: 3
+                  date_approved: '2026-08-03T14:20:14.000-04:00'
+                shipping:
+                  id: 450000000001
+                buyer:
+                  id: 9876543210
+                seller:
+                  id: 1234567890
+                tags:
+                - paid
+                - not_delivered
+                context:
+                  channel: marketplace
+                  site: MLB
+                  flows: []
+        '401':
+          description: invalid access token / authorization value not present — Token ausente, expirado (vale 6 horas) ou invalidado (troca de senha, renovação
+            do Client Secret, revogação pelo vendedor, 4 meses sem uso).
+        '403':
+          description: FORBIDDEN / PA_UNAUTHORIZED_RESULT_FROM_POLICIES access to the requested resource is forbidden / At least one policy returned UNAUTHORIZED.
+            — Token de outro usuário, permissão funcional não habilitada no DevCenter, scope faltando, IP fora da lista, usuário inativo ou com validação
+            de dados pendente, aplicação bloqueada.
+        '429':
+          description: local_rate_limited Too Many Requests — Excesso de requisições em pouco tempo. O controle é principalmente por Client ID e por endpoint;
+            o número não é publicado.
+        '206':
+          description: Partial Content — Dados faltantes listados em X-Content-Missing.
+  /orders/{order_id}/discounts:
+    get:
+      operationId: mercado-livre__pedido__obter__descontos
+      summary: Obter descontos aplicados em uma venda
+      description: 'Lista os descontos que afetaram a venda (campanha/promoção, cupom, cashback), com o valor total por item e a parte bancada pelo vendedor.
+
+
+        Quando usar: Margem por venda: separar quanto do desconto saiu do bolso do vendedor (amounts.seller). Quando não usar: não inclui taxas adicionais
+        nem reembolsos posteriores; para tarifas cobradas use os relatórios de faturamento.
+
+
+        Armadilhas: Os valores são por item já multiplicados pela quantidade (p × q). Pedidos com mais de 12 meses não são guardados.'
+      tags:
+      - Pedido
+      x-confianca: verificado
+      x-fonte-url: https://developers.mercadolivre.com.br/pt_br/gerenciamento-de-vendas
+      x-data-consulta: '2026-10-14'
+      x-id-canonico: mercado-livre.pedido.obter.descontos
+      x-entidade-canonica: Pedido
+      x-acao-canonica: obter
+      x-seguro-para-executar: true
+      parameters:
+      - name: order_id
+        in: path
+        required: true
+        description: ID do pedido.
+        schema:
+          type: integer
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              example:
+                details:
+                - type: discount
+                  supplier:
+                    offer_id: MLB4000000001-abc123
+                    funding_mode: sale_fee
+                  items:
+                  - id: MLB4000000001
+                    quantity: 1
+                    amounts:
+                      total: 20.0
+                      seller: 10.0
+        '401':
+          description: invalid access token / authorization value not present — Token ausente, expirado (vale 6 horas) ou invalidado (troca de senha, renovação
+            do Client Secret, revogação pelo vendedor, 4 meses sem uso).
+        '403':
+          description: FORBIDDEN / PA_UNAUTHORIZED_RESULT_FROM_POLICIES access to the requested resource is forbidden / At least one policy returned UNAUTHORIZED.
+            — Token de outro usuário, permissão funcional não habilitada no DevCenter, scope faltando, IP fora da lista, usuário inativo ou com validação
+            de dados pendente, aplicação bloqueada.
+        '429':
+          description: local_rate_limited Too Many Requests — Excesso de requisições em pouco tempo. O controle é principalmente por Client ID e por endpoint;
+            o número não é publicado.
+  /packs/{pack_id}:
+    get:
+      operationId: mercado-livre__pedido__obter__pack
+      summary: Consultar ordens de um pack (/packs/{pack_id})
+      description: 'Mostra o pack (carrinho): os pedidos que o compõem, o envio único, o comprador e a situação do pack (released, error, pending_cancel,
+        cancelled).
+
+
+        Quando usar: Quando uma venda de carrinho gerou vários pedidos e você precisa agrupá-los ou achar o envio comum. Quando não usar: para o detalhe
+        de cada pedido use /orders/{order_id}.
+
+
+        Armadilhas: As datas do pack vêm com fuso sem dois-pontos (-0400), diferente dos pedidos. Pack pode não ter envio (itens not_specified).'
+      tags:
+      - Pedido
+      x-confianca: verificado
+      x-fonte-url: https://developers.mercadolivre.com.br/pt_br/gestao-packs
+      x-data-consulta: '2026-10-14'
+      x-id-canonico: mercado-livre.pedido.obter.pack
+      x-entidade-canonica: Pedido
+      x-acao-canonica: obter
+      x-seguro-para-executar: true
+      parameters:
+      - name: pack_id
+        in: path
+        required: true
+        description: ID do pack (campo pack_id do pedido).
+        schema:
+          type: integer
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              example:
+                shipment:
+                  id: 450000000001
+                orders:
+                - id: 2000012345678901
+                - id: 2000012345678902
+                id: 2000009876543210
+                status: released
+                status_detail: null
+                buyer:
+                  id: 9876543210
+                date_created: 2026-08-03T14:20:11.000-0400
+                last_updated: 2026-08-03T14:25:00.000-0400
+        '401':
+          description: invalid access token / authorization value not present — Token ausente, expirado (vale 6 horas) ou invalidado (troca de senha, renovação
+            do Client Secret, revogação pelo vendedor, 4 meses sem uso).
+        '403':
+          description: forbidden Can not identify the user / The user has not access to the order — Token inválido ou de quem não participa do pack.
+        '404':
+          description: not_found não encontrado — pack_id inexistente.
+        '429':
+          description: local_rate_limited Too Many Requests — Excesso de requisições em pouco tempo. O controle é principalmente por Client ID e por endpoint;
+            o número não é publicado.
+  /orders/{order_id}/shipments:
+    get:
+      operationId: mercado-livre__envio__listar__pedido
+      summary: Consultar envios associados a uma venda
+      description: 'A partir do pedido, lista os envios ligados a ele: o de compra (forward) e, quando houver, devoluções (return, return_to_buyer). Na
+        Hosted View devolve sempre um array de {id, type}.
+
+
+        Quando usar: Para descobrir o envio de ida e os de devolução de uma venda. Quando não usar: para o detalhe (custo, rastreio, endereço) chame /shipments/{shipment_id}
+        com cada id.
+
+
+        Armadilhas: Não assuma que o primeiro elemento é o envio de compra: filtre type == forward. A vista atual (objeto único, ou array com list_all)
+        estava marcada para descontinuação no fim de setembro de 2026; em 2026-10-14 a doc ainda descreve as duas.'
+      tags:
+      - Envio
+      x-confianca: verificado
+      x-fonte-url: https://developers.mercadolivre.com.br/pt_br/gerenciamento-de-vendas
+      x-data-consulta: '2026-10-14'
+      x-id-canonico: mercado-livre.envio.listar.pedido
+      x-entidade-canonica: Envio
+      x-acao-canonica: listar
+      x-seguro-para-executar: true
+      parameters:
+      - name: order_id
+        in: path
+        required: true
+        description: ID do pedido.
+        schema:
+          type: integer
+      - name: X-New-Domain
+        in: header
+        required: false
+        description: Enviar true em chamadas públicas para rotear à Hosted View.
+        schema:
+          type: boolean
+          default: true
+      - name: hosted
+        in: query
+        required: false
+        description: Vista suportada pelo APICore, sem o detalhe dos envios.
+        schema:
+          type: boolean
+          default: false
+      - name: list_all
+        in: query
+        required: false
+        description: 'Vista atual (descontinuada a partir do fim de setembro de 2026): true devolve forward + return.'
+        schema:
+          type: boolean
+          default: false
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              example:
+              - id: 450000000001
+                type: forward
+              - id: 450000000002
+                type: return
+        '401':
+          description: invalid access token / authorization value not present — Token ausente, expirado (vale 6 horas) ou invalidado (troca de senha, renovação
+            do Client Secret, revogação pelo vendedor, 4 meses sem uso).
+        '403':
+          description: FORBIDDEN / PA_UNAUTHORIZED_RESULT_FROM_POLICIES access to the requested resource is forbidden / At least one policy returned UNAUTHORIZED.
+            — Token de outro usuário, permissão funcional não habilitada no DevCenter, scope faltando, IP fora da lista, usuário inativo ou com validação
+            de dados pendente, aplicação bloqueada.
+        '429':
+          description: local_rate_limited Too Many Requests — Excesso de requisições em pouco tempo. O controle é principalmente por Client ID e por endpoint;
+            o número não é publicado.
+        '204':
+          description: No Content — Pedido sem envio ou envio ainda propagando (associação assíncrona).
+        '404':
+          description: Not Found — order_id inexistente.
+  /shipments/{shipment_id}:
+    get:
+      operationId: mercado-livre__envio__obter
+      summary: Consultar envios (/shipments/{shipment_id})
+      description: 'Detalhe do envio: situação e subsituação, modo e tipo logístico (me2, drop_off, cross_docking, fulfillment, self_service...), rastreio,
+        custo e prazo (lead_time), origem, destino, dimensões e valor declarado.
+
+
+        Quando usar: Planilha de envios: situação, logística, rastreio, frete cobrado do comprador (lead_time.cost) e custo de tabela (list_cost). Quando
+        não usar: o custo dividido entre comprador e vendedor está em /shipments/{id}/costs; a linha do tempo está em /history.
+
+
+        Armadilhas: Sem o header x-format-new: true a chamada falha (obrigatório desde 2025-10-12). Desde então shipments não devolve mais order_id nem
+        external_reference: ligue pelo pedido. O endereço do comprador fica ofuscado até o pagamento ser confirmado e o telefone só vem em ME1.'
+      tags:
+      - Envio
+      x-confianca: verificado
+      x-fonte-url: https://developers.mercadolivre.com.br/pt_br/gerenciamento-de-envios
+      x-data-consulta: '2026-10-14'
+      x-id-canonico: mercado-livre.envio.obter
+      x-entidade-canonica: Envio
+      x-acao-canonica: obter
+      x-seguro-para-executar: true
+      parameters:
+      - name: shipment_id
+        in: path
+        required: true
+        description: ID do envio (shipping.id do pedido).
+        schema:
+          type: integer
+      - name: x-format-new
+        in: header
+        required: true
+        description: 'Obrigatório desde 2025-10-12: enviar true.'
+        schema:
+          type: boolean
+          default: true
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              example:
+                id: 450000000001
+                status: shipped
+                substatus: null
+                date_created: '2026-08-03T14:21:00.000-04:00'
+                last_updated: '2026-08-04T18:00:00.000-04:00'
+                tracking_number: BR000000000EX
+                tracking_method: MEL Distribution
+                declared_value: 189.9
+                logistic:
+                  mode: me2
+                  type: drop_off
+                  direction: forward
+                lead_time:
+                  cost: 0
+                  list_cost: 24.9
+                  cost_type: free
+                  currency_id: BRL
+                  shipping_method:
+                    id: 100009
+                    name: Normal
+                    type: standard
+                  estimated_delivery_final:
+                    date: '2026-08-08T23:59:59.000-03:00'
+                destination:
+                  receiver_id: 9876543210
+                  shipping_address:
+                    city:
+                      name: Campinas
+                    state:
+                      id: BR-SP
+                      name: São Paulo
+                    zip_code: '13000000'
+                dimensions:
+                  height: 10
+                  width: 15
+                  length: 20
+                  weight: 800
+                tags: []
+        '401':
+          description: invalid access token / authorization value not present — Token ausente, expirado (vale 6 horas) ou invalidado (troca de senha, renovação
+            do Client Secret, revogação pelo vendedor, 4 meses sem uso).
+        '403':
+          description: FORBIDDEN / PA_UNAUTHORIZED_RESULT_FROM_POLICIES access to the requested resource is forbidden / At least one policy returned UNAUTHORIZED.
+            — Token de outro usuário, permissão funcional não habilitada no DevCenter, scope faltando, IP fora da lista, usuário inativo ou com validação
+            de dados pendente, aplicação bloqueada.
+        '429':
+          description: local_rate_limited Too Many Requests — Excesso de requisições em pouco tempo. O controle é principalmente por Client ID e por endpoint;
+            o número não é publicado.
+        '404':
+          description: Not Found — shipment_id inexistente ou de outro vendedor.
+  /shipments/{shipment_id}/costs:
+    get:
+      operationId: mercado-livre__envio__obter__custos
+      summary: Costs (/shipments/{shipment_id}/costs)
+      description: 'Custo do envio sem desconto (gross_amount) e quanto cabe ao comprador (receiver.cost) e a cada vendedor (senders[].cost), com os descontos
+        aplicados a cada lado.
+
+
+        Quando usar: Para saber o frete efetivamente pago pelo vendedor em cada venda e montar a margem. Quando não usar: o valor faturado ao vendedor no
+        mês também aparece nos relatórios de faturamento (cobranças CXD); use os dois para conciliar.
+
+
+        Armadilhas: senders é uma lista (um envio pode ter itens de vendedores diferentes): filtre pelo seu user_id. O campo save foi zerado em 2024 e retirado
+        em 2025.'
+      tags:
+      - Envio
+      x-confianca: verificado
+      x-fonte-url: https://developers.mercadolivre.com.br/pt_br/gerenciamento-de-envios
+      x-data-consulta: '2026-10-14'
+      x-id-canonico: mercado-livre.envio.obter.custos
+      x-entidade-canonica: Envio
+      x-acao-canonica: obter
+      x-seguro-para-executar: true
+      parameters:
+      - name: shipment_id
+        in: path
+        required: true
+        description: ID do envio.
+        schema:
+          type: integer
+      - name: x-format-new
+        in: header
+        required: true
+        description: Enviar true.
+        schema:
+          type: boolean
+          default: true
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              example:
+                gross_amount: 24.9
+                receiver:
+                  user_id: 9876543210
+                  cost: 0
+                  compensation: 0
+                  discounts:
+                  - rate: 1
+                    type: loyal
+                    promoted_amount: 4.1
+                senders:
+                - user_id: 1234567890
+                  cost: 9.96
+                  compensation: 0
+                  discounts:
+                  - rate: 0.6
+                    type: mandatory
+                    promoted_amount: 14.94
+        '401':
+          description: invalid access token / authorization value not present — Token ausente, expirado (vale 6 horas) ou invalidado (troca de senha, renovação
+            do Client Secret, revogação pelo vendedor, 4 meses sem uso).
+        '403':
+          description: FORBIDDEN / PA_UNAUTHORIZED_RESULT_FROM_POLICIES access to the requested resource is forbidden / At least one policy returned UNAUTHORIZED.
+            — Token de outro usuário, permissão funcional não habilitada no DevCenter, scope faltando, IP fora da lista, usuário inativo ou com validação
+            de dados pendente, aplicação bloqueada.
+        '429':
+          description: local_rate_limited Too Many Requests — Excesso de requisições em pouco tempo. O controle é principalmente por Client ID e por endpoint;
+            o número não é publicado.
+  /shipments/{shipment_id}/history:
+    get:
+      operationId: mercado-livre__envio__consultar_status__historico
+      summary: History (/shipments/{shipment_id}/history)
+      description: 'Linha do tempo do envio: cada mudança de status e substatus com a data.
+
+
+        Quando usar: Para medir prazos (pago → despachado → entregue) ou auditar um envio com problema. Quando não usar: para a situação atual basta /shipments/{id}.
+
+
+        Armadilhas: As datas do histórico vêm em UTC (sufixo Z). Os status e substatus possíveis variam por tipo logístico; a lista completa está em GET
+        /shipment_statuses.'
+      tags:
+      - Envio
+      x-confianca: verificado
+      x-fonte-url: https://developers.mercadolivre.com.br/pt_br/gerenciamento-de-envios
+      x-data-consulta: '2026-10-14'
+      x-id-canonico: mercado-livre.envio.consultar_status.historico
+      x-entidade-canonica: Envio
+      x-acao-canonica: consultar_status
+      x-seguro-para-executar: true
+      parameters:
+      - name: shipment_id
+        in: path
+        required: true
+        description: ID do envio.
+        schema:
+          type: integer
+      - name: x-format-new
+        in: header
+        required: true
+        description: Enviar true.
+        schema:
+          type: boolean
+          default: true
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              example:
+              - status: handling
+                substatus: waiting_for_label_generation
+                date: '2026-08-03T18:21:00.000Z'
+              - status: ready_to_ship
+                substatus: printed
+                date: '2026-08-04T12:00:00.000Z'
+        '401':
+          description: invalid access token / authorization value not present — Token ausente, expirado (vale 6 horas) ou invalidado (troca de senha, renovação
+            do Client Secret, revogação pelo vendedor, 4 meses sem uso).
+        '403':
+          description: FORBIDDEN / PA_UNAUTHORIZED_RESULT_FROM_POLICIES access to the requested resource is forbidden / At least one policy returned UNAUTHORIZED.
+            — Token de outro usuário, permissão funcional não habilitada no DevCenter, scope faltando, IP fora da lista, usuário inativo ou com validação
+            de dados pendente, aplicação bloqueada.
+        '429':
+          description: local_rate_limited Too Many Requests — Excesso de requisições em pouco tempo. O controle é principalmente por Client ID e por endpoint;
+            o número não é publicado.
+  /shipments/{shipment_id}/sla:
+    get:
+      operationId: mercado-livre__envio__consultar_status__sla
+      summary: Prazo máximo de despacho (SLA)
+      description: 'Data e hora limite para despachar o pacote e se o envio está a tempo, atrasado ou adiantado.
+
+
+        Quando usar: Fila de expedição: ordenar o que despachar primeiro e acompanhar atrasos que afetam a reputação. Quando não usar: não há SLA para envios
+        cancelados nem para Fulfillment.
+
+
+        Armadilhas: O horário pode mudar até a véspera: consulte no dia do despacho. Em coleta (cross docking) a data é o horário da coleta agendada.'
+      tags:
+      - Envio
+      x-confianca: verificado
+      x-fonte-url: https://developers.mercadolivre.com.br/pt_br/gerenciamento-de-envios
+      x-data-consulta: '2026-10-14'
+      x-id-canonico: mercado-livre.envio.consultar_status.sla
+      x-entidade-canonica: Envio
+      x-acao-canonica: consultar_status
+      x-seguro-para-executar: true
+      parameters:
+      - name: shipment_id
+        in: path
+        required: true
+        description: ID do envio.
+        schema:
+          type: integer
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              example:
+                status: on_time
+                service: xd_same_day
+                expected_date: '2026-08-04T23:59:59-03:00'
+                last_updated: '2026-08-03T17:16:04Z'
+        '401':
+          description: authorization value not present / invalid access token — Token ausente ou inválido.
+        '404':
+          description: failed to retrieve data — Envio não encontrado.
+        '429':
+          description: local_rate_limited Too Many Requests — Excesso de requisições em pouco tempo. O controle é principalmente por Client ID e por endpoint;
+            o número não é publicado.
+  /users/{user_id}/items/search:
+    get:
+      operationId: mercado-livre__anuncio__listar
+      summary: Obter itens da conta de um vendedor (/users/{user_id}/items/search)
+      description: 'Lista os IDs dos anúncios do vendedor, com filtros por status, SKU, tipo de anúncio, identificador de produto e saúde de reputação.
+        Devolve só IDs; os dados de cada anúncio vêm de /items/bulk ou /items/{id}.
+
+
+        Quando usar: Primeiro passo da planilha de anúncios e estoque: obter todos os IDs (status=active para os ativos). Quando não usar: não traz preço,
+        título nem estoque; e para mais de 1000 resultados é obrigatório o modo search_type=scan.
+
+
+        Armadilhas: results é uma lista de strings (IDs), não de objetos. No modo scan o mesmo scroll_id é reenviado a cada chamada e expira em 5 minutos;
+        não misture scroll com offset/limit de outro modo. Vendedor com mais de 200 mil itens não recebe filters/available_filters (veja /items/search/restrictions).'
+      tags:
+      - Anuncio
+      x-confianca: verificado
+      x-fonte-url: https://developers.mercadolivre.com.br/pt_br/itens-e-buscas
+      x-data-consulta: '2026-10-14'
+      x-id-canonico: mercado-livre.anuncio.listar
+      x-entidade-canonica: Anuncio
+      x-acao-canonica: listar
+      x-seguro-para-executar: true
+      parameters:
+      - name: user_id
+        in: path
+        required: true
+        description: ID do vendedor.
+        schema:
+          type: integer
+      - name: status
+        in: query
+        required: false
+        description: 'Filtra por situação do anúncio (ex.: active, paused, closed).'
+        schema:
+          type: string
+      - name: sku
+        in: query
+        required: false
+        description: SKU gravado em seller_custom_field.
+        schema:
+          type: string
+      - name: seller_sku
+        in: query
+        required: false
+        description: SKU do atributo SELLER_SKU.
+        schema:
+          type: string
+      - name: listing_type_id
+        in: query
+        required: false
+        description: 'Tipo de anúncio (ex.: gold_pro, gold_special).'
+        schema:
+          type: string
+      - name: missing_product_identifiers
+        in: query
+        required: false
+        description: true = anúncios sem identificador de produto (GTIN etc.).
+        schema:
+          type: boolean
+      - name: reputation_health_gauge
+        in: query
+        required: false
+        description: Saúde de exposição (disponível no Brasil).
+        schema:
+          type: string
+          enum:
+          - unhealthy
+          - warning
+          - healthy
+      - name: orders
+        in: query
+        required: false
+        description: 'Ordenação (ex.: start_time_desc, price_asc, available_quantity_desc, last_updated_desc). Padrão stop_time_asc.'
+        schema:
+          type: string
+      - name: include_filters
+        in: query
+        required: false
+        description: true devolve filters e available_filters (omitidos por padrão).
+        schema:
+          type: boolean
+      - name: search_type
+        in: query
+        required: false
+        description: scan para percorrer mais de 1000 itens (sem offset).
+        schema:
+          type: string
+          enum:
+          - scan
+      - name: scroll_id
+        in: query
+        required: false
+        description: Cursor devolvido no modo scan; expira em 5 minutos.
+        schema:
+          type: string
+      - name: offset
+        in: query
+        required: false
+        description: Deslocamento (modo normal, até 1000 resultados).
+        schema:
+          type: integer
+          default: 0
+          minimum: 0
+      - name: limit
+        in: query
+        required: false
+        description: 'Itens por página: padrão 50, máximo 100.'
+        schema:
+          type: integer
+          default: 50
+          minimum: 1
+          maximum: 100
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              example:
+                seller_id: '1234567890'
+                query: null
+                paging:
+                  limit: 100
+                  offset: 0
+                  total: 3
+                results:
+                - MLB4000000001
+                - MLB4000000002
+                - MLB4000000003
+                scroll_id: <<SCROLL_ID_DE_EXEMPLO>>
+        '401':
+          description: invalid access token / authorization value not present — Token ausente, expirado (vale 6 horas) ou invalidado (troca de senha, renovação
+            do Client Secret, revogação pelo vendedor, 4 meses sem uso).
+        '403':
+          description: FORBIDDEN / PA_UNAUTHORIZED_RESULT_FROM_POLICIES access to the requested resource is forbidden / At least one policy returned UNAUTHORIZED.
+            — Token de outro usuário, permissão funcional não habilitada no DevCenter, scope faltando, IP fora da lista, usuário inativo ou com validação
+            de dados pendente, aplicação bloqueada.
+        '429':
+          description: local_rate_limited Too Many Requests — Excesso de requisições em pouco tempo. O controle é principalmente por Client ID e por endpoint;
+            o número não é publicado.
+  /items/bulk:
+    get:
+      operationId: mercado-livre__anuncio__listar__bulk
+      summary: Consulta de vários itens (/items/bulk?ids=)
+      description: 'Devolve vários anúncios numa chamada (multiget). Cada elemento traz status_code, id e body com o anúncio completo (ou só os campos pedidos
+        em attributes com prefixo body.).
+
+
+        Quando usar: Segunda etapa da planilha de anúncios: depois de listar os IDs, buscar título, preço, estoque, vendidos, status e SKU em lotes. Quando
+        não usar: um anúncio só, use /items/{id}; o preço de venda efetivo (com promoção) está em /items/{id}/sale_price.
+
+
+        Armadilhas: Substitui /items?ids= (em descontinuação; migrar até 25/10/2026): o campo code virou status_code e attributes exige o prefixo body.
+        Com token que não é do dono, available_quantity vem como faixa de referência (1, 50, 100...) e sold_quantity some. price, base_price e original_price
+        de /items estão sendo descontinuados em favor de /items/{id}/sale_price.'
+      tags:
+      - Anuncio
+      x-confianca: verificado
+      x-fonte-url: https://developers.mercadolivre.com.br/pt_br/itens-e-buscas
+      x-data-consulta: '2026-10-14'
+      x-id-canonico: mercado-livre.anuncio.listar.bulk
+      x-entidade-canonica: Anuncio
+      x-acao-canonica: listar
+      x-seguro-para-executar: true
+      parameters:
+      - name: ids
+        in: query
+        required: true
+        description: IDs separados por vírgula (máximo de 20 por chamada, regra do multiget).
+        schema:
+          type: string
+      - name: attributes
+        in: query
+        required: false
+        description: 'Campos desejados, cada um com prefixo body. (ex.: body.id,body.title,body.price,body.available_quantity).'
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              example:
+              - status_code: 200
+                id: MLB4000000001
+                body:
+                  id: MLB4000000001
+                  site_id: MLB
+                  title: Garrafa térmica 1 L
+                  seller_id: 1234567890
+                  category_id: MLB0000
+                  price: 189.9
+                  base_price: 189.9
+                  original_price: null
+                  currency_id: BRL
+                  initial_quantity: 200
+                  available_quantity: 37
+                  sold_quantity: 163
+                  buying_mode: buy_it_now
+                  listing_type_id: gold_special
+                  condition: new
+                  permalink: https://produto.mercadolivre.com.br/MLB-4000000001-garrafa-termica-1l-_JM
+                  seller_custom_field: GT-1L
+                  shipping:
+                    mode: me2
+                    logistic_type: drop_off
+                    free_shipping: true
+                  inventory_id: null
+                  catalog_product_id: null
+                  catalog_listing: false
+                  status: active
+                  sub_status: []
+                  variations: []
+                  health: 0.9
+                  date_created: '2025-02-01T12:00:00.000Z'
+                  last_updated: '2026-08-04T10:00:00.000Z'
+        '401':
+          description: invalid access token / authorization value not present — Token ausente, expirado (vale 6 horas) ou invalidado (troca de senha, renovação
+            do Client Secret, revogação pelo vendedor, 4 meses sem uso).
+        '403':
+          description: FORBIDDEN / PA_UNAUTHORIZED_RESULT_FROM_POLICIES access to the requested resource is forbidden / At least one policy returned UNAUTHORIZED.
+            — Token de outro usuário, permissão funcional não habilitada no DevCenter, scope faltando, IP fora da lista, usuário inativo ou com validação
+            de dados pendente, aplicação bloqueada.
+        '429':
+          description: local_rate_limited Too Many Requests — Excesso de requisições em pouco tempo. O controle é principalmente por Client ID e por endpoint;
+            o número não é publicado.
+  /items/{item_id}:
+    get:
+      operationId: mercado-livre__anuncio__obter
+      summary: Itens (/items/{item_id})
+      description: 'Anúncio completo: título, categoria, preço, moeda, estoque disponível e vendido (com token do dono), tipo de anúncio, condição, envio
+        (modo, logística, frete grátis), atributos, variações, inventory_id do Full, status e datas.
+
+
+        Quando usar: Para um anúncio específico (ex.: notificação items) ou para ler variações e inventory_id. Quando não usar: para muitos anúncios use
+        /items/bulk em lotes de 20.
+
+
+        Armadilhas: O atributo condition está sendo substituído por ITEM_CONDITION em attributes. Em anúncio com variações, o estoque e o inventory_id ficam
+        em cada variação. Datas em UTC (Z).'
+      tags:
+      - Anuncio
+      x-confianca: verificado
+      x-fonte-url: https://developers.mercadolivre.com.br/pt_br/publicacao-de-produtos
+      x-data-consulta: '2026-10-14'
+      x-id-canonico: mercado-livre.anuncio.obter
+      x-entidade-canonica: Anuncio
+      x-acao-canonica: obter
+      x-seguro-para-executar: true
+      parameters:
+      - name: item_id
+        in: path
+        required: true
+        description: 'ID do anúncio com prefixo do site (ex.: MLB4000000001).'
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              example:
+                id: MLB4000000001
+                site_id: MLB
+                title: Garrafa térmica 1 L
+                seller_id: 1234567890
+                category_id: MLB0000
+                price: 189.9
+                base_price: 189.9
+                original_price: null
+                currency_id: BRL
+                initial_quantity: 200
+                available_quantity: 37
+                sold_quantity: 163
+                buying_mode: buy_it_now
+                listing_type_id: gold_special
+                condition: new
+                permalink: https://produto.mercadolivre.com.br/MLB-4000000001-garrafa-termica-1l-_JM
+                seller_custom_field: GT-1L
+                shipping:
+                  mode: me2
+                  logistic_type: drop_off
+                  free_shipping: true
+                inventory_id: null
+                catalog_product_id: null
+                catalog_listing: false
+                status: active
+                sub_status: []
+                variations: []
+                health: 0.9
+                date_created: '2025-02-01T12:00:00.000Z'
+                last_updated: '2026-08-04T10:00:00.000Z'
+        '401':
+          description: invalid access token / authorization value not present — Token ausente, expirado (vale 6 horas) ou invalidado (troca de senha, renovação
+            do Client Secret, revogação pelo vendedor, 4 meses sem uso).
+        '403':
+          description: FORBIDDEN / PA_UNAUTHORIZED_RESULT_FROM_POLICIES access to the requested resource is forbidden / At least one policy returned UNAUTHORIZED.
+            — Token de outro usuário, permissão funcional não habilitada no DevCenter, scope faltando, IP fora da lista, usuário inativo ou com validação
+            de dados pendente, aplicação bloqueada.
+        '429':
+          description: local_rate_limited Too Many Requests — Excesso de requisições em pouco tempo. O controle é principalmente por Client ID e por endpoint;
+            o número não é publicado.
+        '404':
+          description: Not Found — ID inexistente ou removido.
+    put:
+      operationId: mercado-livre__anuncio__atualizar
+      summary: Atualizar itens (PUT /items/{item_id})
+      description: 'Altera um anúncio: estoque (available_quantity), preço, status (active, paused, closed), título (só sem vendas), imagens, descrição
+        e envio. Documentado como referência de escrita; o assistente não executa.
+
+
+        Quando usar: Só quando o próprio vendedor (ou o integrador autorizado) for sincronizar estoque/preço ou pausar anúncios a partir do seu sistema.
+        Quando não usar: o assistente nunca usa esta rota; ele explica e entrega o código.
+
+
+        Armadilhas: Com multi-origem ativa o estoque é por depósito (PUT /user-products/{id}/stock/type/seller_warehouse com header x-version), não por
+        /items. Pausar com estoque zero deixa o substatus out_of_stock e o item volta sozinho quando há estoque.'
+      tags:
+      - Anuncio
+      x-confianca: verificado
+      x-fonte-url: https://developers.mercadolivre.com.br/pt_br/produto-sincronizacao-de-publicacoes
+      x-data-consulta: '2026-10-14'
+      x-id-canonico: mercado-livre.anuncio.atualizar
+      x-entidade-canonica: Anuncio
+      x-acao-canonica: atualizar
+      x-seguro-para-executar: false
+      parameters:
+      - name: item_id
+        in: path
+        required: true
+        description: ID do anúncio.
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              example:
+                id: MLB4000000001
+                available_quantity: 25
+                status: active
+        '401':
+          description: invalid access token / authorization value not present — Token ausente, expirado (vale 6 horas) ou invalidado (troca de senha, renovação
+            do Client Secret, revogação pelo vendedor, 4 meses sem uso).
+        '403':
+          description: FORBIDDEN / PA_UNAUTHORIZED_RESULT_FROM_POLICIES access to the requested resource is forbidden / At least one policy returned UNAUTHORIZED.
+            — Token de outro usuário, permissão funcional não habilitada no DevCenter, scope faltando, IP fora da lista, usuário inativo ou com validação
+            de dados pendente, aplicação bloqueada.
+        '429':
+          description: local_rate_limited Too Many Requests — Excesso de requisições em pouco tempo. O controle é principalmente por Client ID e por endpoint;
+            o número não é publicado.
+        '400':
+          description: 'Bad Request — Alteração não permitida (ex.: título com vendas, só price com automação ativa, campo inválido).'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                available_quantity:
+                  type: integer
+                  description: Novo estoque. Sem multi-origem, o Mercado Livre replica para os itens do mesmo user_product_id.
+                price:
+                  type: number
+                  description: Novo preço. Desde 18/03/2026, PUT só com price é recusado (400) se houver automação de preço; junto de outros campos é ignorado
+                    com aviso.
+                status:
+                  type: string
+                  enum:
+                  - active
+                  - paused
+                  - closed
+                  description: 'Situação: active, paused ou closed (closed é definitivo). Minúsculas.'
+                title:
+                  type: string
+                  description: Novo título (só para anúncios sem vendas).
+  /items/{item_id}/sale_price:
+    get:
+      operationId: mercado-livre__anuncio__obter__preco_venda
+      summary: Obter preço de venda atual (/items/{item_id}/sale_price)
+      description: 'Preço de venda vencedor do anúncio no contexto informado (canal e nível do comprador), o preço sem promoção (regular_amount) e, para
+        o dono, a promoção aplicada.
+
+
+        Quando usar: Planilha de preços com promoção ativa; é a fonte recomendada no lugar de price/base_price/original_price de /items. Quando não usar:
+        para todos os preços cadastrados (standard e promoções futuras) há GET /items/{id}/prices.
+
+
+        Armadilhas: Uma chamada por anúncio (sem multiget documentado). Sem token do dono, metadata não vem. Desde 18/03/2026 um PUT em /items que altere
+        só price é recusado quando há automação de preço.'
+      tags:
+      - Anuncio
+      x-confianca: verificado
+      x-fonte-url: https://developers.mercadolivre.com.br/pt_br/api-de-precos
+      x-data-consulta: '2026-10-14'
+      x-id-canonico: mercado-livre.anuncio.obter.preco_venda
+      x-entidade-canonica: Anuncio
+      x-acao-canonica: obter
+      x-seguro-para-executar: true
+      parameters:
+      - name: item_id
+        in: path
+        required: true
+        description: ID do anúncio.
+        schema:
+          type: string
+      - name: context
+        in: query
+        required: false
+        description: 'Canal e, opcionalmente, nível do comprador, separados por vírgula (ex.: channel_marketplace,buyer_loyalty_3).'
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              example:
+                price_id: '145'
+                amount: 169.9
+                regular_amount: 189.9
+                currency_id: BRL
+                reference_date: '2026-08-04T19:06:56Z'
+                metadata:
+                  promotion_id: OFFER-MLB4000000001-1122334455
+                  promotion_type: custom
+        '401':
+          description: invalid access token / authorization value not present — Token ausente, expirado (vale 6 horas) ou invalidado (troca de senha, renovação
+            do Client Secret, revogação pelo vendedor, 4 meses sem uso).
+        '403':
+          description: FORBIDDEN / PA_UNAUTHORIZED_RESULT_FROM_POLICIES access to the requested resource is forbidden / At least one policy returned UNAUTHORIZED.
+            — Token de outro usuário, permissão funcional não habilitada no DevCenter, scope faltando, IP fora da lista, usuário inativo ou com validação
+            de dados pendente, aplicação bloqueada.
+        '429':
+          description: local_rate_limited Too Many Requests — Excesso de requisições em pouco tempo. O controle é principalmente por Client ID e por endpoint;
+            o número não é publicado.
+  /sites/{site_id}/listing_prices:
+    get:
+      operationId: mercado-livre__anuncio__calcular__custos_venda
+      summary: Custos por vender (/sites/{site_id}/listing_prices)
+      description: 'Calculadora somente leitura das tarifas: para um preço, categoria, tipo de anúncio e logística, devolve a tarifa de venda (percentual,
+        taxa fixa, acréscimo por parcelamento) e o custo de anunciar de cada tipo de anúncio.
+
+
+        Quando usar: Simular a margem de um produto antes de publicar ou rever preços. Quando não usar: não é o valor faturado; o cobrado de fato está nos
+        relatórios de faturamento e no sale_fee de cada pedido.
+
+
+        Armadilhas: Desde 02/03 (Brasil) a taxa fixa depende de logistic_type e shipping_mode: sem eles o cálculo diverge do cobrado. No MLB o percentage_fee
+        pode variar com fatores comerciais e faixas de preço, então o mesmo produto pode ter tarifas diferentes em datas diferentes. Quando a consulta não
+        fixa o tipo de anúncio, a resposta tende a ser uma lista por tipo (formato exato não exemplificado para o MLB).'
+      tags:
+      - Anuncio
+      x-confianca: verificado
+      x-fonte-url: https://developers.mercadolivre.com.br/pt_br/comissao-por-vender
+      x-data-consulta: '2026-10-14'
+      x-id-canonico: mercado-livre.anuncio.calcular.custos_venda
+      x-entidade-canonica: Anuncio
+      x-acao-canonica: calcular
+      x-seguro-para-executar: true
+      parameters:
+      - name: site_id
+        in: path
+        required: true
+        description: Site (MLB no Brasil).
+        schema:
+          type: string
+          default: MLB
+      - name: price
+        in: query
+        required: true
+        description: Preço de venda do item.
+        schema:
+          type: number
+      - name: category_id
+        in: query
+        required: false
+        description: Categoria do item.
+        schema:
+          type: string
+      - name: listing_type_id
+        in: query
+        required: false
+        description: Tipo de anúncio (free, gold_special, gold_pro).
+        schema:
+          type: string
+      - name: currency_id
+        in: query
+        required: false
+        description: Moeda (BRL).
+        schema:
+          type: string
+      - name: logistic_type
+        in: query
+        required: false
+        description: Tipo logístico; sem ele a taxa fixa calculada não bate com a cobrada.
+        schema:
+          type: string
+          enum:
+          - drop_off
+          - cross_docking
+          - xd_drop_off
+          - self_service
+          - turbo
+          - fulfillment
+          - default
+          - custom
+          - not_specified
+      - name: shipping_mode
+        in: query
+        required: false
+        description: Modo de envio.
+        schema:
+          type: string
+          enum:
+          - me2
+          - me1
+          - custom
+          - not_specified
+      - name: billable_weight
+        in: query
+        required: false
+        description: Peso faturável em gramas (obrigatório só na Argentina).
+        schema:
+          type: number
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              example:
+                currency_id: BRL
+                listing_type_id: gold_special
+                listing_type_name: Clássico
+                listing_exposure: highest
+                listing_fee_amount: 0
+                listing_fee_details:
+                  fixed_fee: 0
+                  gross_amount: 0
+                requires_picture: true
+                sale_fee_amount: 22.79
+                sale_fee_details:
+                  financing_add_on_fee: 0
+                  fixed_fee: 0
+                  gross_amount: 22.79
+                  percentage_fee: 12
+        '401':
+          description: invalid access token / authorization value not present — Token ausente, expirado (vale 6 horas) ou invalidado (troca de senha, renovação
+            do Client Secret, revogação pelo vendedor, 4 meses sem uso).
+        '403':
+          description: FORBIDDEN / PA_UNAUTHORIZED_RESULT_FROM_POLICIES access to the requested resource is forbidden / At least one policy returned UNAUTHORIZED.
+            — Token de outro usuário, permissão funcional não habilitada no DevCenter, scope faltando, IP fora da lista, usuário inativo ou com validação
+            de dados pendente, aplicação bloqueada.
+        '429':
+          description: local_rate_limited Too Many Requests — Excesso de requisições em pouco tempo. O controle é principalmente por Client ID e por endpoint;
+            o número não é publicado.
+  /user-products/{user_product_id}/stock:
+    get:
+      operationId: mercado-livre__estoque__obter
+      summary: Obter detalhe de estoque (/user-products/{user_product_id}/stock)
+      description: 'Estoque de um User Product por local: selling_address (depósito do vendedor para drop off, coleta e Flex), meli_facility (Full) e seller_warehouse
+        (multi-origem, por depósito/loja).
+
+
+        Quando usar: Planilha de estoque por local, principalmente quando há Full e Flex juntos ou multi-origem. Quando não usar: para vendedor sem User
+        Products/multi-origem, o available_quantity de /items já é o estoque.
+
+
+        Armadilhas: A resposta traz o cabeçalho x-version, exigido por quem for alterar estoque (PUT): não é preciso para leitura. Um UP tem no máximo duas
+        tipologias (selling_address + meli_facility, ou seller_warehouse + meli_facility). No Brasil não dá para ter depósitos em estados diferentes do
+        CNPJ.'
+      tags:
+      - Estoque
+      x-confianca: verificado
+      x-fonte-url: https://developers.mercadolivre.com.br/pt_br/estoque-distribuido
+      x-data-consulta: '2026-10-14'
+      x-id-canonico: mercado-livre.estoque.obter
+      x-entidade-canonica: Estoque
+      x-acao-canonica: obter
+      x-seguro-para-executar: true
+      parameters:
+      - name: user_product_id
+        in: path
+        required: true
+        description: ID do User Product (formato MLBU...); vem no anúncio/pedido (user_product_id).
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              example:
+                locations:
+                - type: selling_address
+                  quantity: 12
+                - type: meli_facility
+                  quantity: 30
+                user_id: 1234567890
+                id: MLBU2000000001
+        '401':
+          description: invalid access token / authorization value not present — Token ausente, expirado (vale 6 horas) ou invalidado (troca de senha, renovação
+            do Client Secret, revogação pelo vendedor, 4 meses sem uso).
+        '403':
+          description: FORBIDDEN / PA_UNAUTHORIZED_RESULT_FROM_POLICIES access to the requested resource is forbidden / At least one policy returned UNAUTHORIZED.
+            — Token de outro usuário, permissão funcional não habilitada no DevCenter, scope faltando, IP fora da lista, usuário inativo ou com validação
+            de dados pendente, aplicação bloqueada.
+        '429':
+          description: local_rate_limited Too Many Requests — Excesso de requisições em pouco tempo. O controle é principalmente por Client ID e por endpoint;
+            o número não é publicado.
+  /inventories/{inventory_id}/stock/fulfillment:
+    get:
+      operationId: mercado-livre__estoque__obter__fulfillment
+      summary: Consultar o estoque do vendedor no Full (/inventories/{inventory_id}/stock/fulfillment)
+      description: 'Estoque nos centros de distribuição do Mercado Livre (Full) para um inventory_id: total, disponível, indisponível e o motivo da indisponibilidade
+        (avaria, perda, retirada, processo interno, transferência, sem cobertura fiscal).
+
+
+        Quando usar: Planilha de estoque Full com unidades bloqueadas por motivo. Quando não usar: estoque próprio (Flex, coleta) não aparece aqui.
+
+
+        Armadilhas: Uma chamada por inventory_id. Anúncio com variações tem um inventory_id por variação.'
+      tags:
+      - Estoque
+      x-confianca: verificado
+      x-fonte-url: https://developers.mercadolivre.com.br/pt_br/envios-fulfillment
+      x-data-consulta: '2026-10-14'
+      x-id-canonico: mercado-livre.estoque.obter.fulfillment
+      x-entidade-canonica: Estoque
+      x-acao-canonica: obter
+      x-seguro-para-executar: true
+      parameters:
+      - name: inventory_id
+        in: path
+        required: true
+        description: Código do item no Full (campo inventory_id do anúncio ou da variação).
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              example:
+                inventory_id: ABCD12345
+                total: 20
+                available_quantity: 15
+                not_available_quantity: 5
+                not_available_detail:
+                - status: damage
+                  quantity: 2
+                - status: transfer
+                  quantity: 3
+                external_references:
+                - type: item
+                  id: MLB4000000001
+                  variation_id: null
+        '401':
+          description: invalid access token / authorization value not present — Token ausente, expirado (vale 6 horas) ou invalidado (troca de senha, renovação
+            do Client Secret, revogação pelo vendedor, 4 meses sem uso).
+        '403':
+          description: forbidden User ... cannot access to seller_product ... — inventory_id de outro vendedor.
+        '404':
+          description: 'seller_product_not_found Inventory not found with id: ... — inventory_id inexistente.'
+        '400':
+          description: validation_error The field inventory_id has an invalid value — Formato inválido.
+        '429':
+          description: local_rate_limited Too Many Requests — Excesso de requisições em pouco tempo. O controle é principalmente por Client ID e por endpoint;
+            o número não é publicado.
+  /stock/fulfillment/operations/search:
+    get:
+      operationId: mercado-livre__estoque__listar__operacoes_fulfillment
+      summary: Consultar operações de estoque Full (/stock/fulfillment/operations/search)
+      description: 'Movimentações do estoque Full de um inventory_id (entradas, vendas, cancelamentos, ajustes, retiradas, transferências, quarentena),
+        com a variação e o saldo resultante de cada operação.
+
+
+        Quando usar: Kardex do Full por período (máximo 60 dias por consulta, últimos 12 meses). Quando não usar: para o saldo atual use /inventories/{id}/stock/fulfillment.
+
+
+        Armadilhas: Intervalo máximo de 60 dias e só os últimos 12 meses. O scroll aparece dentro de paging num exemplo e na raiz em outro: leia os dois.
+        Fim quando scroll vier nulo.'
+      tags:
+      - Estoque
+      x-confianca: verificado
+      x-fonte-url: https://developers.mercadolivre.com.br/pt_br/envios-fulfillment
+      x-data-consulta: '2026-10-14'
+      x-id-canonico: mercado-livre.estoque.listar.operacoes_fulfillment
+      x-entidade-canonica: Estoque
+      x-acao-canonica: listar
+      x-seguro-para-executar: true
+      parameters:
+      - name: seller_id
+        in: query
+        required: true
+        description: ID do vendedor.
+        schema:
+          type: integer
+      - name: inventory_id
+        in: query
+        required: true
+        description: Um ou mais inventory_id separados por vírgula.
+        schema:
+          type: string
+      - name: date_from
+        in: query
+        required: false
+        description: 'Início (AAAA-MM-DD). Sem datas, vêm os últimos 15 dias. Formato: AAAA-MM-DD.'
+        schema:
+          type: string
+          format: date
+      - name: date_to
+        in: query
+        required: false
+        description: 'Fim (AAAA-MM-DD). Intervalo máximo de 60 dias. Formato: AAAA-MM-DD.'
+        schema:
+          type: string
+          format: date
+      - name: type
+        in: query
+        required: false
+        description: 'Tipo de operação (ex.: INBOUND_RECEPTION, SALE_CONFIRMATION, SALE_CANCELATION, ADJUSTMENT).'
+        schema:
+          type: string
+      - name: external_references.shipment_id
+        in: query
+        required: false
+        description: Envio ao comprador relacionado.
+        schema:
+          type: string
+      - name: limit
+        in: query
+        required: false
+        description: Registros por página (padrão e máximo 1000).
+        schema:
+          type: integer
+          default: 1000
+          maximum: 1000
+      - name: sort
+        in: query
+        required: false
+        description: Campo e ordem.
+        schema:
+          type: string
+      - name: scroll
+        in: query
+        required: false
+        description: Cursor da página seguinte (expira em 5 minutos).
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              example:
+                paging:
+                  total: 1
+                  scroll: null
+                results:
+                - id: 306000000001
+                  seller_id: 1234567890
+                  inventory_id: ABCD12345
+                  date_created: '2026-08-10T18:02:33Z'
+                  type: SALE_CONFIRMATION
+                  detail:
+                    available_quantity: -1
+                    not_available_detail: []
+                  result:
+                    total: 19
+                    available_quantity: 14
+                    not_available_quantity: 5
+                    not_available_detail: []
+                  external_references:
+                  - type: shipment_id
+                    value: '450000000001'
+        '401':
+          description: invalid access token / authorization value not present — Token ausente, expirado (vale 6 horas) ou invalidado (troca de senha, renovação
+            do Client Secret, revogação pelo vendedor, 4 meses sem uso).
+        '403':
+          description: FORBIDDEN / PA_UNAUTHORIZED_RESULT_FROM_POLICIES access to the requested resource is forbidden / At least one policy returned UNAUTHORIZED.
+            — Token de outro usuário, permissão funcional não habilitada no DevCenter, scope faltando, IP fora da lista, usuário inativo ou com validação
+            de dados pendente, aplicação bloqueada.
+        '429':
+          description: local_rate_limited Too Many Requests — Excesso de requisições em pouco tempo. O controle é principalmente por Client ID e por endpoint;
+            o número não é publicado.
+  /questions/search:
+    get:
+      operationId: mercado-livre__mensagem__listar__perguntas
+      summary: Busca de perguntas (/questions/search)
+      description: 'Perguntas pré-venda recebidas pelo vendedor (ou de um anúncio), com texto, situação, data, anúncio, quem perguntou (id) e a resposta.
+
+
+        Quando usar: Planilha de perguntas sem resposta (status=UNANSWERED) ou de atendimento por anúncio. Quando não usar: mensagens pós-venda ficam em
+        /messages; o tempo médio de resposta tem rota própria.
+
+
+        Armadilhas: Não há filtro de data documentado: ordene por date_created DESC e corte no cliente. Perguntas e respostas BANNED vêm com texto vazio.
+        Perguntas sem resposta há mais de 7 meses são excluídas. Uma página da doc escreve searchtype=scan (sem _); use search_type.'
+      tags:
+      - Mensagem
+      x-confianca: verificado
+      x-fonte-url: https://developers.mercadolivre.com.br/pt_br/gerenciamento-perguntas-respostas
+      x-data-consulta: '2026-10-14'
+      x-id-canonico: mercado-livre.mensagem.listar.perguntas
+      x-entidade-canonica: Mensagem
+      x-acao-canonica: listar
+      x-seguro-para-executar: true
+      parameters:
+      - name: seller_id
+        in: query
+        required: false
+        description: Perguntas recebidas pelo vendedor.
+        schema:
+          type: integer
+      - name: item
+        in: query
+        required: false
+        description: Perguntas de um anúncio (ID MLB...).
+        schema:
+          type: string
+      - name: from
+        in: query
+        required: false
+        description: Perguntas feitas por um usuário.
+        schema:
+          type: integer
+      - name: status
+        in: query
+        required: false
+        description: Situação da pergunta.
+        schema:
+          type: string
+          enum:
+          - ANSWERED
+          - BANNED
+          - CLOSED_UNANSWERED
+          - DELETED
+          - DISABLED
+          - UNANSWERED
+          - UNDER_REVIEW
+      - name: api_version
+        in: query
+        required: false
+        description: Use 4 para a estrutura JSON atual.
+        schema:
+          type: integer
+          default: 4
+      - name: sort_fields
+        in: query
+        required: false
+        description: Ordenar por item_id, seller_id, from_id ou date_created (vírgula).
+        schema:
+          type: string
+      - name: sort_types
+        in: query
+        required: false
+        description: ASC ou DESC.
+        schema:
+          type: string
+          enum:
+          - ASC
+          - DESC
+      - name: offset
+        in: query
+        required: false
+        description: Deslocamento.
+        schema:
+          type: integer
+          default: 0
+      - name: limit
+        in: query
+        required: false
+        description: Por página; exemplos com 50.
+        schema:
+          type: integer
+          default: 50
+      - name: search_type
+        in: query
+        required: false
+        description: scan para mais de 1000 perguntas.
+        schema:
+          type: string
+          enum:
+          - scan
+      - name: scroll_id
+        in: query
+        required: false
+        description: Cursor do modo scan (expira em 5 minutos).
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              example:
+                total: 1
+                limit: 50
+                questions:
+                - date_created: '2026-08-05T10:00:00.000-04:00'
+                  item_id: MLB4000000001
+                  seller_id: 1234567890
+                  status: UNANSWERED
+                  text: Mantém a bebida quente por quantas horas?
+                  id: 13000000001
+                  deleted_from_listing: false
+                  hold: false
+                  suspected_spam: false
+                  answer: null
+                  from:
+                    id: 9876543210
+                filters:
+                  limit: 50
+                  offset: 0
+                  api_version: '4'
+        '401':
+          description: invalid access token / authorization value not present — Token ausente, expirado (vale 6 horas) ou invalidado (troca de senha, renovação
+            do Client Secret, revogação pelo vendedor, 4 meses sem uso).
+        '403':
+          description: FORBIDDEN / PA_UNAUTHORIZED_RESULT_FROM_POLICIES access to the requested resource is forbidden / At least one policy returned UNAUTHORIZED.
+            — Token de outro usuário, permissão funcional não habilitada no DevCenter, scope faltando, IP fora da lista, usuário inativo ou com validação
+            de dados pendente, aplicação bloqueada.
+        '429':
+          description: local_rate_limited Too Many Requests — Excesso de requisições em pouco tempo. O controle é principalmente por Client ID e por endpoint;
+            o número não é publicado.
+  /users/{user_id}/questions/response_time:
+    get:
+      operationId: mercado-livre__mensagem__obter__tempo_resposta
+      summary: Calcular tempo de resposta (/users/{user_id}/questions/response_time)
+      description: 'Tempo médio de resposta às perguntas, em minutos, nos últimos 14 dias: total, dias úteis em horário comercial, dias úteis à noite e
+        fim de semana, com a estimativa de aumento de vendas se responder em menos de 1 hora.
+
+
+        Quando usar: Indicador de atendimento pré-venda. Quando não usar: para a lista de perguntas use /questions/search.
+
+
+        Armadilhas: Atualizado uma vez por dia. Perguntas sem resposta contam como respondidas no momento do cálculo, até 1 semana.'
+      tags:
+      - Mensagem
+      x-confianca: verificado
+      x-fonte-url: https://developers.mercadolivre.com.br/pt_br/gerenciamento-perguntas-respostas
+      x-data-consulta: '2026-10-14'
+      x-id-canonico: mercado-livre.mensagem.obter.tempo_resposta
+      x-entidade-canonica: Mensagem
+      x-acao-canonica: obter
+      x-seguro-para-executar: true
+      parameters:
+      - name: user_id
+        in: path
+        required: true
+        description: ID do vendedor.
+        schema:
+          type: integer
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              example:
+                user_id: 1234567890
+                total:
+                  response_time: 22
+                weekend:
+                  response_time: 8
+                  sales_percent_increase: null
+                weekdays_working_hours:
+                  response_time: 8
+                  sales_percent_increase: null
+                weekdays_extra_hours:
+                  response_time: 72
+                  sales_percent_increase: 10
+        '401':
+          description: invalid access token / authorization value not present — Token ausente, expirado (vale 6 horas) ou invalidado (troca de senha, renovação
+            do Client Secret, revogação pelo vendedor, 4 meses sem uso).
+        '403':
+          description: FORBIDDEN / PA_UNAUTHORIZED_RESULT_FROM_POLICIES access to the requested resource is forbidden / At least one policy returned UNAUTHORIZED.
+            — Token de outro usuário, permissão funcional não habilitada no DevCenter, scope faltando, IP fora da lista, usuário inativo ou com validação
+            de dados pendente, aplicação bloqueada.
+        '429':
+          description: local_rate_limited Too Many Requests — Excesso de requisições em pouco tempo. O controle é principalmente por Client ID e por endpoint;
+            o número não é publicado.
+        '404':
+          description: 'not_found Response time not found for user id: ... — Vendedor sem perguntas no período.'
+  /answers:
+    post:
+      operationId: mercado-livre__mensagem__enviar__resposta
+      summary: Resposta a perguntas (POST /answers)
+      description: 'Publica a resposta do vendedor a uma pergunta. Documentado como referência de escrita; o assistente não executa.
+
+
+        Quando usar: Só pelo sistema do vendedor, com revisão humana. Quando não usar: o assistente nunca responde perguntas em nome do vendedor.
+
+
+        Armadilhas: Mensagens automáticas repetitivas são proibidas pelas boas práticas e podem gerar sanção à conta.'
+      tags:
+      - Mensagem
+      x-confianca: verificado
+      x-fonte-url: https://developers.mercadolivre.com.br/pt_br/gerenciamento-perguntas-respostas
+      x-data-consulta: '2026-10-14'
+      x-id-canonico: mercado-livre.mensagem.enviar.resposta
+      x-entidade-canonica: Mensagem
+      x-acao-canonica: enviar
+      x-seguro-para-executar: false
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              example: {}
+        '401':
+          description: invalid access token / authorization value not present — Token ausente, expirado (vale 6 horas) ou invalidado (troca de senha, renovação
+            do Client Secret, revogação pelo vendedor, 4 meses sem uso).
+        '403':
+          description: FORBIDDEN / PA_UNAUTHORIZED_RESULT_FROM_POLICIES access to the requested resource is forbidden / At least one policy returned UNAUTHORIZED.
+            — Token de outro usuário, permissão funcional não habilitada no DevCenter, scope faltando, IP fora da lista, usuário inativo ou com validação
+            de dados pendente, aplicação bloqueada.
+        '429':
+          description: local_rate_limited Too Many Requests — Excesso de requisições em pouco tempo. O controle é principalmente por Client ID e por endpoint;
+            o número não é publicado.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                question_id:
+                  type: integer
+                  description: ID da pergunta.
+                text:
+                  type: string
+                  description: Texto da resposta (até 2.000 caracteres, UTF-8).
+              required:
+              - question_id
+              - text
+  /post-purchase/v1/claims/search:
+    get:
+      operationId: mercado-livre__contestacao__listar
+      summary: Buscar reclamações (/post-purchase/v1/claims/search)
+      description: 'Busca reclamações, mediações, devoluções, cancelamentos e trocas em que o vendedor é parte, com etapa, motivo, recurso afetado (pedido,
+        envio, pagamento), ações pendentes com prazo e resolução.
+
+
+        Quando usar: Planilha de pós-venda por período: players.user_id + players.role=respondent e range por date_created. Quando não usar: o detalhe da
+        devolução (envio de retorno, dinheiro retido) está em /post-purchase/v2/claims/{id}/returns.
+
+
+        Armadilhas: Datas do range precisam de milissegundos (2026-08-01T00:00:00.000-0300). status=opened sozinho é aceito mas caro e pode levar a rate
+        limit/bloqueio. O exemplo oficial usa type returns enquanto a tabela lista return: confira o valor aceito. Players.user_id sempre com players.role.'
+      tags:
+      - Contestacao
+      x-confianca: verificado
+      x-fonte-url: https://developers.mercadolivre.com.br/pt_br/gerenciar-reclamacoes
+      x-data-consulta: '2026-10-14'
+      x-id-canonico: mercado-livre.contestacao.listar
+      x-entidade-canonica: Contestacao
+      x-acao-canonica: listar
+      x-seguro-para-executar: true
+      parameters:
+      - name: players.user_id
+        in: query
+        required: false
+        description: ID do usuário parte da reclamação; exige players.role.
+        schema:
+          type: integer
+      - name: players.role
+        in: query
+        required: false
+        description: Papel do usuário; exige players.user_id.
+        schema:
+          type: string
+          enum:
+          - complainant
+          - respondent
+      - name: status
+        in: query
+        required: false
+        description: Situação. Não use como único filtro.
+        schema:
+          type: string
+          enum:
+          - opened
+          - closed
+      - name: type
+        in: query
+        required: false
+        description: Tipo.
+        schema:
+          type: string
+          enum:
+          - mediations
+          - return
+          - fulfillment
+          - ml_case
+          - cancel_sale
+          - cancel_purchase
+          - change
+          - service
+      - name: stage
+        in: query
+        required: false
+        description: Etapa.
+        schema:
+          type: string
+          enum:
+          - claim
+          - dispute
+          - recontact
+          - stale
+          - none
+      - name: reason_id
+        in: query
+        required: false
+        description: Motivo (prefixos PNR produto não recebido, PDD diferente/defeituoso, CS compra cancelada).
+        schema:
+          type: string
+      - name: resource
+        in: query
+        required: false
+        description: Recurso; exige resource_id ou players.role + players.user_id.
+        schema:
+          type: string
+          enum:
+          - shipment
+          - payment
+          - order
+          - purchase
+      - name: resource_id
+        in: query
+        required: false
+        description: Id do recurso; exige resource.
+        schema:
+          type: integer
+      - name: order_id
+        in: query
+        required: false
+        description: Pedido (não combinar com pack_id).
+        schema:
+          type: integer
+      - name: pack_id
+        in: query
+        required: false
+        description: Pack (não combinar com order_id).
+        schema:
+          type: integer
+      - name: payment_id
+        in: query
+        required: false
+        description: Pagamento (convertido para order_id).
+        schema:
+          type: integer
+      - name: range
+        in: query
+        required: false
+        description: 'Intervalo de datas: campo:after:data,before:data (date_created ou last_updated). Datas com milissegundos. Formato: date_created:after:AAAA-MM-DDThh:mm:ss.000-0300,before:AAAA-MM-DDThh:mm:ss.000-0300.'
+        schema:
+          type: string
+      - name: sort
+        in: query
+        required: false
+        description: 'campo:asc ou campo:desc (ex.: date_created:desc).'
+        schema:
+          type: string
+      - name: offset
+        in: query
+        required: false
+        description: Máximo 9999; offset + limit precisa ser menor que 10000.
+        schema:
+          type: integer
+          default: 0
+          maximum: 9999
+      - name: limit
+        in: query
+        required: false
+        description: Padrão 30, máximo 100 (acima é ajustado para 100).
+        schema:
+          type: integer
+          default: 30
+          maximum: 100
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              example:
+                paging:
+                  total: 1
+                  offset: 0
+                  limit: 100
+                data:
+                - id: 5300000001
+                  resource_id: 2000012345678901
+                  status: opened
+                  type: mediations
+                  stage: claim
+                  parent_id: null
+                  resource: order
+                  reason_id: PDD9549
+                  fulfilled: true
+                  quantity_type: total
+                  players:
+                  - role: complainant
+                    type: buyer
+                    user_id: 9876543210
+                    available_actions: []
+                  - role: respondent
+                    type: seller
+                    user_id: 1234567890
+                    available_actions:
+                    - action: send_message_to_complainant
+                      mandatory: true
+                      due_date: '2026-08-12T23:59:00.000-04:00'
+                  resolution: null
+                  site_id: MLB
+                  date_created: '2026-08-09T10:00:00.000-04:00'
+                  last_updated: '2026-08-09T10:05:00.000-04:00'
+                  related_entities: []
+        '401':
+          description: invalid access token / authorization value not present — Token ausente, expirado (vale 6 horas) ou invalidado (troca de senha, renovação
+            do Client Secret, revogação pelo vendedor, 4 meses sem uso).
+        '403':
+          description: FORBIDDEN / PA_UNAUTHORIZED_RESULT_FROM_POLICIES access to the requested resource is forbidden / At least one policy returned UNAUTHORIZED.
+            — Token de outro usuário, permissão funcional não habilitada no DevCenter, scope faltando, IP fora da lista, usuário inativo ou com validação
+            de dados pendente, aplicação bloqueada.
+        '429':
+          description: local_rate_limited Too Many Requests — Excesso de requisições em pouco tempo. O controle é principalmente por Client ID e por endpoint;
+            o número não é publicado.
+        '400':
+          description: 'invalid_query at least any of these filters: id, type, stage, status, ... — Só paginação, sem filtro real.'
+  /post-purchase/v1/claims/{claim_id}:
+    get:
+      operationId: mercado-livre__contestacao__obter
+      summary: Consultar uma reclamação (/post-purchase/v1/claims/{claim_id})
+      description: 'Situação atual de uma reclamação: tipo, etapa, motivo, recurso, partes com ações disponíveis e prazos, resolução e entidades relacionadas
+        (ex.: return).
+
+
+        Quando usar: Ao receber notificação claims/claims_actions ou para conferir prazos de um caso. Quando não usar: para listar várias, /claims/search.
+
+
+        Armadilhas: Se related_entities contém return, a devolução está em /post-purchase/v2/claims/{id}/returns. Só uma parte tem ação obrigatória por
+        vez; o due_date é o prazo.'
+      tags:
+      - Contestacao
+      x-confianca: verificado
+      x-fonte-url: https://developers.mercadolivre.com.br/pt_br/gerenciar-reclamacoes
+      x-data-consulta: '2026-10-14'
+      x-id-canonico: mercado-livre.contestacao.obter
+      x-entidade-canonica: Contestacao
+      x-acao-canonica: obter
+      x-seguro-para-executar: true
+      parameters:
+      - name: claim_id
+        in: path
+        required: true
+        description: ID da reclamação.
+        schema:
+          type: integer
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              example:
+                id: 5300000001
+                resource_id: 2000012345678901
+                status: opened
+                type: mediations
+                stage: claim
+                parent_id: null
+                resource: order
+                reason_id: PDD9549
+                fulfilled: true
+                quantity_type: total
+                players:
+                - role: complainant
+                  type: buyer
+                  user_id: 9876543210
+                  available_actions: []
+                - role: respondent
+                  type: seller
+                  user_id: 1234567890
+                  available_actions:
+                  - action: send_message_to_complainant
+                    mandatory: true
+                    due_date: '2026-08-12T23:59:00.000-04:00'
+                resolution: null
+                site_id: MLB
+                date_created: '2026-08-09T10:00:00.000-04:00'
+                last_updated: '2026-08-09T10:05:00.000-04:00'
+                related_entities: []
+        '401':
+          description: invalid access token / authorization value not present — Token ausente, expirado (vale 6 horas) ou invalidado (troca de senha, renovação
+            do Client Secret, revogação pelo vendedor, 4 meses sem uso).
+        '403':
+          description: FORBIDDEN / PA_UNAUTHORIZED_RESULT_FROM_POLICIES access to the requested resource is forbidden / At least one policy returned UNAUTHORIZED.
+            — Token de outro usuário, permissão funcional não habilitada no DevCenter, scope faltando, IP fora da lista, usuário inativo ou com validação
+            de dados pendente, aplicação bloqueada.
+        '429':
+          description: local_rate_limited Too Many Requests — Excesso de requisições em pouco tempo. O controle é principalmente por Client ID e por endpoint;
+            o número não é publicado.
+  /post-purchase/v2/claims/{claim_id}/returns:
+    get:
+      operationId: mercado-livre__contestacao__obter__devolucao
+      summary: Consultar uma devolução (/post-purchase/v2/claims/{claim_id}/returns)
+      description: 'Devolução ligada a uma reclamação: situação, subtipo (total/parcial), situação do dinheiro (retido, devolvido), quando o reembolso acontece,
+        envios de retorno com rastreio e destino (vendedor ou depósito) e pedidos/itens devolvidos.
+
+
+        Quando usar: Planilha de devoluções: para cada reclamação com related_entities = return. Quando não usar: não existe busca de devoluções por período
+        documentada; parta de /claims/search.
+
+
+        Armadilhas: Quantidades em orders vêm como texto com decimal (''1.0''). Datas aqui usam +00:00 (UTC), diferente das reclamações.'
+      tags:
+      - Contestacao
+      x-confianca: verificado
+      x-fonte-url: https://developers.mercadolivre.com.br/pt_br/gerenciar-devolucoes
+      x-data-consulta: '2026-10-14'
+      x-id-canonico: mercado-livre.contestacao.obter.devolucao
+      x-entidade-canonica: Contestacao
+      x-acao-canonica: obter
+      x-seguro-para-executar: true
+      parameters:
+      - name: claim_id
+        in: path
+        required: true
+        description: ID da reclamação que gerou a devolução.
+        schema:
+          type: integer
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              example:
+                id: 57000001
+                claim_id: 5300000001
+                status: delivered
+                subtype: return_total
+                status_money: retained
+                refund_at: delivered
+                resource_type: order
+                resource_id: 2000012345678901
+                shipments:
+                - shipment_id: 450000000002
+                  status: delivered
+                  tracking_number: null
+                  destination:
+                    name: seller_address
+                    shipping_address:
+                      city:
+                        name: São Paulo
+                      state:
+                        id: BR-SP
+                      zip_code: '01000000'
+                  type: return
+                orders:
+                - order_id: 2000012345678901
+                  item_id: MLB4000000001
+                  variation_id: null
+                  context_type: total
+                  total_quantity: '1.0'
+                  return_quantity: '1.0'
+                date_created: '2026-08-10T16:24:26.636+00:00'
+                date_closed: null
+                last_updated: '2026-08-14T17:26:41.704+00:00'
+        '401':
+          description: invalid access token / authorization value not present — Token ausente, expirado (vale 6 horas) ou invalidado (troca de senha, renovação
+            do Client Secret, revogação pelo vendedor, 4 meses sem uso).
+        '403':
+          description: FORBIDDEN / PA_UNAUTHORIZED_RESULT_FROM_POLICIES access to the requested resource is forbidden / At least one policy returned UNAUTHORIZED.
+            — Token de outro usuário, permissão funcional não habilitada no DevCenter, scope faltando, IP fora da lista, usuário inativo ou com validação
+            de dados pendente, aplicação bloqueada.
+        '429':
+          description: local_rate_limited Too Many Requests — Excesso de requisições em pouco tempo. O controle é principalmente por Client ID e por endpoint;
+            o número não é publicado.
+  /billing/integration/monthly/periods:
+    get:
+      operationId: mercado-livre__conta_pagar__listar
+      summary: Obter períodos de faturamento (/billing/integration/monthly/periods)
+      description: 'Períodos de faturamento do vendedor junto ao Mercado Livre (ou Mercado Pago): valor total do período, valor em aberto, datas de início
+        e fim, vencimento da dívida e se o período está aberto ou fechado.
+
+
+        Quando usar: Ver quanto o vendedor deve de tarifas por mês e se o período fechou. Quando não usar: a key do período é sempre o primeiro dia do mês
+        (AAAA-MM-01); não é preciso consultar esta rota repetidamente para montá-la.
+
+
+        Armadilhas: O 429 dos relatórios de faturamento é bloqueio preventivo por IP; a doc cita esta rota entre as mais afetadas por polling. Consulte
+        no máximo uma vez por dia. O período não coincide com o mês civil (ex.: 19/07 a 18/08).'
+      tags:
+      - ContaPagar
+      x-confianca: verificado
+      x-fonte-url: https://developers.mercadolivre.com.br/pt_br/relatorios-de-faturamento
+      x-data-consulta: '2026-10-14'
+      x-id-canonico: mercado-livre.conta_pagar.listar
+      x-entidade-canonica: ContaPagar
+      x-acao-canonica: listar
+      x-seguro-para-executar: true
+      parameters:
+      - name: group
+        in: query
+        required: false
+        description: Grupo de faturamento; sem ele vêm os dois.
+        schema:
+          type: string
+          enum:
+          - ML
+          - MP
+      - name: document_type
+        in: query
+        required: true
+        description: Tipo de documento.
+        schema:
+          type: string
+          enum:
+          - BILL
+          - CREDIT_NOTE
+      - name: offset
+        in: query
+        required: false
+        description: Deslocamento.
+        schema:
+          type: integer
+          default: 0
+      - name: limit
+        in: query
+        required: false
+        description: Quantidade; por padrão 6 períodos, máximo de 12.
+        schema:
+          type: integer
+          default: 6
+          maximum: 12
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              example:
+                offset: 0
+                limit: 12
+                total: 1
+                results:
+                - amount: 3450.12
+                  unpaid_amount: 0.0
+                  period:
+                    date_from: '2026-07-19'
+                    date_to: '2026-08-18'
+                  key: '2026-08-01'
+                  expiration_date: '2026-08-24'
+                  debt_expiration_date: '2026-08-24'
+                  debt_expiration_date_move_reason: null
+                  debt_expiration_date_move_reason_description: null
+                  period_status: CLOSED
+        '401':
+          description: invalid access token / authorization value not present — Token ausente, expirado (vale 6 horas) ou invalidado (troca de senha, renovação
+            do Client Secret, revogação pelo vendedor, 4 meses sem uso).
+        '403':
+          description: FORBIDDEN / PA_UNAUTHORIZED_RESULT_FROM_POLICIES access to the requested resource is forbidden / At least one policy returned UNAUTHORIZED.
+            — Token de outro usuário, permissão funcional não habilitada no DevCenter, scope faltando, IP fora da lista, usuário inativo ou com validação
+            de dados pendente, aplicação bloqueada.
+        '429':
+          description: local_rate_limited Too Many Requests — Excesso de requisições em pouco tempo. O controle é principalmente por Client ID e por endpoint;
+            o número não é publicado.
+        '206':
+          description: An error occurred while retrieving the information. Try again. — Resposta incompleta.
+  /billing/integration/periods/key/{key}/documents:
+    get:
+      operationId: mercado-livre__conta_pagar__listar__documentos
+      summary: Obter documentos de um período (/billing/integration/periods/key/{key}/documents)
+      description: 'Faturas e notas de crédito emitidas ao vendedor num período de faturamento, com valor, saldo em aberto, situação, vencimento e os arquivos
+        (PDF/XML) para download.
+
+
+        Quando usar: Conciliar o que foi faturado pelo Mercado Livre e baixar as faturas. Quando não usar: o detalhe venda a venda das cobranças está em
+        /group/ML/details.
+
+
+        Armadilhas: Documentos só existem depois que o período fecha, e o PDF pode levar alguns dias úteis. O download do PDF/XML é outra rota (/billing/integration/legal_document/{file_id}).'
+      tags:
+      - ContaPagar
+      x-confianca: verificado
+      x-fonte-url: https://developers.mercadolivre.com.br/pt_br/relatorios-de-faturamento
+      x-data-consulta: '2026-10-14'
+      x-id-canonico: mercado-livre.conta_pagar.listar.documentos
+      x-entidade-canonica: ContaPagar
+      x-acao-canonica: listar
+      x-seguro-para-executar: true
+      parameters:
+      - name: key
+        in: path
+        required: true
+        description: 'Primeiro dia do mês do período (AAAA-MM-01). Formato: AAAA-MM-01.'
+        schema:
+          type: string
+          format: date
+      - name: group
+        in: query
+        required: false
+        description: ML ou MP.
+        schema:
+          type: string
+          enum:
+          - ML
+          - MP
+      - name: document_id
+        in: query
+        required: false
+        description: Uma fatura específica.
+        schema:
+          type: integer
+      - name: document_type
+        in: query
+        required: false
+        description: Tipo.
+        schema:
+          type: string
+          enum:
+          - BILL
+          - CREDIT_NOTE
+      - name: offset
+        in: query
+        required: false
+        description: Deslocamento.
+        schema:
+          type: integer
+          default: 0
+      - name: limit
+        in: query
+        required: false
+        description: Padrão 150, máximo 1000.
+        schema:
+          type: integer
+          default: 150
+          maximum: 1000
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              example:
+                offset: 0
+                limit: 1000
+                total: 1
+                results:
+                - id: 987000001
+                  user_id: 1234567890
+                  document_type: BILL
+                  expiration_date: '2026-08-24'
+                  associated_document_id: null
+                  amount: 3450.12
+                  unpaid_amount: 0.0
+                  document_status: BILLED
+                  site_id: MLB
+                  period:
+                    date_from: '2026-07-19'
+                    date_to: '2026-08-18'
+                  currency_id: BRL
+                  count_details: 210
+                  files:
+                  - file_id: 1234567890_FE_EXEMPLO_pdf
+                    reference_number: EXEMPLO0001
+        '401':
+          description: invalid access token / authorization value not present — Token ausente, expirado (vale 6 horas) ou invalidado (troca de senha, renovação
+            do Client Secret, revogação pelo vendedor, 4 meses sem uso).
+        '403':
+          description: FORBIDDEN / PA_UNAUTHORIZED_RESULT_FROM_POLICIES access to the requested resource is forbidden / At least one policy returned UNAUTHORIZED.
+            — Token de outro usuário, permissão funcional não habilitada no DevCenter, scope faltando, IP fora da lista, usuário inativo ou com validação
+            de dados pendente, aplicação bloqueada.
+        '429':
+          description: local_rate_limited Too Many Requests — Excesso de requisições em pouco tempo. O controle é principalmente por Client ID e por endpoint;
+            o número não é publicado.
+  /billing/integration/periods/key/{key}/summary/details:
+    get:
+      operationId: mercado-livre__conta_pagar__obter__resumo
+      summary: Resumo de faturamento (/billing/integration/periods/key/{key}/summary/details)
+      description: 'Resumo do período: total faturado, percepções, cobranças e bonificações agrupadas por tipo (tarifa de venda CV, Mercado Envios CXD,
+        Product Ads PADS...) e o que foi pago, descontado das vendas e ainda devido.
+
+
+        Quando usar: Visão mensal das tarifas por tipo e conferência com a soma do detalhe. Quando não usar: não é para processamento em lote; a doc recomenda
+        uma consulta por dia por usuário, em sequência.
+
+
+        Armadilhas: Os rótulos (label) vêm traduzidos e podem mudar; use type (CV, CXD, PADS, BV...) como chave. Para conciliar, a soma de detail_amount
+        por detail_sub_type no detalhe deve bater com o amount do mesmo type aqui.'
+      tags:
+      - ContaPagar
+      x-confianca: verificado
+      x-fonte-url: https://developers.mercadolivre.com.br/pt_br/relatorios-de-faturamento
+      x-data-consulta: '2026-10-14'
+      x-id-canonico: mercado-livre.conta_pagar.obter.resumo
+      x-entidade-canonica: ContaPagar
+      x-acao-canonica: obter
+      x-seguro-para-executar: true
+      parameters:
+      - name: key
+        in: path
+        required: true
+        description: 'Primeiro dia do mês (AAAA-MM-01). Formato: AAAA-MM-01.'
+        schema:
+          type: string
+          format: date
+      - name: group
+        in: query
+        required: false
+        description: ML ou MP.
+        schema:
+          type: string
+          enum:
+          - ML
+          - MP
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              example:
+                user:
+                  nickname: LOJAEXEMPLO
+                period:
+                  date_from: '2026-07-19'
+                  date_to: '2026-08-18'
+                  expiration_date: '2026-08-24'
+                  key: '2026-08-01'
+                bill_includes:
+                  total_amount: 3450.12
+                  total_perceptions: 0
+                  bonuses:
+                  - label: Bonificação da tarifa de venda
+                    amount: 45.0
+                    type: BV
+                    groupId: 4
+                  charges:
+                  - label: Tarifa de venda
+                    amount: 2900.0
+                    type: CV
+                    groupId: 28
+                  - label: Mercado Envios
+                    amount: 595.12
+                    type: CXD
+                    groupId: 24
+                payment_collected:
+                  operation_discount: 3450.12
+                  total_payment: 0
+                  total_credit_note: 0
+                  total_collected: 3450.12
+                  total_debt: 0.0
+        '401':
+          description: invalid access token / authorization value not present — Token ausente, expirado (vale 6 horas) ou invalidado (troca de senha, renovação
+            do Client Secret, revogação pelo vendedor, 4 meses sem uso).
+        '403':
+          description: FORBIDDEN / PA_UNAUTHORIZED_RESULT_FROM_POLICIES access to the requested resource is forbidden / At least one policy returned UNAUTHORIZED.
+            — Token de outro usuário, permissão funcional não habilitada no DevCenter, scope faltando, IP fora da lista, usuário inativo ou com validação
+            de dados pendente, aplicação bloqueada.
+        '429':
+          description: local_rate_limited Too Many Requests — Excesso de requisições em pouco tempo. O controle é principalmente por Client ID e por endpoint;
+            o número não é publicado.
+  /billing/integration/periods/key/{key}/group/ML/details:
+    get:
+      operationId: mercado-livre__transacao__listar__tarifas
+      summary: Obter detalhes de faturamento ML (/billing/integration/periods/key/{key}/group/ML/details)
+      description: 'Cada cobrança e bonificação do período, venda a venda: tarifa de venda, custo de envio, parcelamento, publicidade, com o pedido, o item,
+        o envio, o desconto aplicado, a composição da tarifa (bruta, líquida, rebate) e o documento fiscal.
+
+
+        Quando usar: Planilha de tarifas e margem por venda num mês de faturamento, ou conciliação com a fatura. Quando não usar: não é fonte operacional
+        em tempo real (a doc proíbe esse uso); para vendas do dia use /orders/search.
+
+
+        Armadilhas: Datas sem fuso (2026-08-14T10:36:38). A estrutura de tarifa do MLB separa custo por vender, custo de cobrar com Mercado Pago e taxa
+        de parcelamento (esta não gera nota). Paginação recomendada é from_id + last_id (offset trava em 10.000). Não faça lotes paralelos: 429 por IP.'
+      tags:
+      - Transacao
+      x-confianca: verificado
+      x-fonte-url: https://developers.mercadolivre.com.br/pt_br/provisoes
+      x-data-consulta: '2026-10-14'
+      x-id-canonico: mercado-livre.transacao.listar.tarifas
+      x-entidade-canonica: Transacao
+      x-acao-canonica: listar
+      x-seguro-para-executar: true
+      parameters:
+      - name: key
+        in: path
+        required: true
+        description: 'Primeiro dia do mês (AAAA-MM-01). Formato: AAAA-MM-01.'
+        schema:
+          type: string
+          format: date
+      - name: document_type
+        in: query
+        required: true
+        description: Tipo.
+        schema:
+          type: string
+          enum:
+          - BILL
+          - CREDIT_NOTE
+      - name: limit
+        in: query
+        required: false
+        description: Padrão 150, mínimo 1, máximo 1000.
+        schema:
+          type: integer
+          default: 150
+          minimum: 1
+          maximum: 1000
+      - name: from_id
+        in: query
+        required: false
+        description: 'Paginação por id: last_id da página anterior (padrão 0).'
+        schema:
+          type: integer
+          default: 0
+      - name: sort_by
+        in: query
+        required: false
+        description: ID (padrão; recomendado para paginar) ou DATE.
+        schema:
+          type: string
+          enum:
+          - ID
+          - DATE
+          default: ID
+      - name: order_by
+        in: query
+        required: false
+        description: ASC ou DESC.
+        schema:
+          type: string
+          enum:
+          - ASC
+          - DESC
+      - name: date_sort
+        in: query
+        required: false
+        description: asc (padrão) ou desc.
+        schema:
+          type: string
+          enum:
+          - asc
+          - desc
+      - name: detail_type
+        in: query
+        required: false
+        description: charge (só cobranças) ou bonus (só bonificações).
+        schema:
+          type: string
+          enum:
+          - charge
+          - bonus
+      - name: detail_sub_types
+        in: query
+        required: false
+        description: 'Subtipos separados por vírgula (ex.: CV,BV).'
+        schema:
+          type: string
+      - name: detail_excluded_sub_types
+        in: query
+        required: false
+        description: 'Subtipos a excluir (ex.: CXD,BXD).'
+        schema:
+          type: string
+      - name: marketplace_type
+        in: query
+        required: false
+        description: 'Marketplace da cobrança (ex.: SHIPPING).'
+        schema:
+          type: string
+      - name: order_ids
+        in: query
+        required: false
+        description: Um ou mais pedidos.
+        schema:
+          type: string
+      - name: item_ids
+        in: query
+        required: false
+        description: Um ou mais anúncios.
+        schema:
+          type: string
+      - name: document_ids
+        in: query
+        required: false
+        description: Uma ou mais faturas.
+        schema:
+          type: string
+      - name: detail_ids
+        in: query
+        required: false
+        description: Um ou mais lançamentos.
+        schema:
+          type: string
+      - name: offset
+        in: query
+        required: false
+        description: Alternativa ao from_id; máximo 10000.
+        schema:
+          type: integer
+          default: 0
+          maximum: 10000
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              example:
+                results:
+                - charge_info:
+                    legal_document_number: null
+                    legal_document_status: PROCESSING
+                    legal_document_status_description: Em processamento
+                    creation_date_time: '2026-08-14T10:36:38'
+                    detail_id: 126000000001
+                    transaction_detail: Tarifa de venda
+                    debited_from_operation: 'YES'
+                    status: null
+                    charge_bonified_id: null
+                    detail_amount: 22.79
+                    detail_type: CHARGE
+                    detail_sub_type: CV
+                  discount_info:
+                    charge_amount_without_discount: 22.79
+                    discount_amount: 0
+                    discount_reason: null
+                    rebate: null
+                  sales_info:
+                  - order_id: 2000012345678901
+                    operation_id: 900000000001
+                    sale_date_time: '2026-08-03T14:20:11'
+                    sales_channel: Mercado Livre
+                    transaction_amount: 189.9
+                    sale_fee:
+                      gross: 22.79
+                      net: 22.79
+                      rebate: 0.0
+                      discount: 0.0
+                  shipping_info: null
+                  items_info: null
+                  document_info:
+                    document_id: 987000001
+                  marketplace_info:
+                    marketplace: ML
+                  currency_info:
+                    currency_id: BRL
+                last_id: 126000000001
+        '401':
+          description: invalid access token / authorization value not present — Token ausente, expirado (vale 6 horas) ou invalidado (troca de senha, renovação
+            do Client Secret, revogação pelo vendedor, 4 meses sem uso).
+        '403':
+          description: FORBIDDEN / PA_UNAUTHORIZED_RESULT_FROM_POLICIES access to the requested resource is forbidden / At least one policy returned UNAUTHORIZED.
+            — Token de outro usuário, permissão funcional não habilitada no DevCenter, scope faltando, IP fora da lista, usuário inativo ou com validação
+            de dados pendente, aplicação bloqueada.
+        '429':
+          description: local_rate_limited Too Many Requests — Excesso de requisições em pouco tempo. O controle é principalmente por Client ID e por endpoint;
+            o número não é publicado.
+        '206':
+          description: Partial content — Dados incompletos.
+  /billing/integration/group/ML/order/details:
+    get:
+      operationId: mercado-livre__transacao__listar__tarifas_por_pedido
+      summary: Relatórios de faturamento por orders e packs (/billing/integration/group/ML/order/details)
+      description: 'Faturamento de pedidos específicos: pagamentos (com liberação do dinheiro e impostos retidos), composição da tarifa de venda e os lançamentos
+        de cobrança de cada pedido.
+
+
+        Quando usar: Quando você já tem a lista de pedidos e quer as tarifas deles (até 60 por chamada). Quando não usar: para o mês inteiro use /periods/key/{key}/group/ML/details;
+        não consulte o mesmo pedido mais de uma vez (a doc cita esta rota como a mais sujeita a 429).
+
+
+        Armadilhas: Mais de 60 order_ids por consulta e reconsultar pedidos já processados são as causas citadas de 429. Datas sem fuso.'
+      tags:
+      - Transacao
+      x-confianca: verificado
+      x-fonte-url: https://developers.mercadolivre.com.br/pt_br/provisoes
+      x-data-consulta: '2026-10-14'
+      x-id-canonico: mercado-livre.transacao.listar.tarifas_por_pedido
+      x-entidade-canonica: Transacao
+      x-acao-canonica: listar
+      x-seguro-para-executar: true
+      parameters:
+      - name: order_ids
+        in: query
+        required: false
+        description: Um ou mais pedidos separados por vírgula (máximo 60).
+        schema:
+          type: string
+      - name: pack_id
+        in: query
+        required: false
+        description: Um pack.
+        schema:
+          type: integer
+      - name: sort_by
+        in: query
+        required: false
+        description: ID (padrão) ou DATE.
+        schema:
+          type: string
+          enum:
+          - ID
+          - DATE
+          default: ID
+      - name: order_by
+        in: query
+        required: false
+        description: ASC (padrão) ou DESC.
+        schema:
+          type: string
+          enum:
+          - ASC
+          - DESC
+          default: ASC
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              example:
+                offset: 0
+                limit: 150
+                total: 1
+                results:
+                - order_id: 2000012345678901
+                  payment_info:
+                  - payment_id: 900000000001
+                    date_approved: '2026-08-03T14:20:14'
+                    money_release_date: '2026-08-20T19:40:45'
+                    money_release_days: 17
+                    money_release_status: released
+                    payment_method_id: master
+                    payment_type_id: credit_card
+                    status: approved
+                  sale_fee:
+                    gross: 22.79
+                    net: 22.79
+                    rebate: 0
+                    discount: 0
+                  details:
+                  - charge_info:
+                      detail_id: 126000000001
+                      detail_amount: 22.79
+                      detail_type: CHARGE
+                      detail_sub_type: CV
+        '401':
+          description: invalid access token / authorization value not present — Token ausente, expirado (vale 6 horas) ou invalidado (troca de senha, renovação
+            do Client Secret, revogação pelo vendedor, 4 meses sem uso).
+        '403':
+          description: FORBIDDEN / PA_UNAUTHORIZED_RESULT_FROM_POLICIES access to the requested resource is forbidden / At least one policy returned UNAUTHORIZED.
+            — Token de outro usuário, permissão funcional não habilitada no DevCenter, scope faltando, IP fora da lista, usuário inativo ou com validação
+            de dados pendente, aplicação bloqueada.
+        '429':
+          description: local_rate_limited Too Many Requests — Excesso de requisições em pouco tempo. O controle é principalmente por Client ID e por endpoint;
+            o número não é publicado.
+  /items/visits:
+    get:
+      operationId: mercado-livre__anuncio__obter__visitas
+      summary: Visitas por anúncios entre intervalos de datas (/items/visits)
+      description: 'Total de visitas de um anúncio num intervalo de datas (até 150 dias).
+
+
+        Quando usar: Conversão por anúncio (visitas x vendidos) num período. Quando não usar: aceita um anúncio por chamada; para a curva diária do vendedor
+        use /users/{id}/items_visits/time_window.
+
+
+        Armadilhas: Uma chamada por anúncio: para centenas de anúncios, espaçe as chamadas (a FAQ de rate limit cita esta rota). Ao republicar, o histórico
+        de visitas é herdado do anúncio original.'
+      tags:
+      - Anuncio
+      x-confianca: verificado
+      x-fonte-url: https://developers.mercadolivre.com.br/pt_br/recurso-visits
+      x-data-consulta: '2026-10-14'
+      x-id-canonico: mercado-livre.anuncio.obter.visitas
+      x-entidade-canonica: Anuncio
+      x-acao-canonica: obter
+      x-seguro-para-executar: true
+      parameters:
+      - name: ids
+        in: query
+        required: true
+        description: Um único ID de anúncio (mais de um dá 400).
+        schema:
+          type: string
+      - name: date_from
+        in: query
+        required: true
+        description: 'Início (ISO, AAAA-MM-DD). Formato: AAAA-MM-DD.'
+        schema:
+          type: string
+          format: date
+      - name: date_to
+        in: query
+        required: true
+        description: 'Fim (ISO, AAAA-MM-DD). Intervalo máximo de 150 dias. Formato: AAAA-MM-DD.'
+        schema:
+          type: string
+          format: date
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              example:
+                item_id: MLB4000000001
+                date_from: '2026-08-01T00:00:00Z'
+                date_to: '2026-08-31T00:00:00Z'
+                total_visits: 536
+                visits_detail:
+                - company: mercadolibre
+                  quantity: 536
+        '401':
+          description: invalid access token / authorization value not present — Token ausente, expirado (vale 6 horas) ou invalidado (troca de senha, renovação
+            do Client Secret, revogação pelo vendedor, 4 meses sem uso).
+        '403':
+          description: FORBIDDEN / PA_UNAUTHORIZED_RESULT_FROM_POLICIES access to the requested resource is forbidden / At least one policy returned UNAUTHORIZED.
+            — Token de outro usuário, permissão funcional não habilitada no DevCenter, scope faltando, IP fora da lista, usuário inativo ou com validação
+            de dados pendente, aplicação bloqueada.
+        '429':
+          description: local_rate_limited Too Many Requests — Excesso de requisições em pouco tempo. O controle é principalmente por Client ID e por endpoint;
+            o número não é publicado.
+        '400':
+          description: bad_request unknown date format / invalid time window, should be smaller or equal to 150 days — Data ausente, formato inválido ou
+            janela acima de 150 dias.
+  /users/{user_id}/items_visits/time_window:
+    get:
+      operationId: mercado-livre__anuncio__listar__visitas_diarias
+      summary: Visitantes por data por usuário (/users/{user_id}/items_visits/time_window)
+      description: 'Visitas a todos os anúncios do vendedor, dia a dia, numa janela que termina na data informada.
+
+
+        Quando usar: Curva diária de tráfego da loja. Quando não usar: por anúncio, use /items/{id}/visits/time_window ou /items/visits.
+
+
+        Armadilhas: O limite de 150 dias vale para date_from/date_to; para last a doc não fixa máximo. Datas da resposta em UTC.'
+      tags:
+      - Anuncio
+      x-confianca: verificado
+      x-fonte-url: https://developers.mercadolivre.com.br/pt_br/recurso-visits
+      x-data-consulta: '2026-10-14'
+      x-id-canonico: mercado-livre.anuncio.listar.visitas_diarias
+      x-entidade-canonica: Anuncio
+      x-acao-canonica: listar
+      x-seguro-para-executar: true
+      parameters:
+      - name: user_id
+        in: path
+        required: true
+        description: ID do vendedor.
+        schema:
+          type: integer
+      - name: last
+        in: query
+        required: true
+        description: Quantos dias para trás.
+        schema:
+          type: integer
+      - name: unit
+        in: query
+        required: true
+        description: Unidade (day).
+        schema:
+          type: string
+          enum:
+          - day
+      - name: ending
+        in: query
+        required: false
+        description: 'Data final da amostra (AAAA-MM-DD); padrão hoje. Formato: AAAA-MM-DD.'
+        schema:
+          type: string
+          format: date
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              example:
+                user_id: 1234567890
+                date_from: '2026-08-29T00:00:00Z'
+                date_to: '2026-08-31T00:00:00Z'
+                total_visits: 2923
+                last: 2
+                unit: day
+                results:
+                - date: '2026-08-29T00:00:00Z'
+                  total: 2205
+                  visits_detail:
+                  - company: mercadolibre
+                    quantity: 2205
+                - date: '2026-08-30T00:00:00Z'
+                  total: 718
+                  visits_detail:
+                  - company: mercadolibre
+                    quantity: 718
+        '401':
+          description: invalid access token / authorization value not present — Token ausente, expirado (vale 6 horas) ou invalidado (troca de senha, renovação
+            do Client Secret, revogação pelo vendedor, 4 meses sem uso).
+        '403':
+          description: FORBIDDEN / PA_UNAUTHORIZED_RESULT_FROM_POLICIES access to the requested resource is forbidden / At least one policy returned UNAUTHORIZED.
+            — Token de outro usuário, permissão funcional não habilitada no DevCenter, scope faltando, IP fora da lista, usuário inativo ou com validação
+            de dados pendente, aplicação bloqueada.
+        '429':
+          description: local_rate_limited Too Many Requests — Excesso de requisições em pouco tempo. O controle é principalmente por Client ID e por endpoint;
+            o número não é publicado.
+        '400':
+          description: bad_request invalid date format for ending date — ending fora do formato AAAA-MM-DD.
+  /users/{user_id}/invoices/orders/{order_id}:
+    get:
+      operationId: mercado-livre__nota_fiscal__obter__pedido
+      summary: Consultar notas fiscais por order_id (/users/{user_id}/invoices/orders/{order_id})
+      description: 'NF-e emitida pelo Faturador Mercado Livre para uma venda: número, série, chave de acesso, situação na SEFAZ, data de emissão, valores,
+        itens com tributos e os caminhos do XML e do DANFE.
+
+
+        Quando usar: Planilha fiscal das vendas para vendedores que emitem NF-e pelo Faturador do Mercado Livre. Quando não usar: vendedor que emite em
+        ERP próprio não terá nota aqui; o download em lote (zip) tem rota própria.
+
+
+        Armadilhas: Uma chamada por pedido. issued_date em UTC; authorization_date sem fuso. A resposta traz CNPJ/IE de emitente e destinatário (dado pessoal
+        quando o comprador é pessoa física).'
+      tags:
+      - NotaFiscal
+      x-confianca: verificado
+      x-fonte-url: https://developers.mercadolivre.com.br/pt_br/obtendo-nota-fiscal
+      x-data-consulta: '2026-10-14'
+      x-id-canonico: mercado-livre.nota_fiscal.obter.pedido
+      x-entidade-canonica: NotaFiscal
+      x-acao-canonica: obter
+      x-seguro-para-executar: true
+      parameters:
+      - name: user_id
+        in: path
+        required: true
+        description: ID do vendedor.
+        schema:
+          type: integer
+      - name: order_id
+        in: path
+        required: true
+        description: ID do pedido.
+        schema:
+          type: integer
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              example:
+                id: '1704629'
+                status: authorized
+                transaction_status: authorized
+                issued_date: '2026-08-03T21:10:49.677Z'
+                invoice_series: '1'
+                invoice_number: 28790
+                amount: 189.9
+                items_amount: 189.9
+                items_quantity: 1
+                attributes:
+                  authorization_date: '2026-08-03T21:10:57'
+                  invoice_key: <<CHAVE_DE_ACESSO_44_DIGITOS>>
+                  status_code: 100
+                  status_description: Autorizado o uso da NF-e
+                  protocol: <<PROTOCOLO>>
+                  xml_location: /users/1234567890/invoices/documents/xml/1704629/authorized
+                  danfe_location: /users/1234567890/invoices/sites/MLB/documents/danfe/1704629
+        '401':
+          description: invalid access token / authorization value not present — Token ausente, expirado (vale 6 horas) ou invalidado (troca de senha, renovação
+            do Client Secret, revogação pelo vendedor, 4 meses sem uso).
+        '403':
+          description: FORBIDDEN / PA_UNAUTHORIZED_RESULT_FROM_POLICIES access to the requested resource is forbidden / At least one policy returned UNAUTHORIZED.
+            — Token de outro usuário, permissão funcional não habilitada no DevCenter, scope faltando, IP fora da lista, usuário inativo ou com validação
+            de dados pendente, aplicação bloqueada.
+        '429':
+          description: local_rate_limited Too Many Requests — Excesso de requisições em pouco tempo. O controle é principalmente por Client ID e por endpoint;
+            o número não é publicado.
+  /missed_feeds:
+    get:
+      operationId: mercado-livre__webhook__listar__perdidas
+      summary: Histórico das notificações (/missed_feeds)
+      description: 'Notificações que não foram aceitas pelo callback depois de 8 tentativas em 1 hora, guardadas por até 2 dias, com o pedido enviado e
+        a resposta do servidor.
+
+
+        Quando usar: Recuperar eventos perdidos quando o callback ficou fora do ar. Quando não usar: não substitui a busca de dados; depois de ler o resource,
+        consulte o recurso.
+
+
+        Armadilhas: Só 2 dias de histórico. Desde 15/06/2026 o Mercado Livre desativa as notificações de aplicações com mais de 80% de erro; durante a desativação
+        nada vai para o missed_feeds.'
+      tags:
+      - Webhook
+      x-confianca: verificado
+      x-fonte-url: https://developers.mercadolivre.com.br/pt_br/produto-receba-notificacoes
+      x-data-consulta: '2026-10-14'
+      x-id-canonico: mercado-livre.webhook.listar.perdidas
+      x-entidade-canonica: Webhook
+      x-acao-canonica: listar
+      x-seguro-para-executar: true
+      parameters:
+      - name: app_id
+        in: query
+        required: true
+        description: ID do aplicativo.
+        schema:
+          type: integer
+      - name: topic
+        in: query
+        required: false
+        description: 'Filtra por tópico (ex.: orders_v2, items, questions).'
+        schema:
+          type: string
+      - name: site_id
+        in: query
+        required: false
+        description: 'Obrigatório quando topic=items (ex.: MLB); sem ele, 400.'
+        schema:
+          type: string
+      - name: offset
+        in: query
+        required: false
+        description: Deslocamento.
+        schema:
+          type: integer
+          default: 0
+      - name: limit
+        in: query
+        required: false
+        description: Quantidade (exemplo usa 10).
+        schema:
+          type: integer
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              example:
+                messages:
+                - _id: 5da8a1b24be30a49eb66c52a
+                  resource: /orders/2000012345678901
+                  user_id: 1234567890
+                  topic: orders_v2
+                  application_id: 1111111111111111
+                  attempts: 8
+                  sent: '2026-08-03T17:15:30.279Z'
+                  received: '2026-08-03T17:15:30.259Z'
+                  response:
+                    req_time: 260
+                    http_code: 500
+        '401':
+          description: invalid access token / authorization value not present — Token ausente, expirado (vale 6 horas) ou invalidado (troca de senha, renovação
+            do Client Secret, revogação pelo vendedor, 4 meses sem uso).
+        '403':
+          description: FORBIDDEN / PA_UNAUTHORIZED_RESULT_FROM_POLICIES access to the requested resource is forbidden / At least one policy returned UNAUTHORIZED.
+            — Token de outro usuário, permissão funcional não habilitada no DevCenter, scope faltando, IP fora da lista, usuário inativo ou com validação
+            de dados pendente, aplicação bloqueada.
+        '429':
+          description: local_rate_limited Too Many Requests — Excesso de requisições em pouco tempo. O controle é principalmente por Client ID e por endpoint;
+            o número não é publicado.
+        '400':
+          description: Bad Request — topic=items sem site_id.

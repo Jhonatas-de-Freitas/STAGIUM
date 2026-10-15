@@ -1,0 +1,525 @@
+{
+  "slug": "arquivei",
+  "nome": "Qive (antiga Arquivei) — API de gestão de documentos fiscais",
+  "nome_atual": "Qive",
+  "nome_anterior": "Arquivei",
+  "rebranding": {
+    "confirmado": true,
+    "descricao": "A Central de Ajuda oficial confirma que 'Arquivei agora é Qive'. A plataforma passou para app.qive.com.br e o portal de desenvolvedores para developers.qive.com.br (developers.arquivei.com.br redireciona para lá). Os hosts da API continuam no domínio antigo: api.arquivei.com.br, sandbox-api.arquivei.com.br, lite-api.arquivei.com.br e docs.arquivei.com.br (Swagger). O Swagger já se chama 'Qive API'. O slug do catálogo foi mantido como 'arquivei'.",
+    "fonte_url": "https://ajuda.qive.com.br/pt-BR/articles/9749184-arquivei-agora-e-qive",
+    "data_consulta": "2026-10-14"
+  },
+  "categoria": "fiscal_gateway",
+  "fornecedor": {
+    "razao_social": "ARQUIVEI SERVIÇOS ON LINE LTDA.",
+    "pais": "BR",
+    "site": "https://qive.com.br",
+    "cnpj": "19427033000140",
+    "observacao": "Razão social, CNPJ e sede (São Carlos, SP) informados nos Termos de Uso da Qive, que dizem que a Qive é operada por essa empresa.",
+    "fonte_url": "https://qive.com.br/termos-de-uso",
+    "data_consulta": "2026-10-14"
+  },
+  "descricao_curta": "Plataforma de gestão de documentos fiscais e de contas a pagar (Qive, antiga Arquivei): captura automaticamente na SEFAZ e nas prefeituras as NF-e, CT-e, CT-e OS, NFS-e, NFC-e e MDF-e emitidas contra ou pelos CNPJs do cliente, guarda os XMLs, faz manifestação do destinatário e captura boletos e comprovantes. A API REST (JSON) expõe tudo isso com dois cabeçalhos fixos (X-API-ID e X-API-KEY), buscas novas por POST com filtros e projeção de campos (API 2.0), rotas clássicas GET com cursor (API 1.0), XML e PDF em Base64, webhooks recentes para NF-e e sandbox gratuito self-service.",
+  "porte_alvo": [
+    "pequena",
+    "media",
+    "grande"
+  ],
+  "verticais": [
+    "varejo",
+    "industria",
+    "servicos",
+    "logistica",
+    "contabilidade"
+  ],
+  "status": "documentado",
+  "api": {
+    "estilo": "REST",
+    "base_urls": {
+      "producao": "https://api.arquivei.com.br",
+      "sandbox": "https://sandbox-api.arquivei.com.br"
+    },
+    "base_url_lite": "https://lite-api.arquivei.com.br",
+    "base_url_observacao": "Host de produção vem do campo host do Swagger; o de sandbox, do Portal do Desenvolvedor (tela de criação de conta sandbox e variável NEXT_PUBLIC_SANDBOX_URL do portal). A API Lite é produto separado, com host e credenciais próprios.",
+    "versao_atual": "1.105.0 (versão do documento Swagger); rotas com v1 e v2 no caminho",
+    "politica_versionamento": "Versão no caminho (/v1, /v2). A ajuda oficial descreve a 'API 2.0' (a partir de junho de 2026) com buscas por POST e projeção de campos, convivendo com a API 1.0 (operações, uploads, PDFs e rotas GET clássicas). Não há changelog público nem política de depreciação publicada.",
+    "formatos": [
+      "json"
+    ],
+    "spec_oficial_url": "https://docs.arquivei.com.br/arquivei-apis-swagger/dfe-api.json",
+    "spec_formato": "Swagger 2.0 (JSON), título 'Qive API', versão 1.105.0, 78 operações em 20 grupos; Swagger separado da API Lite (2 operações).",
+    "openapi_disponivel": true,
+    "portal_desenvolvedor": "https://developers.qive.com.br/",
+    "fonte_url": "https://docs.arquivei.com.br/arquivei-apis-swagger/dfe-api.json",
+    "data_consulta": "2026-10-14"
+  },
+  "autenticacao": {
+    "tipos": [
+      "api_key"
+    ],
+    "fluxo_resumido": "Toda requisição leva dois cabeçalhos: X-API-ID (identificador) e X-API-KEY (chave secreta). Não há login, token temporário nem OAuth. As rotas da API 2.0 e as mais novas exigem também X-Use-ApiGateway: always. Em produção as credenciais são emitidas pela equipe da Qive após a contratação do serviço de API; no sandbox, o próprio interessado gera um par de teste no Portal do Desenvolvedor (formulário em /sandbox), que aparece na tela e chega por e-mail.",
+    "escopos_permissoes": [],
+    "escopos_observacao": "Sem escopos. O FAQ oficial diz que o ID e a chave dão acesso a todos os documentos da conta contratada (leitura e escrita). Os CNPJs acessíveis são os liberados para a API (novos CNPJs pedem liberação manual). Para parceiros existe a 'chave de permissão' (cabeçalho X-API-PERMISSION-KEY no Swagger), que permite a um terceiro usar as próprias credenciais restritas às empresas autorizadas pelo cliente; o processo de emissão não é documentado.",
+    "expiracao_token": null,
+    "expiracao_observacao": "Credencial fixa; a documentação não fala em expiração nem em rotação.",
+    "renovacao": "Não documentada (pedir à Qive).",
+    "ip_allowlist_obrigatorio": false,
+    "ip_allowlist_observacao": "Nada publicado sobre allowlist de IP.",
+    "fonte_url": "https://developers.qive.com.br/help",
+    "data_consulta": "2026-10-14"
+  },
+  "execucao_auth": {
+    "tipo": "header_api_key",
+    "header": "X-API-KEY",
+    "prefixo": "",
+    "usuario_basic_e_a_credencial": false,
+    "headers_credenciais": {
+      "X-API-ID": "api_id",
+      "X-API-KEY": "api_key",
+      "X-API-PERMISSION-KEY": "api_permission_key"
+    },
+    "headers_credenciais_observacao": "Extensão do bloco: a Qive autentica com DOIS cabeçalhos fixos. O executor deve enviar X-API-ID com a credencial api_id e X-API-KEY com api_key em toda chamada; X-API-PERMISSION-KEY só quando api_permission_key estiver cadastrada (cenário de parceiro). 'header' aponta X-API-KEY por compatibilidade, mas sozinho não basta.",
+    "headers_fixos": {
+      "Content-Type": "application/json"
+    },
+    "headers_fixos_por_endpoint": "Rotas novas (POST /v2/dfe/nfe, /v1/dfe/*, boletos, comprovantes, etiquetas, CNPJ, webhooks) exigem X-Use-ApiGateway: always; está em execucao.headers_fixos de cada endpoint.",
+    "token_url": null,
+    "credenciais_necessarias": [
+      {
+        "nome": "api_id",
+        "rotulo": "API ID (X-API-ID)",
+        "segredo": true,
+        "onde_obter": "Produção: enviado pela equipe da Qive após contratar a API (suporte@qive.com.br, chat da plataforma ou gerente da conta). Sandbox: Portal do Desenvolvedor > 'Teste nossas APIs' (https://developers.qive.com.br/sandbox), formulário 'Gerar credencial de teste'; o par aparece na tela e chega por e-mail.",
+        "obrigatoria": true
+      },
+      {
+        "nome": "api_key",
+        "rotulo": "API KEY (X-API-KEY, chave secreta)",
+        "segredo": true,
+        "onde_obter": "Vem junto com o API ID (mesmo canal). Trate como senha: dá acesso a todos os documentos da conta.",
+        "obrigatoria": true
+      },
+      {
+        "nome": "api_permission_key",
+        "rotulo": "Chave de permissão de parceiro (X-API-PERMISSION-KEY)",
+        "segredo": true,
+        "onde_obter": "Opcional. Usada quando um parceiro acessa a conta do cliente com credenciais próprias. Gerada a pedido do cliente à Qive (o procedimento não está documentado; pedir ao atendimento).",
+        "obrigatoria": false
+      }
+    ],
+    "base_url_por_ambiente": {
+      "sandbox": "https://sandbox-api.arquivei.com.br",
+      "producao": "https://api.arquivei.com.br"
+    },
+    "observacao": "Dois cabeçalhos fixos (X-API-ID + X-API-KEY), sem prefixo e sem login. Paginação: rotas POST (API 2.0) usam cursor opaco no CORPO (Paginator/paginator/next) devolvido na raiz da resposta, com Limit até 500; rotas GET clássicas usam cursor numérico na query (cursor) e próximo valor em page.next, com limit até 50. Limite de requisições definido por cliente; 429 com Retry-After. Datas de filtro em AAAA-MM-DD HH:MM:SS. XML e PDF em Base64. Somente leitura: as mesmas credenciais permitem manifestar notas e fazer upload; o executor nunca deve chamar rotas de escrita.",
+    "confianca": "verificado",
+    "fonte_url": "https://docs.arquivei.com.br/arquivei-apis-swagger/dfe-api.json",
+    "data_consulta": "2026-10-14"
+  },
+  "ambiente_testes": {
+    "sandbox": true,
+    "como_obter": "Self-service no Portal do Desenvolvedor (https://developers.qive.com.br/sandbox): preencher o formulário 'Cadastre-se e gere suas credenciais'; o portal mostra o par de credenciais e a URL base https://sandbox-api.arquivei.com.br e envia por e-mail. Para testes com notas reais existe um ambiente não produtivo chamado UAT, a combinar com a Qive.",
+    "custo": "Gratuito ('Crie uma conta grátis para testar nossa API').",
+    "dados_ficticios": true,
+    "observacao": "O FAQ oficial diz que o sandbox replica a infraestrutura de produção, com o CNPJ do interessado e notas sintéticas sem validade jurídica. Algumas rotas são marcadas no Swagger como 'disponível somente em produção' (invoices, utilities, OCR, LATAM).",
+    "fonte_url": "https://developers.qive.com.br/help",
+    "data_consulta": "2026-10-14"
+  },
+  "limites": {
+    "rate_limit": "Definido por cliente, conforme necessidade e volume de notas (não há número público).",
+    "janela": null,
+    "burst": null,
+    "rate_limit_observacao": "O FAQ do portal diz que o limite é definido para cada cliente. O Swagger documenta os cabeçalhos X-RateLimit-Limit e X-RateLimit-Remaining nas respostas 200 das rotas v1 e, no 429, X-RateLimit-Reset (timestamp) e Retry-After (segundos). Os Termos de Uso citam cobrança de 'requisições de API excedentes' como serviço extra.",
+    "paginacao": {
+      "estilo": "cursor",
+      "tamanho_max": 500,
+      "observacao": "API 2.0 (POST /v2/dfe/nfe, /v1/dfe/cte, /v1/dfe/cteos, /v1/receipts/list): Limit padrão 500 e máximo 500 (comprovantes: padrão 50), cursor opaco Paginator no corpo. A ajuda recomenda até 100 por bloco. API 1.0 (GET /v1/nfe/{role} etc.): limit até 50, cursor numérico fixo por documento (0 reprocessa tudo). Boletos v1 e webhooks: page/limit."
+    },
+    "filtro": "API 2.0: filtros no corpo (EmissionDate e CreatedAt com From/To, OwnerRoles, Status, CNPJs, CFOP, tags...). API 1.0: só created_at[from]/created_at[to] (entrada na Qive, não emissão), cnpj[], access_key[] e filter de properties em notação prefixada.",
+    "tamanho_max_payload": "Comprovantes: corpo limitado a 1 MiB e resposta a 60 s. Demais rotas: não documentado.",
+    "timeout_recomendado": "60 s por requisição (recomendação própria; respostas com XML em Base64 podem ser grandes).",
+    "politica_retry": "429: aguardar Retry-After. 5xx: a doc recomenda tentar mais tarde; o catálogo usa espera exponencial com até 3 tentativas.",
+    "idempotencia": {
+      "suportada": false,
+      "header": null
+    },
+    "volatil": true,
+    "fonte_url": "https://developers.qive.com.br/help",
+    "data_consulta": "2026-10-14"
+  },
+  "webhooks": {
+    "suportados": true,
+    "eventos": [
+      "document.received",
+      "document.canceled"
+    ],
+    "tipos_documento": [
+      "nfe"
+    ],
+    "verificacao_assinatura": null,
+    "verificacao_observacao": "No cadastro a Qive devolve um Secret com prefixo whsec_ (só uma vez) e verifica a URL com HEAD e o cabeçalho X-Qive-Webhook: Qive-Webhooks/1.0. Como o Secret é usado para assinar ou autenticar as entregas (cabeçalho, algoritmo) não está documentado, nem o formato do corpo da notificação.",
+    "politica_reentrega": "Documentado só que, após 20 falhas consecutivas, o endpoint vira 'unreachable' e para de receber até ser reativado (POST /v1/webhooks/endpoints/{id}/reactivate ou troca de URL). Intervalo de novas tentativas não documentado.",
+    "requer_endpoint_publico": true,
+    "requisitos_url": "https na porta 443, resolvendo para IP público, respondendo 2xx ao HEAD em até 5 s, sem redirecionamento.",
+    "observacao": "Recurso novo: está no Swagger v1.105.0 (exemplos datados de 2026-10-05), mas o artigo de ajuda da API ainda diz que não há webhooks. Para o assistente (somente leitura) os webhooks não são usados; a sincronização é por consulta.",
+    "fonte_url": "https://docs.arquivei.com.br/arquivei-apis-swagger/dfe-api.json",
+    "data_consulta": "2026-10-14"
+  },
+  "erros": {
+    "formato": "Não uniforme. Rotas v1 clássicas: {\"status\": {\"code\", \"message\"}, \"error\": \"...\"}. API 2.0 (dfe): ErrorDescription {\"code\", \"message\"} como resposta default. Webhooks: {\"error\": {\"code\", \"message\", \"context\"}}. Comprovantes: {\"error\": {\"code\", \"message\"}} com códigos BAD_REQUEST, UNAUTHORIZED, NOT_FOUND etc. Erro de autenticação respondido pelo API Gateway: {\"error\": \"Unauthorized. Invalid X-API-KEY or X-API-ID.\", \"status\": {\"code\": 401, \"message\": \"Unauthorized\"}}.",
+    "codigos_principais": [
+      {
+        "status": 200,
+        "quando": "Sucesso (201/204 em webhooks)."
+      },
+      {
+        "status": 400,
+        "quando": "Parâmetro ou corpo inválido; nos webhooks, também cabeçalhos de autenticação ausentes."
+      },
+      {
+        "status": 401,
+        "quando": "X-API-ID/X-API-KEY inválidos (gateway)."
+      },
+      {
+        "status": 403,
+        "quando": "CNPJ/owner fora dos autorizados (evento de NFS-e, subscription, upload)."
+      },
+      {
+        "status": 404,
+        "quando": "Documento ou recurso não encontrado (recursos de outra conta dão 404, nunca 403)."
+      },
+      {
+        "status": 409,
+        "quando": "Webhooks: URL ou subscription duplicada; endpoint com subscriptions."
+      },
+      {
+        "status": 422,
+        "quando": "PDFs auxiliares (causa não detalhada); webhook com URL que não respondeu 2xx."
+      },
+      {
+        "status": 429,
+        "quando": "Limite de requisições; Retry-After em segundos."
+      },
+      {
+        "status": 500,
+        "quando": "Erro interno; tentar mais tarde."
+      },
+      {
+        "status": 502,
+        "quando": "Comprovantes: falha ao obter ou gerar o PDF."
+      }
+    ],
+    "fonte_url": "https://docs.arquivei.com.br/arquivei-apis-swagger/dfe-api.json",
+    "data_consulta": "2026-10-14"
+  },
+  "sdks_oficiais": [],
+  "sdks_observacao": "Nenhum SDK oficial. O Swagger 2.0 oficial pode gerar clientes (swagger-codegen/openapi-generator). Há integrações nativas da Qive com SAP, TOTVS, Oracle e Domínio, que não são SDKs.",
+  "comercial": {
+    "modelo_acesso": "plano_pago",
+    "custo_api": null,
+    "custo_api_observacao": "O FAQ do portal e a ajuda dizem que, além da assinatura da plataforma Qive, a API tem precificação diferenciada, baseada no volume de documentos, sob proposta (suporte@arquivei.com.br ou chat). A API Lite é vendida em pacotes de requisições com vigência mensal, não cumulativos.",
+    "exige_homologacao": false,
+    "tempo_medio_aprovacao": null,
+    "tempo_observacao": "Credenciais de produção emitidas pela equipe da Qive após a contratação; prazo não publicado.",
+    "volatil": true,
+    "fonte_url": "https://developers.qive.com.br/help",
+    "data_consulta": "2026-10-14"
+  },
+  "conformidade": {
+    "trafega_dado_pessoal": true,
+    "dado_sensivel": false,
+    "base_legal_tipica": "Cumprimento de obrigação legal e execução de contrato (LGPD art. 7º, II e V). Os documentos fiscais trazem nome, CPF/CNPJ, endereço e e-mail de emitentes, destinatários, tomadores e transportadores; comprovantes trazem dados bancários (agência, conta) de pagador e recebedor.",
+    "exige_certificado_digital": false,
+    "certificado_observacao": "A API não exige certificado do integrador. A captura na SEFAZ usa o certificado digital que o cliente cadastra na plataforma (existe até rota de upload de certificado), mas isso fica do lado da Qive.",
+    "regulador": null,
+    "residencia_dados": null,
+    "certificacoes": "A Central de Ajuda cita ISO 27001.",
+    "termos_uso_url": "https://qive.com.br/termos-de-uso",
+    "permite_uso_em_produto_terceiro": "sim",
+    "permite_uso_em_produto_terceiro_observacao": "Sim, com condições. O FAQ oficial do portal e o artigo de ajuda da API respondem 'sim' a 'a API pode ser disponibilizada para parceiros ou sistemas de terceiros?', por meio de uma chave de permissão: o parceiro usa credenciais próprias, restritas às empresas autorizadas pelo cliente. Os Termos de Uso (2026-09-30) proíbem revenda e uso em benefício de terceiros não autorizados e dizem que a licença é para gestão interna da contratante. Para o Stagium: usar as credenciais do próprio cliente, para o próprio cliente, ou o caminho oficial de parceiro (chave de permissão), e pedir confirmação comercial escrita antes de escalar.",
+    "fonte_url": "https://developers.qive.com.br/help",
+    "data_consulta": "2026-10-14"
+  },
+  "esforco_integracao": {
+    "complexidade": "media",
+    "horas_estimadas_mvp": 40,
+    "premissa_estimativa": "MVP de leitura com 8 a 10 consultas (NF-e recebidas e emitidas, CT-e tomados, NFS-e tomadas, eventos de cancelamento, manifestação, boletos e comprovantes): dois cabeçalhos de credencial, leitura por POST com corpo JSON e cursor no corpo, segunda estratégia de cursor para as rotas GET, decodificação de Base64 e leitura do XML para valor total e série, tratamento de 429 com Retry-After. Sem escrita.",
+    "principais_armadilhas": [
+      "Buscas da API 2.0 são POST com corpo JSON (não GET): o executor precisa mandar corpo e paginar pelo cursor no corpo.",
+      "Duas autenticações em dois cabeçalhos (X-API-ID e X-API-KEY) e, nas rotas novas, o cabeçalho fixo X-Use-ApiGateway: always.",
+      "Rotas GET clássicas só filtram por created_at, que é a data de ENTRADA na Qive, não a de emissão.",
+      "Sem EmissionDate, POST /v2/dfe/nfe aplica os últimos 30 dias por padrão.",
+      "Valor total, série e natureza da operação da NF-e não vêm como campo: estão no XML em Base64 (total/ICMSTot/vNF).",
+      "Grafia das chaves muda por rota: Filters/Fields/Paginator (NF-e), fields minúsculo no schema do CT-e, filters/fields/paginator (NFS-e), Filter singular (MDF-e).",
+      "OwnerRoles: a descrição usa received/emitted; o exemplo do schema usa receiver/emitter. Validar no sandbox.",
+      "Fim da paginação por cursor não é documentado na API 2.0 de NF-e/CT-e (Paginator vazio só é garantido em comprovantes).",
+      "A API não busca notas anteriores à contratação e novos CNPJs precisam ser liberados manualmente.",
+      "Cancelamento de NFS-e de prefeitura após a primeira captura não é retroagido automaticamente.",
+      "Limite de requisições por cliente, sem número público: ler X-RateLimit-Remaining e respeitar Retry-After.",
+      "As mesmas credenciais permitem manifestar notas e fazer upload; guardar com cuidado e nunca chamar escrita pelo executor."
+    ]
+  },
+  "casos_uso_negocio": [
+    {
+      "titulo": "Livro de entradas: NF-e recebidas do mês",
+      "dor_resolvida": "O fiscal baixa XMLs um a um ou exporta relatório e redigita em planilha para conferir entradas.",
+      "endpoints_envolvidos": [
+        "arquivei.nota_fiscal.listar.nfe",
+        "arquivei.nota_fiscal.consultar_status.manifestacao_nfe",
+        "arquivei.empresa.listar"
+      ],
+      "valor_percebido": "Planilha com chave, número, emissão, emitente, CNPJ, UF, CFOP, status e manifestação de todas as notas recebidas no período, por CNPJ."
+    },
+    {
+      "titulo": "Faturamento: NF-e emitidas e canceladas",
+      "dor_resolvida": "Comercial e controladoria querem o emitido no mês sem depender do ERP.",
+      "endpoints_envolvidos": [
+        "arquivei.nota_fiscal.listar.nfe",
+        "arquivei.nota_fiscal.listar.eventos_nfe"
+      ],
+      "valor_percebido": "Notas emitidas por período com status authorized/canceled e a fila de cancelamentos; valor total lido do XML."
+    },
+    {
+      "titulo": "Fretes: CT-e tomados",
+      "dor_resolvida": "Logística não sabe quanto pagou de frete por transportadora e por NF-e transportada.",
+      "endpoints_envolvidos": [
+        "arquivei.nota_fiscal.listar.cte",
+        "arquivei.nota_fiscal.baixar_arquivo.dacte"
+      ],
+      "valor_percebido": "CT-e em que a empresa é tomadora, com transportadora, remetente, destinatário, CFOP e valor da prestação (do XML)."
+    },
+    {
+      "titulo": "Serviços tomados e retenções: NFS-e",
+      "dor_resolvida": "Notas de serviço chegam de milhares de prefeituras em layouts diferentes.",
+      "endpoints_envolvidos": [
+        "arquivei.nota_fiscal.listar.nfse",
+        "arquivei.nota_fiscal.listar.eventos_nfse",
+        "arquivei.nota_fiscal.baixar_arquivo.danfse"
+      ],
+      "valor_percebido": "NFS-e por competência ou emissão, com prestador, tomador e status; XML padronizado ABRASF para extrair valor e ISS."
+    },
+    {
+      "titulo": "Contas a pagar: boletos e comprovantes",
+      "dor_resolvida": "Financeiro concilia boletos recebidos, notas e pagamentos à mão.",
+      "endpoints_envolvidos": [
+        "arquivei.conta_pagar.listar.boletos",
+        "arquivei.pagamento.listar.comprovantes"
+      ],
+      "valor_percebido": "Boletos a vencer e vencidos com notas vinculadas e a lista de pagamentos feitos com recebedor e autenticação."
+    },
+    {
+      "titulo": "Auditoria de cancelamentos e manifestação",
+      "dor_resolvida": "Notas canceladas depois de lançadas passam despercebidas.",
+      "endpoints_envolvidos": [
+        "arquivei.nota_fiscal.listar.eventos_nfe",
+        "arquivei.nota_fiscal.obter.eventos_nfe",
+        "arquivei.nota_fiscal.consultar_status.manifestacao_nfe"
+      ],
+      "valor_percebido": "Lista de eventos 110111 (cancelamento) e 110110 (CC-e) da conta e situação da manifestação por chave."
+    }
+  ],
+  "indice_integrabilidade": {
+    "score": 54,
+    "componentes": {
+      "documentacao": {
+        "peso": 20,
+        "pontos": 14,
+        "justificativa": "Swagger 2.0 oficial público e baixável (78 operações, descrições em português, schemas e enums), portal de desenvolvedores e artigos de ajuda. Perde pontos por: rotas v1 que não declaram os cabeçalhos de autenticação, grafia de chaves inconsistente entre rotas e entre descrição e schema, estrutura do 'Document' (JSON da nota) e dos itens de status de upload não documentada, fim da paginação da API 2.0 não definido, ausência de exemplos de resposta na maioria das rotas e contradição sobre webhooks entre ajuda e Swagger."
+      },
+      "sandbox": {
+        "peso": 15,
+        "pontos": 12,
+        "justificativa": "Sandbox gratuito e self-service no portal, com credenciais na hora e por e-mail, base URL própria e notas sintéticas; ambiente UAT com dados reais sob pedido. Algumas rotas (OCR, invoices, utilities, LATAM) só existem em produção."
+      },
+      "autenticacao": {
+        "peso": 15,
+        "pontos": 6,
+        "justificativa": "Par fixo de chaves em cabeçalho (X-API-ID/X-API-KEY), sem OAuth, escopos, expiração ou rotação documentados; a mesma credencial lê e escreve. Ganha um pouco pela chave de permissão para parceiros, que evita compartilhar a credencial principal."
+      },
+      "webhooks": {
+        "peso": 15,
+        "pontos": 6,
+        "justificativa": "Webhooks recém-documentados para NF-e (recebida/cancelada), com verificação de URL, Secret por endpoint, estado de entrega, reativação e API completa de endpoints/subscriptions. Mas não documenta formato do corpo, esquema de assinatura com o Secret nem intervalo de reentrega, cobre só NF-e e a ajuda oficial ainda diz que não há webhooks."
+      },
+      "limites_paginacao": {
+        "peso": 10,
+        "pontos": 7,
+        "justificativa": "Cursor estável, páginas de até 500 na API 2.0, cabeçalhos de rate limit e Retry-After documentados. O limite numérico é por cliente e não publicado, e a API 1.0 só pagina de 50 em 50."
+      },
+      "sdks_comunidade": {
+        "peso": 10,
+        "pontos": 2,
+        "justificativa": "Sem SDK oficial nem pacote de comunidade identificado; o Swagger permite gerar cliente e há integrações nativas com ERPs."
+      },
+      "acesso_sem_barreira": {
+        "peso": 10,
+        "pontos": 4,
+        "justificativa": "Documentação e sandbox abertos, sem login. Produção exige contratar a API à parte da assinatura (preço sob proposta) e receber credenciais da equipe da Qive; novos CNPJs dependem de liberação manual."
+      },
+      "versionamento": {
+        "peso": 5,
+        "pontos": 3,
+        "justificativa": "Versão no caminho (v1/v2) e número de versão no Swagger (1.105.0); sem changelog público nem política de depreciação."
+      }
+    }
+  },
+  "qualidade_doc": {
+    "nota": 7,
+    "observacoes": "Boa para o setor: Swagger oficial completo e atualizado, com descrições úteis e erros bem descritos nas rotas novas (webhooks, comprovantes, evento de NFS-e). Fraca nas rotas clássicas (sem cabeçalhos declarados, sem exemplos) e com divergências de grafia e de conteúdo entre Swagger e ajuda."
+  },
+  "monitoramento": {
+    "changelog_url": null,
+    "canal_breaking_changes": null,
+    "canal_breaking_changes_observacao": "Sem canal público. Acompanhar o campo info.version do Swagger (https://docs.arquivei.com.br/arquivei-apis-swagger/dfe-api.json, 1.105.0 em 2026-10-14), o portal developers.qive.com.br e o artigo de ajuda da API.",
+    "frequencia_revisao_sugerida": "mensal"
+  },
+  "lacunas": [
+    {
+      "campo": "execucao_auth (dois cabeçalhos)",
+      "descricao": "A especificação do catálogo prevê um único cabeçalho de credencial em header_api_key. A Qive exige X-API-ID e X-API-KEY. Foi usado o campo de extensão headers_credenciais; o executor precisa suportá-lo.",
+      "impacto": "alto"
+    },
+    {
+      "campo": "autenticacao nas rotas v1",
+      "descricao": "As operações GET clássicas (/v1/nfe/{role}, eventos, PDFs, /v1/company etc.) não declaram X-API-ID/X-API-KEY no Swagger; o par existe só em securityDefinitions. O FAQ oficial diz que ID e chave autenticam todas as requisições, por isso o catálogo aplica o par a todas. Também não se sabe se X-Use-ApiGateway é aceito ou ignorado nessas rotas.",
+      "impacto": "medio"
+    },
+    {
+      "campo": "paginacao (API 2.0)",
+      "descricao": "POST /v2/dfe/nfe, /v1/dfe/cte, /v1/dfe/cteos, /v1/dfe/nfse e /v1/dfe/mdfe não dizem como a última página é sinalizada (Paginator vazio? igual ao anterior? lista vazia?). Só comprovantes e boletos v2 documentam o fim. O catálogo para em Paginator vazio/repetido, lista vazia ou total atingido.",
+      "impacto": "medio"
+    },
+    {
+      "campo": "paginacao (API 1.0)",
+      "descricao": "A descrição diz que o próximo cursor vem em data.page.next, o schema põe page na raiz e o objeto Pagination descreve next como URL. Formato real de page.next e sinal de fim não confirmados.",
+      "impacto": "medio"
+    },
+    {
+      "campo": "OwnerRoles da NF-e",
+      "descricao": "Valores divergentes: descrição e ajuda usam received/emitted/transporter/authorized; o exemplo do schema usa receiver/emitter/transporter/authorized.",
+      "impacto": "medio"
+    },
+    {
+      "campo": "grafia das chaves",
+      "descricao": "Origins (schema) x Origin (descrição) na NF-e; fields (schema) x Fields (descrição) no CT-e; from/to (descrição) x From/To (TimeRange) na NFS-e. Comprovantes rejeitam caixa errada; nas demais rotas a tolerância não é documentada.",
+      "impacto": "medio"
+    },
+    {
+      "campo": "valores monetários das notas",
+      "descricao": "As buscas não devolvem valor total nem série como campo; é preciso ler o XML (Base64). O campo Document (NF-e em JSON) não tem estrutura documentada.",
+      "impacto": "alto"
+    },
+    {
+      "campo": "formato de datas na resposta",
+      "descricao": "EmissionDate/CreatedAt da NF-e e do CT-e são string sem formato declarado (CT-e OS diz ISO 8601).",
+      "impacto": "baixo"
+    },
+    {
+      "campo": "limites.rate_limit",
+      "descricao": "Limite definido por cliente; não há número, janela ou rajada publicados. Os cabeçalhos X-RateLimit-* só estão documentados nas rotas v1.",
+      "impacto": "medio"
+    },
+    {
+      "campo": "Limit de NFS-e e MDF-e",
+      "descricao": "POST /v1/dfe/nfse não tem parâmetro de tamanho de página documentado; MDF-e tem Limit sem máximo declarado.",
+      "impacto": "baixo"
+    },
+    {
+      "campo": "webhooks",
+      "descricao": "Formato do corpo da notificação, uso do Secret (assinatura/cabeçalho/algoritmo) e política de reentrega não documentados; só NF-e. A ajuda oficial ainda diz que não há webhooks.",
+      "impacto": "medio"
+    },
+    {
+      "campo": "chave de permissão",
+      "descricao": "O cabeçalho X-API-PERMISSION-KEY está declarado em securityDefinitions, mas nenhuma operação o usa explicitamente e não há guia de como o parceiro o obtém e combina com suas credenciais.",
+      "impacto": "alto"
+    },
+    {
+      "campo": "credenciais de produção",
+      "descricao": "Não há tela self-service documentada para gerar as credenciais de produção: são emitidas pela equipe da Qive. Prazo não publicado.",
+      "impacto": "medio"
+    },
+    {
+      "campo": "comercial.custo_api",
+      "descricao": "Preço da API sob proposta, por volume; não publicado.",
+      "impacto": "medio"
+    },
+    {
+      "campo": "endpoints de CNPJ",
+      "descricao": "/v1/cnpj e /v1/cnpj/{CNPJ} só declaram X-Use-ApiGateway; não está claro se exigem as credenciais nem se consomem cota.",
+      "impacto": "baixo"
+    },
+    {
+      "campo": "colunas_do_xml",
+      "descricao": "Os caminhos dentro do XML (nNF, vNF, vTPrest, ValorServicos) vêm do layout nacional (MOC/ABRASF), não da documentação da Qive; marcados como inferidos.",
+      "impacto": "medio"
+    },
+    {
+      "campo": "taxonomia — boletos e comprovantes",
+      "descricao": "Boletos com notas foram mapeados em ContaPagar e comprovantes em Pagamento. Funciona, mas um conceito 'Boleto a pagar recebido' poderia ser explicitado na descrição de ContaPagar.",
+      "impacto": "baixo"
+    },
+    {
+      "campo": "taxonomia — evento fiscal",
+      "descricao": "Listas de eventos (cancelamento, CC-e, manifestação) foram mapeadas em NotaFiscal com qualificador eventos_*. Sugestão: entidade 'EventoFiscal' se outros sistemas repetirem filas de eventos.",
+      "impacto": "baixo"
+    }
+  ],
+  "fontes": [
+    {
+      "url": "https://docs.arquivei.com.br/arquivei-apis-swagger/dfe-api.json",
+      "titulo": "Swagger 2.0 oficial 'Qive API' v1.105.0 (78 operações), lido integralmente",
+      "data_consulta": "2026-10-14"
+    },
+    {
+      "url": "https://docs.arquivei.com.br/",
+      "titulo": "docs.arquivei.com.br — Swagger UI com 'Arquivei API' e 'Arquivei Lite'",
+      "data_consulta": "2026-10-14"
+    },
+    {
+      "url": "https://docs.arquivei.com.br/arquivei-apis-swagger/lite-api.json",
+      "titulo": "Swagger da API Arquivei Lite (2 operações)",
+      "data_consulta": "2026-10-14"
+    },
+    {
+      "url": "https://developers.qive.com.br/",
+      "titulo": "Portal do Desenvolvedor Qive (developers.arquivei.com.br redireciona para cá)",
+      "data_consulta": "2026-10-14"
+    },
+    {
+      "url": "https://developers.qive.com.br/docs/post/v2/dfe/nfe",
+      "titulo": "Portal — documentação da busca de NF-e (renderiza o Swagger)",
+      "data_consulta": "2026-10-14"
+    },
+    {
+      "url": "https://developers.qive.com.br/help",
+      "titulo": "Portal — Central de ajuda/FAQ da API (sandbox, UAT, limite por cliente, preço, chave de permissão)",
+      "data_consulta": "2026-10-14"
+    },
+    {
+      "url": "https://developers.qive.com.br/sandbox",
+      "titulo": "Portal — criação de conta Sandbox (credenciais e URL base)",
+      "data_consulta": "2026-10-14"
+    },
+    {
+      "url": "https://ajuda.qive.com.br/pt-BR/articles/7045413-api-qive-como-integrar-e-automatizar-a-gestao-de-documentos-fiscais",
+      "titulo": "Ajuda Qive — API Qive: como integrar (API 2.0, filtros, credenciais, FAQ)",
+      "data_consulta": "2026-10-14"
+    },
+    {
+      "url": "https://ajuda.qive.com.br/pt-BR/articles/9749184-arquivei-agora-e-qive",
+      "titulo": "Ajuda Qive — Arquivei agora é Qive",
+      "data_consulta": "2026-10-14"
+    },
+    {
+      "url": "https://ajuda.qive.com.br/pt-BR/articles/16923232-api-lite-entenda-o-que-e-e-como-funciona-a-integracao-via-api",
+      "titulo": "Ajuda Qive — API Lite: o que é e como funciona",
+      "data_consulta": "2026-10-14"
+    },
+    {
+      "url": "https://qive.com.br/termos-de-uso",
+      "titulo": "Termos de Uso da Qive (atualizados em 2026-09-30)",
+      "data_consulta": "2026-10-14"
+    }
+  ]
+}
