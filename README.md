@@ -1,6 +1,6 @@
-# Stagium — assistente de dados (Sagi/SyGeCom, Nomus e Qive)
+# Stagium — assistente de dados (Sagi/SyGeCom, Nomus, Qive e Mercado Livre)
 
-Chat em que o cliente escolhe o sistema da empresa (hoje **Sagi (SyGeCom)**, **Nomus** ou **Qive (Arquivei)**) e pede, em português, a informação que precisa.
+Chat em que o cliente escolhe o sistema da empresa (hoje **Sagi (SyGeCom)**, **Nomus**, **Qive (Arquivei)** ou **Mercado Livre**) e pede, em português, a informação que precisa.
 O assistente encontra a consulta certa no catálogo, pede aprovação, solicita as credenciais
 do usuário de integração, consulta a API e devolve a planilha (.xlsx).
 
@@ -9,7 +9,7 @@ do usuário de integração, consulta a API e devolve a planilha (.xlsx).
 1. O cliente pergunta ("produtos cadastrados", "movimentos de estoque da matriz").
 2. A IA responde usando o catálogo e indica a consulta, com método, caminho e colunas.
 3. O cliente clica em **Executar esta consulta**.
-4. Aparece um **formulário** com os filtros e as credenciais do sistema (Sagi: e-mail, senha e endereço; Nomus: chave de integração e endereço; Qive: API ID, API KEY e, opcionalmente, o endereço de testes).
+4. Aparece um **formulário** com os filtros e as credenciais do sistema (Sagi: e-mail, senha e endereço; Nomus: chave de integração e endereço; Qive: API ID, API KEY e, opcionalmente, o endereço de testes; Mercado Livre: botão **Conectar Mercado Livre**, sem chaves digitadas).
 5. O servidor autentica, pagina a consulta e devolve as linhas; a planilha é montada no navegador.
    Sistemas com limite de requisições (Nomus: 1 a cada 20 s) são consultados uma página por chamada:
    o navegador espera o intervalo, mostra o progresso e permite parar e gerar com o que já veio.
@@ -63,10 +63,10 @@ Nunca coloque a chave em arquivo do repositório: ele sincroniza com o GitHub.
 | Consultas salvas e período relativo | `src/lib/consultas-salvas.ts` |
 | Catálogo completo das APIs | `catalogo/` |
 
-Para regerar o conhecimento (hoje Sagi, Nomus e Qive):
+Para regerar o conhecimento (hoje Sagi, Nomus, Qive e Mercado Livre):
 
 ```sh
-cd catalogo && .venv/Scripts/python scripts/gerar_conhecimento.py --sistemas sygecom,nomus,arquivei
+cd catalogo && .venv/Scripts/python scripts/gerar_conhecimento.py --sistemas sygecom,nomus,arquivei,mercado-livre
 ```
 
 Sem `--sistemas`, entram todos os 11 sistemas documentados (o chat só oferece os que têm receita de execução).
@@ -91,3 +91,24 @@ npm run dev
 ```
 
 <!-- sync -->
+
+## Mercado Livre: conexão por autorização (OAuth)
+
+O vendedor não digita chaves: clica em **Conectar Mercado Livre**, entra com a conta principal na
+tela do Mercado Livre (numa janela) e autoriza o **aplicativo do Stagium**, que é um só, da HUBx,
+para todos os clientes. Cada autorização só enxerga os dados daquele vendedor.
+
+- Segredos no Lovable (More → Cloud → Secrets): `MERCADO_LIVRE_CLIENT_ID` e
+  `MERCADO_LIVRE_CLIENT_SECRET`, do aplicativo criado no DevCenter do Mercado Livre. Opcional:
+  `MERCADO_LIVRE_REDIRECT_URI` (padrão `https://stagium.lovable.app/conectar/mercado-livre`, que
+  precisa ser exatamente o cadastrado no aplicativo).
+- Sem esses segredos o Mercado Livre não aparece na escolha de sistema do chat.
+- Retorno da autorização: `src/routes/conectar.$sistema.tsx` troca o código pelo acesso no servidor
+  e devolve à conversa por `postMessage`; se o pop-up for bloqueado, "Conectar nesta aba".
+- O acesso vale 6 h e o refresh token é de uso único: o executor renova e devolve o novo ao
+  navegador (`credenciaisNovas`), que regrava no cofre se a pessoa salvou com PIN.
+- Consultas no site: vendas, anúncios (duas etapas: ids e depois `/items/bulk` em lotes de 20),
+  perguntas, reclamações, reputação e visitas por dia. Faturamento e tarifas ficam de fora.
+- Teste local sem o Mercado Livre real: `MERCADO_LIVRE_TOKEN_URL`, `MERCADO_LIVRE_AUTH_URL` e
+  `MERCADO_LIVRE_BASE_URL` num `.env.local` (fora do Git) apontando para um servidor simulado.
+

@@ -63,6 +63,18 @@ type ReceitaEndpoint = {
   };
   /** Campo com o XML do documento em Base64; colunas "xml:<caminho>" saem de dentro dele. */
   xml?: { campo: string };
+  /** Filtros a partir das recomendações do catálogo (ex.: Mercado Livre). */
+  recomendacao?: {
+    /** Parâmetro -> modelo com {data_inicial}/{data_final} (ex.: data com fuso). */
+    parametros_modelo: Record<string, string>;
+    /** Parâmetros que levam o id da conta conectada. */
+    vendedor: string[];
+    /** Parâmetro com o número de dias do período (ex.: visitas por dia). */
+    dias: string | null;
+    escolhas_query: Record<string, { parametro: string; valores: Record<string, string> }>;
+  };
+  /** Consulta em duas etapas: a primeira traz ids, a segunda os detalhes em lotes. */
+  segunda_etapa?: { endpoint: string; lote: number; parametro: string } | null;
   headers_fixos?: Record<string, string>;
 };
 
@@ -99,6 +111,10 @@ type ReceitaAuth = {
     onde_obter: string;
     obrigatoria?: boolean;
   }[];
+  /** OAuth: renovação do acesso (o client_id/secret ficam nos segredos do servidor). */
+  token_url?: string;
+  /** Conexão pela tela do fornecedor, aberta numa janela (ex.: Mercado Livre). */
+  conexao?: { tipo: string; url_autorizacao: string };
   /** Vários cabeçalhos de credencial (ex.: Qive: X-API-ID e X-API-KEY): cabeçalho -> credencial. */
   headers_credenciais?: Record<string, string>;
   base_url_por_ambiente?: Record<string, string | null>;
@@ -301,6 +317,70 @@ const DICAS_CREDENCIAL: Record<string, string> = {
 const credencialRecusada = (slug: string) =>
   new Error("Credenciais recusadas pelo sistema." + (DICAS_CREDENCIAL[slug] ?? ""));
 
+const prefixoAmbiente = (slug: string) => slug.toUpperCase().replace(/[^A-Z0-9]/g, "_");
+
+/**
+ * Aplicativo OAuth do Stagium para o sistema (ex.: MERCADO_LIVRE_CLIENT_ID,
+ * MERCADO_LIVRE_CLIENT_SECRET e, opcional, MERCADO_LIVRE_REDIRECT_URI nos segredos do Lovable).
+ */
+function aplicativoOAuth(slug: string) {
+  const p = prefixoAmbiente(slug);
+  return {
+    variaveis: `${p}_CLIENT_ID e ${p}_CLIENT_SECRET`,
+    clientId: process.env[`${p}_CLIENT_ID`] ?? "",
+    clientSecret: process.env[`${p}_CLIENT_SECRET`] ?? "",
+    redirectUri: process.env[`${p}_REDIRECT_URI`] || `https://stagium.lovable.app/conectar/${slug}`,
+    /** Só para teste local contra um servidor simulado; em produção vale o endereço do catálogo. */
+    tokenUrl: process.env[`${p}_TOKEN_URL`] ?? "",
+    authUrl: process.env[`${p}_AUTH_URL`] ?? "",
+  };
+}
+
+/**
+ * Pede um acesso novo ao fornecedor: troca o código da autorização ou renova pelo refresh token.
+ * O refresh token do Mercado Livre é de uso único: a resposta traz o próximo, que o navegador
+ * guarda no lugar do anterior.
+ */
+async function pedirTokenOAuth(
+  slug: string,
+  auth: ReceitaAuth,
+  campos: Record<string, string>,
+  userIdAnterior = "",
+): Promise<Record<string, string>> {
+  const app = aplicativoOAuth(slug);
+  const tokenUrl = app.tokenUrl || auth.token_url;
+  if (!app.clientId || !app.clientSecret || !tokenUrl) {
+    throw new Error(
+      `Este sistema ainda não está configurado no Stagium: faltam os segredos ${app.variaveis} no servidor.`,
+    );
+  }
+  const resposta = await comLimite(tokenUrl, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json" },
+    body: new URLSearchParams({
+      client_id: app.clientId,
+      client_secret: app.clientSecret,
+      ...campos,
+    }).toString(),
+  });
+  const dados = (await resposta.json().catch(() => ({}))) as Record<string, unknown>;
+  if (!resposta.ok || typeof dados["access_token"] !== "string") {
+    if (resposta.status >= 400 && resposta.status < 500) {
+      throw new Error(
+        "A autorização da conta não vale mais (expirou, foi revogada ou a senha da conta mudou). Conecte a conta de novo.",
+      );
+    }
+    throw new Error(`A renovação do acesso respondeu HTTP ${resposta.status}.`);
+  }
+  const validade = Number(dados["expires_in"] ?? 21600);
+  return {
+    access_token: String(dados["access_token"]),
+    refresh_token: String(dados["refresh_token"] ?? campos["refresh_token"] ?? ""),
+    user_id: String(dados["user_id"] ?? userIdAnterior),
+    expira_em: String(Date.now() + validade * 1000),
+  };
+}
+
 /** Monta os cabeçalhos de autenticação conforme a receita do catálogo. */
 async function autenticar(
   slug: string,
@@ -355,6 +435,11 @@ async function autenticar(
     }
     cabecalhos["Authorization"] =
       (auth.login.prefixo ?? "Bearer ") + String(token).replace(/^Bearer\s+/i, "");
+    return cabecalhos;
+  }
+
+  if (auth.tipo === "oauth2_refresh_token") {
+    cabecalhos["Authorization"] = "Bearer " + (credenciais["access_token"] ?? "");
     return cabecalhos;
   }
 
@@ -491,6 +576,22 @@ function lerXml(xml: string, caminho: string): string {
 }
 
 const esperar = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * Lista de itens (ex.: itens de uma venda) em texto legível: "2× Camiseta; 1× Boné".
+ * Quando não há título e quantidade, devolve null e a célula mostra o JSON.
+ */
+function resumirItens(lista: unknown[]): string | null {
+  const partes = lista.map((item) => {
+    if (!ehRegistro(item)) return null;
+    const dentro = ehRegistro(item["item"]) ? item["item"] : item;
+    const titulo = dentro["title"] ?? dentro["titulo"] ?? dentro["name"];
+    const quantidade = item["quantity"] ?? item["quantidade"];
+    if (typeof titulo !== "string") return null;
+    return typeof quantidade === "number" ? `${quantidade}× ${titulo}` : titulo;
+  });
+  return partes.every((p) => p !== null) && partes.length > 0 ? partes.join("; ") : null;
+}
 const isoParaBr = (iso: string) => iso.split("-").reverse().join("/");
 
 /** Núcleo da execução, isolado da camada de servidor para poder ser testado. */
@@ -504,8 +605,30 @@ export async function consultarSistema(data: Entrada) {
       throw new Error(`Consulta não disponível para execução: ${data.endpointId}`);
     }
 
+    // OAuth: usa o acesso guardado enquanto vale; perto de vencer, renova antes de consultar
+    let credenciais = data.credenciais;
+    let credenciaisNovas: Record<string, string> | null = null;
+    const oauth = sistema.auth.tipo === "oauth2_refresh_token";
+    if (oauth) {
+      if (!credenciais["refresh_token"] && !credenciais["access_token"]) {
+        throw new Error("Conecte a conta antes de consultar.");
+      }
+      const vence = Number(credenciais["expira_em"] || 0);
+      if (!credenciais["access_token"] || vence < Date.now() + 120_000) {
+        credenciaisNovas = await pedirTokenOAuth(
+          slug!,
+          sistema.auth,
+          { grant_type: "refresh_token", refresh_token: credenciais["refresh_token"] ?? "" },
+          credenciais["user_id"] ?? "",
+        );
+        credenciais = { ...credenciais, ...credenciaisNovas };
+      }
+    }
+
     const base = (
-      data.credenciais["base_url"] ||
+      credenciais["base_url"] ||
+      // só para teste local contra servidor simulado (ex.: MERCADO_LIVRE_BASE_URL)
+      process.env[`${prefixoAmbiente(slug!)}_BASE_URL`] ||
       sistema.auth.base_url_por_ambiente?.["producao"] ||
       ""
     ).replace(/\/$/, "");
@@ -532,6 +655,11 @@ export async function consultarSistema(data: Entrada) {
 
     // parâmetros de caminho (ex.: /saldo/fornecedores/{id}) saem da query e entram no endereço
     let caminho = receita.path;
+    if (caminho.includes("{user_id}")) {
+      if (!credenciais["user_id"])
+        throw new Error("A conta conectada não informou o id. Conecte de novo.");
+      caminho = caminho.replace("{user_id}", encodeURIComponent(credenciais["user_id"]));
+    }
     for (const c of campos.filter((c) => c.papel === "caminho")) {
       caminho = caminho.replace(`{${c.nome}}`, encodeURIComponent(String(informados[c.nome])));
       delete informados[c.nome];
@@ -577,6 +705,38 @@ export async function consultarSistema(data: Entrada) {
       if (partes.length > 0) informados[qc.parametro] = partes.join(";");
     }
 
+    // filtros por recomendação do catálogo: período no modelo do fornecedor, conta conectada, opções
+    const rec = receita.recomendacao;
+    if (rec) {
+      const ini = String(informados["data_inicial"] ?? "");
+      const fimD = String(informados["data_final"] ?? "");
+      const escolhidos: Record<string, string> = {};
+      for (const [parametro, modelo] of Object.entries(rec.parametros_modelo)) {
+        if (
+          (modelo.includes("{data_inicial}") && !ini) ||
+          (modelo.includes("{data_final}") && !fimD)
+        )
+          continue;
+        escolhidos[parametro] = modelo
+          .replace(/\{data_inicial\}/g, ini)
+          .replace(/\{data_final\}/g, fimD);
+      }
+      for (const parametro of rec.vendedor) escolhidos[parametro] = credenciais["user_id"] ?? "";
+      if (rec.dias && ini && fimD) {
+        escolhidos[rec.dias] = String(
+          Math.round((Date.parse(fimD) - Date.parse(ini)) / 86_400_000) + 1,
+        );
+      }
+      for (const [nome, escolha] of Object.entries(rec.escolhas_query)) {
+        const opcao = informados[nome];
+        if (opcao && escolha.valores[String(opcao)] !== undefined) {
+          escolhidos[escolha.parametro] = escolha.valores[String(opcao)]!;
+        }
+      }
+      for (const c of campos) delete informados[c.nome];
+      Object.assign(informados, escolhidos);
+    }
+
     // leitura por POST: o formulário preenche o corpo JSON e nada disso vai na query
     let corpoBase: Record<string, unknown> | null = null;
     if (receita.corpo) {
@@ -604,7 +764,8 @@ export async function consultarSistema(data: Entrada) {
     for (const [k, v] of Object.entries(informados)) consultaBase[k] = String(v);
 
     let chaveEmBase64 = Boolean(data.chaveEmBase64);
-    let cabecalhos = await autenticar(slug!, sistema.auth, data.credenciais, base, chaveEmBase64);
+    let cabecalhos = await autenticar(slug!, sistema.auth, credenciais, base, chaveEmBase64);
+    let renovouNoErro = false;
     const podeTentarBase64 =
       sistema.auth.tipo === "header_api_key" && sistema.auth.prefixo === "Basic ";
     const porPagina = Boolean(receita.intervalo_minimo_s);
@@ -669,7 +830,20 @@ export async function consultarSistema(data: Entrada) {
         linhas.length === 0
       ) {
         chaveEmBase64 = true;
-        cabecalhos = await autenticar(slug!, sistema.auth, data.credenciais, base, true);
+        cabecalhos = await autenticar(slug!, sistema.auth, credenciais, base, true);
+        resposta = await pedir();
+      }
+      // OAuth: acesso recusado no meio do caminho -> renova uma vez e repete
+      if (resposta.status === 401 && oauth && !renovouNoErro && !credenciaisNovas) {
+        renovouNoErro = true;
+        credenciaisNovas = await pedirTokenOAuth(
+          slug!,
+          sistema.auth,
+          { grant_type: "refresh_token", refresh_token: credenciais["refresh_token"] ?? "" },
+          credenciais["user_id"] ?? "",
+        );
+        credenciais = { ...credenciais, ...credenciaisNovas };
+        cabecalhos = await autenticar(slug!, sistema.auth, credenciais, base);
         resposta = await pedir();
       }
 
@@ -680,6 +854,12 @@ export async function consultarSistema(data: Entrada) {
         if (Number.isFinite(pedida) && pedida > 0 && pedida <= 20 && esperas429 < 3) {
           esperas429 += 1;
           await esperar(pedida * 1000);
+          continue;
+        }
+        if (!(pedida > 0) && esperas429 < 2) {
+          // sem Retry-After (ex.: Mercado Livre): espera 2 s, depois 4 s
+          esperas429 += 1;
+          await esperar(2000 * esperas429);
           continue;
         }
         throw new Error(
@@ -733,7 +913,11 @@ export async function consultarSistema(data: Entrada) {
       let acabou = pag.tipo === "nenhuma" || itens.length === 0 || linhas.length >= maximo;
       if (!acabou && pag.fim === "pagina_incompleta" && itens.length < tamanho) acabou = true;
       if (!acabou && pag.fim === "hasMore_false" && !valor(corpo, "hasMore")) acabou = true;
-      if (!acabou && pag.fim_alternativo === "total_atingido" && receita.campo_total) {
+      if (
+        !acabou &&
+        (pag.fim === "total_atingido" || pag.fim_alternativo === "total_atingido") &&
+        receita.campo_total
+      ) {
         const total = Number(valor(corpo, receita.campo_total));
         if (Number.isFinite(total) && total > 0 && linhas.length >= total) acabou = true;
       }
@@ -743,7 +927,12 @@ export async function consultarSistema(data: Entrada) {
         if (typeof proximo === "string" && /^https?:\/\//.test(proximo) && pag.param_cursor) {
           proximo = new URL(proximo).searchParams.get(pag.param_cursor);
         }
-        if (proximo === null || proximo === undefined || proximo === "" || proximo === cursor) {
+        if (
+          proximo === null ||
+          proximo === undefined ||
+          proximo === "" ||
+          (proximo === cursor && pag.fim !== "lista_vazia")
+        ) {
           acabou = true;
         } else cursor = proximo as string | number;
       } else if (!acabou && (pag.tipo === "versao" || pag.tipo === "cursor")) {
@@ -765,11 +954,50 @@ export async function consultarSistema(data: Entrada) {
       await new Promise((r) => setTimeout(r, 350));
     }
 
-    const registros = linhas.slice(0, maximo);
-    const { colunas, aviso } = resolverColunas(receita.colunas, registros);
+    let registros: Registro[] = linhas.slice(0, maximo) as Registro[];
+    let receitaSaida = receita;
+    // duas etapas (ex.: anúncios): a primeira trouxe ids; a segunda busca os dados em lotes
+    if (receita.segunda_etapa) {
+      const etapa = sistema.endpoints[receita.segunda_etapa.endpoint];
+      if (!etapa) throw new Error("A segunda etapa desta consulta não está disponível.");
+      const ids = registros
+        .map((r) => valorFlexivel(r, "$") ?? valorFlexivel(r, "id"))
+        .filter((v) => v !== undefined && v !== null && v !== "")
+        .map(String);
+      const detalhes: Registro[] = [];
+      const lote = Math.max(1, receita.segunda_etapa.lote);
+      for (let i = 0, tentativas = 0; i < ids.length;) {
+        const consultaLote = new URLSearchParams(
+          Object.fromEntries(
+            Object.entries(etapa.padroes_fixos ?? {}).map(([k, v]) => [k, String(v)]),
+          ),
+        );
+        consultaLote.set(receita.segunda_etapa.parametro, ids.slice(i, i + lote).join(","));
+        const r = await comLimite(`${base}${etapa.path}?${consultaLote}`, {
+          method: "GET",
+          headers: { ...cabecalhos, ...(etapa.headers_fixos ?? {}) },
+        });
+        if (r.status === 429 && tentativas < 3) {
+          tentativas += 1;
+          await esperar(2000 * tentativas);
+          continue;
+        }
+        if (!r.ok) throw new Error(`A API respondeu HTTP ${r.status} ao buscar os detalhes.`);
+        for (const d of extrairLista(await r.json(), etapa.lista_em)) {
+          // envelope do lote ({ code, body }): o código HTTP de cada item não vai para a planilha
+          if (ehRegistro(d["body"])) delete d["code"];
+          detalhes.push(d);
+        }
+        i += lote;
+        tentativas = 0;
+      }
+      registros = detalhes;
+      receitaSaida = etapa;
+    }
+    const { colunas, aviso } = resolverColunas(receitaSaida.colunas, registros);
 
     const numericas = new Map(
-      receita.colunas
+      receitaSaida.colunas
         .filter((c) => TIPOS_NUMERICOS.has(String(c.tipo)))
         .map((c) => [c.caminho, c.formato_origem ?? ""] as const),
     );
@@ -784,6 +1012,8 @@ export async function consultarSistema(data: Entrada) {
       proximaPagina: pagina,
       esperarSegundos,
       chaveEmBase64,
+      /** Acesso renovado nesta chamada (OAuth): o navegador guarda no lugar do anterior. */
+      credenciaisNovas,
       colunas: colunas.map((c) => ({ titulo: c.titulo, chave: c.caminho })),
       linhas: registros.map((linha) => {
         const saida: Record<string, string | number> = {};
@@ -801,15 +1031,66 @@ export async function consultarSistema(data: Entrada) {
                   : "Não"
                 : Array.isArray(v) && v.every((x) => x === null || typeof x !== "object")
                   ? v.join(", ")
-                  : typeof v === "object"
-                    ? JSON.stringify(v)
-                    : (v as string | number);
+                  : Array.isArray(v) && resumirItens(v) !== null
+                    ? resumirItens(v)!
+                    : typeof v === "object"
+                      ? JSON.stringify(v)
+                      : (v as string | number);
         }
         return saida;
       }),
     };
   }
 }
+
+/**
+ * Conexão por autorização na tela do fornecedor (ex.: Mercado Livre): devolve o endereço da tela,
+ * com o client_id do aplicativo do Stagium e o `state` gerado pelo navegador.
+ */
+export const iniciarConexao = createServerFn({ method: "POST" })
+  .validator((dados: { slug: string; state: string }) => dados)
+  .handler(async ({ data }) => {
+    const auth = EXECUCAO[data.slug]?.auth;
+    if (!auth?.conexao) throw new Error("Este sistema não usa conexão por autorização.");
+    const app = aplicativoOAuth(data.slug);
+    if (!app.clientId || !app.clientSecret) {
+      return { configurado: false as const, url: "", faltam: app.variaveis };
+    }
+    const url = new URL(app.authUrl || auth.conexao.url_autorizacao);
+    url.searchParams.set("response_type", "code");
+    url.searchParams.set("client_id", app.clientId);
+    url.searchParams.set("redirect_uri", app.redirectUri);
+    url.searchParams.set("state", data.state);
+    return { configurado: true as const, url: url.toString(), faltam: "" };
+  });
+
+/**
+ * Sistemas por autorização e se o aplicativo do Stagium já está configurado (segredos no
+ * servidor). O chat esconde os que ainda não estão, para ninguém escolher e dar com erro.
+ */
+export const conexoesConfiguradas = createServerFn({ method: "GET" }).handler(async () =>
+  Object.fromEntries(
+    Object.entries(EXECUCAO)
+      .filter(([, sistema]) => sistema.auth.conexao)
+      .map(([slug]) => {
+        const app = aplicativoOAuth(slug);
+        return [slug, Boolean(app.clientId && app.clientSecret)];
+      }),
+  ),
+);
+
+/** Troca o código devolvido pela tela de autorização pelo acesso da conta (só no servidor). */
+export const concluirConexao = createServerFn({ method: "POST" })
+  .validator((dados: { slug: string; code: string }) => dados)
+  .handler(async ({ data }) => {
+    const auth = EXECUCAO[data.slug]?.auth;
+    if (!auth?.conexao) throw new Error("Este sistema não usa conexão por autorização.");
+    return pedirTokenOAuth(data.slug, auth, {
+      grant_type: "authorization_code",
+      code: data.code,
+      redirect_uri: aplicativoOAuth(data.slug).redirectUri,
+    });
+  });
 
 export const executarConsultaReal = createServerFn({ method: "POST" })
   .validator((dados: Entrada) => dados)

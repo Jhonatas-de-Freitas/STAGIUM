@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ChatRouteImport } from './routes/chat'
+import { Route as ConectarSistemaRouteImport } from './routes/conectar.$sistema'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -22,31 +23,40 @@ const ChatRoute = ChatRouteImport.update({
   path: '/chat',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ConectarSistemaRoute = ConectarSistemaRouteImport.update({
+  id: '/conectar/$sistema',
+  path: '/conectar/$sistema',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/chat': typeof ChatRoute
+  '/conectar/$sistema': typeof ConectarSistemaRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/chat': typeof ChatRoute
+  '/conectar/$sistema': typeof ConectarSistemaRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/chat': typeof ChatRoute
+  '/conectar/$sistema': typeof ConectarSistemaRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/chat'
+  fullPaths: '/' | '/chat' | '/conectar/$sistema'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/chat'
-  id: '__root__' | '/' | '/chat'
+  to: '/' | '/chat' | '/conectar/$sistema'
+  id: '__root__' | '/' | '/chat' | '/conectar/$sistema'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ChatRoute: typeof ChatRoute
+  ConectarSistemaRoute: typeof ConectarSistemaRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -65,12 +75,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ChatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/conectar/$sistema': {
+      id: '/conectar/$sistema'
+      path: '/conectar/$sistema'
+      fullPath: '/conectar/$sistema'
+      preLoaderRoute: typeof ConectarSistemaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ChatRoute: ChatRoute,
+  ConectarSistemaRoute: ConectarSistemaRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

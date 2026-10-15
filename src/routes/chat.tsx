@@ -33,7 +33,12 @@ import {
 } from "@/lib/assistente";
 import type { CampoFiltro } from "@/lib/executor.servidor";
 import { perguntarAoAssistente } from "@/lib/assistente.servidor";
-import { executarConsultaReal } from "@/lib/executor.servidor";
+import {
+  conexoesConfiguradas,
+  executarConsultaReal,
+  iniciarConexao,
+} from "@/lib/executor.servidor";
+import { CHAVE_PENDENTE, CHAVE_STATE, type MensagemConexao } from "@/lib/conexao";
 import conhecimento from "@/lib/conhecimento.json";
 import { interpretarPeriodo, type PeriodoInterpretado } from "@/lib/periodo";
 import { baixarPlanilha, type DadosPlanilha } from "@/lib/planilha";
@@ -66,14 +71,27 @@ type CampoCredencial = {
 
 const EXECUCAO = (
   conhecimento as unknown as {
-    execucao: Record<string, { auth: { credenciais_necessarias: CampoCredencial[] } }>;
+    execucao: Record<
+      string,
+      {
+        auth: {
+          credenciais_necessarias: CampoCredencial[];
+          /** Conexão pela tela do fornecedor, em vez de credenciais digitadas (ex.: Mercado Livre). */
+          conexao?: { tipo: string };
+        };
+      }
+    >;
   }
 ).execucao;
+
+/** Sistema em que o cliente conecta a conta na tela do fornecedor (OAuth), sem digitar chaves. */
+const exigeConexao = (slug: string) => Boolean(EXECUCAO[slug]?.auth.conexao);
 
 /** Credenciais que o cliente informa para consultar um sistema. */
 const credenciaisDo = (slug: string) => EXECUCAO[slug]?.auth.credenciais_necessarias ?? [];
 
 const NOMES_CURTOS: Record<string, string> = {
+  "mercado-livre": "Mercado Livre",
   sygecom: "Sagi (SyGeCom)",
   nomus: "Nomus",
   arquivei: "Qive (Arquivei)",
@@ -97,6 +115,12 @@ const comArtigo = (slug: string | null | undefined, de = false) =>
 
 const SUGESTOES_POR_SISTEMA: Record<string, string[]> = {
   sygecom: ["Produtos cadastrados", "Movimentos de estoque", "Pedidos de compra", "Clientes"],
+  "mercado-livre": [
+    "Vendas do mês passado",
+    "Anúncios ativos",
+    "Perguntas sem resposta",
+    "Reclamações deste mês",
+  ],
   arquivei: [
     "NF-e recebidas deste mês",
     "Notas emitidas do mês passado",
@@ -308,6 +332,7 @@ function FormularioConsulta({
   pedirCredenciais,
   credenciaisSalvas,
   aoMudarCofre,
+  aoGuardarPin,
   periodoSugerido,
   filtrosIniciais,
   aoConfirmar,
@@ -319,6 +344,8 @@ function FormularioConsulta({
   /** Há credenciais criptografadas neste navegador (pede só o PIN). */
   credenciaisSalvas: boolean;
   aoMudarCofre: () => void;
+  /** PIN usado ou criado nesta sessão: permite regravar o acesso renovado (OAuth) no cofre. */
+  aoGuardarPin: (pin: string) => void;
   periodoSugerido?: PeriodoInterpretado;
   filtrosIniciais?: Record<string, string>;
   aoConfirmar: (
@@ -349,6 +376,70 @@ function FormularioConsulta({
   const [erroPin, setErroPin] = useState("");
   const [abrindo, setAbrindo] = useState(false);
   const modoPin = pedirCredenciais && credenciaisSalvas && !usarOutras;
+  const conexao = exigeConexao(consulta.slug);
+  const [conectado, setConectado] = useState<Record<string, string> | null>(null);
+  const [conectando, setConectando] = useState(false);
+  /** Endereço da tela de autorização quando o navegador bloqueia a janela: conectar nesta aba. */
+  const [linkNaAba, setLinkNaAba] = useState("");
+  const stateConexao = useRef("");
+
+  // a janela de autorização devolve o acesso por postMessage (mesma origem, mesmo state)
+  useEffect(() => {
+    if (!conexao) return;
+    const ouvir = (evento: MessageEvent) => {
+      const dados = evento.data as MensagemConexao | undefined;
+      if (evento.origin !== window.location.origin || dados?.tipo !== "stagium-conexao") return;
+      if (
+        dados.slug !== consulta.slug ||
+        !stateConexao.current ||
+        dados.state !== stateConexao.current
+      )
+        return;
+      setConectado(dados.credenciais);
+      setConectando(false);
+      setErroPin("");
+    };
+    window.addEventListener("message", ouvir);
+    return () => window.removeEventListener("message", ouvir);
+  }, [conexao, consulta.slug]);
+
+  async function conectar() {
+    setErroPin("");
+    const state = crypto.randomUUID();
+    stateConexao.current = state;
+    try {
+      localStorage.setItem(CHAVE_STATE, state);
+    } catch {
+      // sem armazenamento: o retorno não terá como conferir; a conexão falha com aviso
+    }
+    // a janela abre já no clique (senão o navegador bloqueia) e recebe o endereço depois
+    const janela = window.open("about:blank", "stagium-conexao", "width=520,height=720");
+    setConectando(true);
+    try {
+      const resposta = await iniciarConexao({ data: { slug: consulta.slug, state } });
+      if (!resposta.configurado) {
+        janela?.close();
+        setConectando(false);
+        setErroPin(
+          `${nomeDo(consulta.slug)} ainda não está configurado no Stagium (faltam ${resposta.faltam} no servidor). Avise a HUBx.`,
+        );
+        return;
+      }
+      if (!janela) {
+        setConectando(false);
+        setLinkNaAba(resposta.url);
+        setErroPin(
+          "O navegador bloqueou a janela de conexão. Permita pop-ups para este site e clique de novo, ou conecte nesta aba.",
+        );
+        return;
+      }
+      janela.location.href = resposta.url;
+    } catch (erro) {
+      janela?.close();
+      setConectando(false);
+      setErroPin(erro instanceof Error ? erro.message : "Não consegui abrir a conexão.");
+    }
+  }
 
   const inicio = camposFiltro.find((c) => c.papel === "periodo_inicio");
   const fim = camposFiltro.find((c) => c.papel === "periodo_fim");
@@ -359,7 +450,7 @@ function FormularioConsulta({
   const faltaCredencial = modoPin
     ? pin.length < PIN_MINIMO
     : pedirCredenciais &&
-      (CREDENCIAIS.some((c) => obrigatoria(c) && !cred[c.nome]?.trim()) ||
+      ((conexao ? !conectado : CREDENCIAIS.some((c) => obrigatoria(c) && !cred[c.nome]?.trim())) ||
         (lembrar && pinNovo.length < PIN_MINIMO));
 
   async function confirmar() {
@@ -371,17 +462,24 @@ function FormularioConsulta({
     setAbrindo(true);
     try {
       if (modoPin) {
-        aoConfirmar(await abrirCredenciais(consulta.slug, pin), filtros, consulta);
+        const abertas = await abrirCredenciais(consulta.slug, pin);
+        aoGuardarPin(pin);
+        aoConfirmar(abertas, filtros, consulta);
         return;
       }
+      const enviar = conexao ? (conectado ?? {}) : cred;
       if (lembrar) {
-        await salvarCredenciais(consulta.slug, cred, pinNovo);
+        await salvarCredenciais(consulta.slug, enviar, pinNovo);
+        aoGuardarPin(pinNovo);
         aoMudarCofre();
-        toast.success("Credenciais salvas neste navegador", {
-          description: "Da próxima vez, é só digitar o PIN.",
-        });
+        toast.success(
+          conexao ? "Conexão salva neste navegador" : "Credenciais salvas neste navegador",
+          {
+            description: "Da próxima vez, é só digitar o PIN.",
+          },
+        );
       }
-      aoConfirmar(cred, filtros, consulta);
+      aoConfirmar(enviar, filtros, consulta);
     } catch (erro) {
       setErroPin(erro instanceof Error ? erro.message : "Não consegui abrir as credenciais.");
       aoMudarCofre();
@@ -506,28 +604,67 @@ function FormularioConsulta({
           <fieldset className="space-y-3">
             <legend className="flex items-center gap-2 text-sm font-medium">
               <KeyRound className="size-4 text-muted-foreground" />
-              Credenciais do seu usuário de integração
+              {conexao
+                ? `Conta ${comArtigo(consulta.slug, true)}`
+                : "Credenciais do seu usuário de integração"}
             </legend>
-            <p className="text-xs text-muted-foreground">
-              Usadas apenas na consulta e nunca enviadas à IA.
-            </p>
-            {CREDENCIAIS.map((c) => (
-              <div key={c.nome} className="space-y-1">
-                <Label htmlFor={`cred-${c.nome}`} className="text-xs">
-                  {c.rotulo}
-                  {obrigatoria(c) ? "" : " (opcional)"}
-                </Label>
-                <Input
-                  id={`cred-${c.nome}`}
-                  type={c.segredo ? "password" : "text"}
-                  autoComplete={c.segredo ? "current-password" : "off"}
-                  value={cred[c.nome] ?? ""}
-                  onChange={(e) => setCred((atual) => ({ ...atual, [c.nome]: e.target.value }))}
-                  placeholder={c.default ?? ""}
-                />
-                <p className="text-[11px] leading-snug text-muted-foreground">{c.onde_obter}</p>
-              </div>
-            ))}
+            {conexao ? (
+              conectado ? (
+                <p className="text-sm">
+                  Conta conectada
+                  {conectado["user_id"] ? ` (vendedor ${conectado["user_id"]})` : ""}. O acesso fica
+                  só neste navegador e nunca vai para a IA.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  <p className="text-xs text-muted-foreground">
+                    Abre a tela {comArtigo(consulta.slug, true)} numa janela. Entre com a conta
+                    principal do vendedor e autorize o Stagium a ler os dados. Você pode revogar a
+                    qualquer momento na própria conta.
+                  </p>
+                  <Button type="button" size="sm" variant="outline" onClick={() => void conectar()}>
+                    {conectando ? "Abrir a janela de novo" : `Conectar ${nomeDo(consulta.slug)}`}
+                  </Button>
+                  {linkNaAba && (
+                    <p className="text-xs">
+                      <a href={linkNaAba} className="underline underline-offset-4">
+                        Conectar nesta aba
+                      </a>{" "}
+                      <span className="text-muted-foreground">
+                        (a conversa recomeça, mas a conta volta conectada)
+                      </span>
+                    </p>
+                  )}
+                  {conectando && (
+                    <p className="text-xs text-muted-foreground" role="status">
+                      Aguardando a autorização na janela {comArtigo(consulta.slug, true)}…
+                    </p>
+                  )}
+                </div>
+              )
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                Usadas apenas na consulta e nunca enviadas à IA.
+              </p>
+            )}
+            {!conexao &&
+              CREDENCIAIS.map((c) => (
+                <div key={c.nome} className="space-y-1">
+                  <Label htmlFor={`cred-${c.nome}`} className="text-xs">
+                    {c.rotulo}
+                    {obrigatoria(c) ? "" : " (opcional)"}
+                  </Label>
+                  <Input
+                    id={`cred-${c.nome}`}
+                    type={c.segredo ? "password" : "text"}
+                    autoComplete={c.segredo ? "current-password" : "off"}
+                    value={cred[c.nome] ?? ""}
+                    onChange={(e) => setCred((atual) => ({ ...atual, [c.nome]: e.target.value }))}
+                    placeholder={c.default ?? ""}
+                  />
+                  <p className="text-[11px] leading-snug text-muted-foreground">{c.onde_obter}</p>
+                </div>
+              ))}
             <label className="flex items-center gap-2 text-sm">
               <input
                 type="checkbox"
@@ -574,7 +711,7 @@ function FormularioConsulta({
 
 function Index() {
   const [mensagens, setMensagens] = useState<Mensagem[]>(() => [
-    boasVindas(SISTEMAS.map((s) => comArtigo(s.slug))),
+    boasVindas(SISTEMAS.filter((s) => !exigeConexao(s.slug)).map((s) => comArtigo(s.slug))),
   ]);
   const { pergunta: perguntaInicial, sistema: sistemaDaUrl } = Route.useSearch();
   const [sistema, setSistema] = useState<string | null>(
@@ -591,12 +728,21 @@ function Index() {
   const [cofres, setCofres] = useState<Record<string, boolean>>({});
   const [salvas, setSalvas] = useState<ConsultaSalva[]>([]);
   const [painelAberto, setPainelAberto] = useState(false);
+  /** Sistemas por autorização ainda sem o aplicativo configurado: ficam fora da escolha. */
+  const [semAplicativo, setSemAplicativo] = useState<Set<string>>(
+    () => new Set(SISTEMAS.filter((s) => exigeConexao(s.slug)).map((s) => s.slug)),
+  );
+  const sistemasVisiveis = SISTEMAS.filter((s) => !semAplicativo.has(s.slug));
   const fim = useRef<HTMLDivElement>(null);
+  /** PIN usado nesta aba, por sistema: só em memória, para regravar o acesso renovado. */
+  const pinsDaSessao = useRef<Record<string, string>>({});
 
   const credenciaisDe = (slug: string) => credPorSistema[slug] ?? {};
   const temCredenciaisDe = (slug: string) =>
-    credenciaisDo(slug).length > 0 &&
-    credenciaisDo(slug).every((c) => !obrigatoria(c) || credenciaisDe(slug)[c.nome]);
+    exigeConexao(slug)
+      ? Boolean(credenciaisDe(slug)["refresh_token"] || credenciaisDe(slug)["access_token"])
+      : credenciaisDo(slug).length > 0 &&
+        credenciaisDo(slug).every((c) => !obrigatoria(c) || credenciaisDe(slug)[c.nome]);
   const temCredenciais = sistema ? temCredenciaisDe(sistema) : false;
   const credenciaisSalvas = sistema ? Boolean(cofres[sistema]) : false;
   const lerCofres = () =>
@@ -629,6 +775,38 @@ function Index() {
   useEffect(() => {
     lerCofres();
     setSalvas(listarConsultasSalvas());
+    conexoesConfiguradas()
+      .then((prontas) => {
+        const faltam = new Set(
+          Object.entries(prontas)
+            .filter(([, pronta]) => !pronta)
+            .map(([slug]) => slug),
+        );
+        setSemAplicativo(faltam);
+        const visiveis = SISTEMAS.filter((s) => !faltam.has(s.slug));
+        // a boas-vindas cita só os sistemas que dá para usar agora
+        setMensagens((atual) =>
+          atual.length > 0
+            ? [
+                { ...boasVindas(visiveis.map((s) => comArtigo(s.slug))), id: atual[0]!.id },
+                ...atual.slice(1),
+              ]
+            : atual,
+        );
+      })
+      .catch(() => undefined);
+    // conexão concluída numa aba (pop-up bloqueado): pega o acesso deixado pela página de retorno
+    try {
+      const pendente = sessionStorage.getItem(CHAVE_PENDENTE);
+      if (pendente) {
+        sessionStorage.removeItem(CHAVE_PENDENTE);
+        const { slug, credenciais } = JSON.parse(pendente) as MensagemConexao;
+        setCredPorSistema((atual) => ({ ...atual, [slug]: credenciais }));
+        toast.success(`Conta ${comArtigo(slug, true)} conectada`);
+      }
+    } catch {
+      // sem armazenamento: a pessoa conecta de novo pelo formulário
+    }
     if (!sistemaDaUrl && SISTEMAS.length > 1) {
       try {
         const lembrado = localStorage.getItem(CHAVE_SISTEMA);
@@ -731,6 +909,7 @@ function Index() {
     const nome = comArtigo(consulta.slug);
     const noSistema = `n${comArtigo(consulta.slug)}`;
     const maximo = 1000;
+    let credAtual = cred;
     pararPaginas.current = false;
     try {
       // Sistemas com limite de requisições devolvem uma página por chamada (continuar=true):
@@ -745,7 +924,7 @@ function Index() {
         parcial = await executarConsultaReal({
           data: {
             endpointId: consulta.id,
-            credenciais: cred,
+            credenciais: credAtual,
             filtros,
             maximo,
             pagina,
@@ -753,6 +932,18 @@ function Index() {
           },
         });
         chaveEmBase64 = parcial.chaveEmBase64;
+        // OAuth: o acesso foi renovado e o anterior deixou de valer; guarda o novo
+        if (parcial.credenciaisNovas) {
+          credAtual = { ...credAtual, ...parcial.credenciaisNovas };
+          const atualizadas = credAtual;
+          setCredPorSistema((atual) => ({ ...atual, [consulta.slug]: atualizadas }));
+          const pinSessao = pinsDaSessao.current[consulta.slug];
+          if (pinSessao) {
+            void salvarCredenciais(consulta.slug, atualizadas, pinSessao)
+              .then(lerCofres)
+              .catch(() => undefined);
+          }
+        }
         linhas.push(...parcial.linhas);
         for (const c of parcial.colunas) {
           if (!colunas.some((x) => x.chave === c.chave)) colunas.push(c);
@@ -821,17 +1012,26 @@ Observação: ${resultado.aviso}`
       toast.error(`Não consegui consultar ${comArtigo(consulta.slug)}`, { description: motivo });
       // Esquece os segredos desta conversa para o formulário pedi-los de novo, em vez de
       // repetir a tentativa com os mesmos; mantém o que não é segredo (ex.: endereço da API).
+      const conexaoFalhou = exigeConexao(consulta.slug) && /autoriza|conect/i.test(motivo);
       const semSegredos = Object.fromEntries(
         credenciaisDo(consulta.slug)
           .filter((c) => !c.segredo && cred[c.nome])
           .map((c) => [c.nome, cred[c.nome]!]),
       );
-      setCredPorSistema((atual) => ({ ...atual, [consulta.slug]: semSegredos }));
+      if (!exigeConexao(consulta.slug) || conexaoFalhou) {
+        setCredPorSistema((atual) => ({ ...atual, [consulta.slug]: semSegredos }));
+      }
       setMensagens((atual) => [
         ...atual,
         mensagem(
           "assistente",
-          `Não deu certo: ${motivo}\n\n**Confira as credenciais e tente novamente.** Deixei o formulário abaixo com os mesmos filtros.` +
+          `Não deu certo: ${motivo}\n\n` +
+            (exigeConexao(consulta.slug)
+              ? conexaoFalhou
+                ? "**Conecte a conta de novo e tente novamente.**"
+                : "**Tente novamente.**"
+              : "**Confira as credenciais e tente novamente.**") +
+            " Deixei o formulário abaixo com os mesmos filtros." +
             (cofres[consulta.slug]
               ? " Se as credenciais salvas estiverem desatualizadas, clique em “Usar outras credenciais” e salve as novas."
               : ""),
@@ -1023,6 +1223,9 @@ Observação: ${resultado.aviso}`
                     pedirCredenciais={!temCredenciaisDe(m.formulario.slug)}
                     credenciaisSalvas={Boolean(cofres[m.formulario.slug])}
                     aoMudarCofre={lerCofres}
+                    aoGuardarPin={(pin) => {
+                      pinsDaSessao.current[m.formulario!.slug] = pin;
+                    }}
                     {...(m.periodo ? { periodoSugerido: m.periodo } : {})}
                     {...(m.filtrosIniciais ? { filtrosIniciais: m.filtrosIniciais } : {})}
                     ocupado={ocupado}
@@ -1078,7 +1281,7 @@ Observação: ${resultado.aviso}`
             <div className="mb-3">
               <p className="mb-2 text-sm font-medium">Qual sistema a sua empresa usa?</p>
               <div className="flex flex-wrap gap-2">
-                {SISTEMAS.map((sis) => (
+                {sistemasVisiveis.map((sis) => (
                   <Button key={sis.slug} size="sm" onClick={() => escolherSistema(sis.slug)}>
                     {sis.nome}
                   </Button>

@@ -45,7 +45,97 @@ CONSULTAS_DO_SITE = {
         "arquivei.pagamento.listar.comprovantes",
         "arquivei.empresa.listar",
     },
+    # Mercado Livre: vendas, anúncios, perguntas, reclamações, reputação e visitas. Faturamento e
+    # tarifas ficam de fora (bloqueio por IP, 1 consulta/dia recomendada); detalhes por id também.
+    "mercado-livre": {
+        "mercado-livre.pedido.listar",
+        "mercado-livre.anuncio.listar",
+        "mercado-livre.mensagem.listar.perguntas",
+        "mercado-livre.contestacao.listar",
+        "mercado-livre.empresa.obter",
+        "mercado-livre.anuncio.listar.visitas_diarias",
+    },
 }
+
+# Receitas usadas por outra consulta (segunda etapa), que o site não oferece sozinhas.
+CONSULTAS_AUXILIARES = {"mercado-livre.anuncio.listar.bulk"}
+
+# Sistemas cujos filtros vêm de `execucao.filtros_recomendados` (papel, modelo, valor), e não
+# dos parâmetros: período em modelo de data com fuso, vendedor da conta conectada, fixos.
+FILTROS_POR_RECOMENDACAO = {"mercado-livre"}
+
+# Rótulos em português para filtros de opção enviados na query, por consulta e parâmetro.
+OPCOES_DE_QUERY = {
+    ("mercado-livre.pedido.listar", "order.status"): {
+        "nome": "situacao", "rotulo": "Situação",
+        "valores": {"Pagas": "paid", "Canceladas": "cancelled", "Confirmadas": "confirmed",
+                    "Parcialmente reembolsadas": "partially_refunded"}},
+    ("mercado-livre.anuncio.listar", "status"): {
+        "nome": "situacao", "rotulo": "Situação",
+        "valores": {"Ativos": "active", "Pausados": "paused", "Encerrados": "closed"}},
+    ("mercado-livre.mensagem.listar.perguntas", "status"): {
+        "nome": "situacao", "rotulo": "Situação",
+        "valores": {"Sem resposta": "UNANSWERED", "Respondidas": "ANSWERED"}},
+    ("mercado-livre.contestacao.listar", "status"): {
+        "nome": "situacao", "rotulo": "Situação",
+        "valores": {"Abertas": "opened", "Encerradas": "closed"}},
+    ("mercado-livre.contestacao.listar", "type"): {
+        "nome": "tipo_caso", "rotulo": "Tipo",
+        "valores": {"Mediações": "mediations", "Devoluções": "return",
+                    "Cancelamentos": "cancel_purchase", "Trocas": "change"}},
+}
+
+# Ajustes de paginação e parâmetros fixos que o site precisa e o catálogo descreve em texto.
+AJUSTES_DO_SITE = {
+    # busca de anúncios em modo scan: o scroll_id volta na raiz e pode se repetir; acaba com lista vazia
+    "mercado-livre.anuncio.listar": {"paginacao": {"origem_proximo": "raiz_da_resposta", "fim": "lista_vazia"},
+                                     "fixos": {"limit": 100}},
+    "mercado-livre.mensagem.listar.perguntas": {"fixos": {"sort_types": "DESC"}},
+}
+
+
+def planejar_por_recomendacao(endpoint):
+    """Filtros a partir de `filtros_recomendados` (Mercado Livre).
+
+    - período: campos Data inicial/final; o valor vai no `modelo` do catálogo (data com fuso);
+    - vendedor: o id da conta conectada (user_id), sem perguntar;
+    - fixo: valor documentado, sempre enviado;
+    - opção: só as que têm rótulo em OPCOES_DE_QUERY;
+    - dias: número de dias do período (ex.: visitas por dia).
+    O {user_id} do caminho também vem da conta conectada.
+    """
+    ex = endpoint.get("execucao") or {}
+    filtros = ex.get("filtros_recomendados") or []
+    campos, fixos = [], {}
+    receita = {"parametros_modelo": {}, "vendedor": [], "dias": None, "escolhas_query": {}}
+    periodo = any((f.get("papel") in ("periodo_inicio", "periodo_fim", "periodo") and f.get("modelo"))
+                  or f.get("papel") == "dias" for f in filtros)
+    if periodo:
+        campos.append({"nome": "data_inicial", "rotulo": "Data inicial", "tipo": "data",
+                       "papel": "periodo_inicio", "obrigatorio": True})
+        campos.append({"nome": "data_final", "rotulo": "Data final", "tipo": "data",
+                       "papel": "periodo_fim", "obrigatorio": True})
+    for f in filtros:
+        papel, param = f.get("papel"), f.get("parametro")
+        if papel in ("periodo_inicio", "periodo_fim", "periodo") and f.get("modelo"):
+            receita["parametros_modelo"][param] = f["modelo"]
+        elif papel == "periodo_fim" and periodo and "AAAA-MM-DD" == str(f.get("formato") or ""):
+            receita["parametros_modelo"][param] = "{data_final}"
+        elif papel == "vendedor":
+            receita["vendedor"].append(param)
+        elif papel == "fixo":
+            fixos[param] = f.get("valor")
+        elif papel == "dias":
+            receita["dias"] = param
+        elif papel == "opcao" and (endpoint["id"], param) in OPCOES_DE_QUERY:
+            o = OPCOES_DE_QUERY[(endpoint["id"], param)]
+            campos.append({"nome": o["nome"], "rotulo": o["rotulo"], "tipo": "opcao", "papel": "opcao",
+                           "obrigatorio": False, "opcoes": list(o["valores"]), "padrao": ""})
+            receita["escolhas_query"][o["nome"]] = {"parametro": param, "valores": o["valores"]}
+    fixos.update((ex.get("paginacao") or {}).get("parametros_fixos") or {})
+    fixos.update(AJUSTES_DO_SITE.get(endpoint["id"], {}).get("fixos", {}))
+    return campos, fixos, receita
+
 
 # Título da planilha das consultas do site, quando o nome do fornecedor é técnico demais.
 TITULOS_DO_SITE = {
@@ -57,6 +147,12 @@ TITULOS_DO_SITE = {
     "arquivei.conta_pagar.listar.boletos": "Boletos",
     "arquivei.pagamento.listar.comprovantes": "Comprovantes de pagamento",
     "arquivei.empresa.listar": "Empresas da conta",
+    "mercado-livre.pedido.listar": "Vendas",
+    "mercado-livre.anuncio.listar": "Anúncios",
+    "mercado-livre.mensagem.listar.perguntas": "Perguntas",
+    "mercado-livre.contestacao.listar": "Reclamações e devoluções",
+    "mercado-livre.empresa.obter": "Reputação da conta",
+    "mercado-livre.anuncio.listar.visitas_diarias": "Visitas por dia",
 }
 
 # Filtros que vão no corpo JSON e que o formulário oferece como escolha. É decisão de
@@ -111,6 +207,18 @@ TRADUCOES_DE_VALOR = {
         "high": "Alta", "medium": "Média", "low": "Baixa",
         "manual": "Manual", "automatico": "Automático",
     },
+    "mercado-livre": {
+        "paid": "Paga", "cancelled": "Cancelada", "confirmed": "Confirmada",
+        "partially_refunded": "Parcialmente reembolsada", "payment_required": "Aguardando pagamento",
+        "payment_in_process": "Pagamento em processamento", "invalid": "Inválida",
+        "active": "Ativo", "paused": "Pausado", "closed": "Encerrado", "under_review": "Em revisão",
+        "inactive": "Inativo", "UNANSWERED": "Sem resposta", "ANSWERED": "Respondida",
+        "CLOSED_UNANSWERED": "Encerrada sem resposta", "UNDER_REVIEW": "Em revisão",
+        "opened": "Aberta", "mediations": "Mediação", "return": "Devolução",
+        "cancel_purchase": "Cancelamento", "change": "Troca", "claim": "Reclamação",
+        "dispute": "Disputa", "gold_special": "Clássico", "gold_pro": "Premium", "free": "Grátis",
+        "platinum": "Platinum", "gold": "Gold", "silver": "Silver",
+    },
 }
 
 
@@ -118,7 +226,9 @@ def titulo_limpo(titulo):
     """'Situação (authorized/canceled)' -> 'Situação': a lista de valores em inglês sai do título,
     porque a planilha já mostra os valores traduzidos."""
     import re
-    return re.sub(r"\s*\((?:[a-z_]+(?:/|,\s*))+[a-z_]+\)$", "", str(titulo or "")).strip()
+    titulo = re.sub(r"\s*\(JSON[^)]*\)", "", str(titulo or ""))
+    titulo = re.sub(r"\s*\([a-z]+(?:_[a-z]+)+\)$", "", titulo)  # "SKU (seller_custom_field)" -> "SKU"
+    return re.sub(r"\s*\((?:[a-z_]+(?:/|,\s*))+[a-z_]+\)$", "", titulo).strip()
 
 
 def planejar_corpo(endpoint):
@@ -189,6 +299,13 @@ def credenciais_do_site(auth):
     """Sem credencial de endereço, mas com produção e testes conhecidos: o formulário oferece o
     endereço já preenchido com o de produção, para o cliente poder usar o de testes."""
     auth = json.loads(json.dumps(auth or {}))
+    if auth.get("tipo") == "oauth2_refresh_token":
+        # o cliente não digita nada: conecta a conta na tela do fornecedor (aplicativo do Stagium);
+        # client_id e client_secret ficam nos segredos do servidor
+        auth["credenciais_necessarias"] = []
+        auth["conexao"] = {"tipo": "oauth_popup",
+                           "url_autorizacao": "https://auth.mercadolivre.com.br/authorization"}
+        return auth
     creds = auth.get("credenciais_necessarias") or []
     ambientes = auth.get("base_url_por_ambiente") or {}
     if ambientes.get("producao") and ambientes.get("sandbox") and not any(c.get("nome") == "base_url" for c in creds):
@@ -361,7 +478,9 @@ def main():
                 "descricao": curto(e.get("descricao")),
                 "fonte": e.get("fonte_url"),
             }
-            if ex.get("seguro_para_executar") and do_site is not None and e["id"] not in do_site:
+            auxiliar = e["id"] in CONSULTAS_AUXILIARES
+            if (ex.get("seguro_para_executar") and do_site is not None and e["id"] not in do_site
+                    and not auxiliar):
                 continue  # leitura que o site não oferece (ver CONSULTAS_DO_SITE)
             if ex.get("seguro_para_executar"):
                 base["quando_usar"] = curto(e.get("quando_usar"), 180)
@@ -376,10 +495,17 @@ def main():
                             for c in (xml["colunas"] if xml else []) if c["titulo"].lower() not in ja_tem]
                 base["colunas"] = [c.get("titulo") for c in colunas][:18]
                 base["paginacao"] = (ex.get("paginacao") or {}).get("tipo")
-                consultas.append(base)
+                if not auxiliar:
+                    consultas.append(base)
                 # receita completa para o executor do servidor
-                paginacao = ex.get("paginacao") or {}
-                campos_filtro, padroes_fixos, offset_base = planejar_filtros(e, paginacao)
+                paginacao = {**(ex.get("paginacao") or {}),
+                             **AJUSTES_DO_SITE.get(e["id"], {}).get("paginacao", {})}
+                recomendacao = None
+                if s["slug"] in FILTROS_POR_RECOMENDACAO:
+                    campos_filtro, padroes_fixos, recomendacao = planejar_por_recomendacao(e)
+                    offset_base = 0
+                else:
+                    campos_filtro, padroes_fixos, offset_base = planejar_filtros(e, paginacao)
                 if offset_base:
                     paginacao = {**paginacao, "offset_base": offset_base}
                 campos_corpo, corpo = planejar_corpo(e)
@@ -399,6 +525,12 @@ def main():
                     **({"corpo": corpo} if corpo else {}),
                     **({"xml": {"campo": xml["campo"]}} if xml else {}),
                     **({"headers_fixos": ex["headers_fixos"]} if ex.get("headers_fixos") else {}),
+                    **({"headers_fixos": ex["headers"]} if ex.get("headers") else {}),
+                    **({"recomendacao": recomendacao} if recomendacao else {}),
+                    **({"segunda_etapa": {"endpoint": ex["segunda_etapa"]["endpoint"],
+                                          "lote": ex["segunda_etapa"].get("lote", 20),
+                                          "parametro": "ids"}}
+                       if ex.get("segunda_etapa") else {}),
                     **({"query_composta": query_composta} if query_composta else {}),
                     **({"intervalo_minimo_s": limite["intervalo_minimo_s"]}
                        if limite.get("intervalo_minimo_s") else {}),
@@ -406,6 +538,13 @@ def main():
             else:
                 base["motivo_nao_executa"] = curto(ex.get("motivo_inseguro"), 160)
                 escritas.append(base)
+
+    # consulta em duas etapas: a proposta mostra as colunas da segunda (ex.: dados dos anúncios)
+    for c in consultas:
+        receita = execucao[c["slug"]]["endpoints"].get(c["id"]) or {}
+        etapa = (receita.get("segunda_etapa") or {}).get("endpoint")
+        if etapa and etapa in execucao[c["slug"]]["endpoints"]:
+            c["colunas"] = [col.get("titulo") for col in execucao[c["slug"]]["endpoints"][etapa]["colunas"]][:18]
 
     conhecimento = {
         "gerado_em": __import__("datetime").date.today().isoformat(),

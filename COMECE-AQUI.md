@@ -25,7 +25,7 @@ O valor está no **catálogo**: a documentação das APIs de cada sistema, conve
 |---|---|
 | Sistemas documentados | **11** — Asaas, Bling, Focus NFe, Mercado Pago, NFE.io, Nomus, Pagar.me, Pix (Bacen), PlugNotas, SEFAZ, SyGeCom (Sagi) |
 | Endpoints | 547 detalhados, 1.017 catalogados, **302 executáveis** pelo assistente (Nomus: 35, 159 e 31) |
-| Site (chat) | No ar em stagium.lovable.app; o cliente escolhe **Sagi, Nomus ou Qive** |
+| Site (chat) | No ar em stagium.lovable.app; o cliente escolhe **Sagi, Nomus, Qive ou Mercado Livre** (este só depois de configurar o aplicativo) |
 | Executor no servidor | Funciona. Testado contra servidor local no formato do Sagi; **ainda não rodou contra a API real** |
 | IA no site | Código pronto; **depende da variável `ANTHROPIC_API_KEY`** no Lovable |
 | Piloto | Cliente atual do proprietário, usa **Sagi (SyGeCom)** |
@@ -140,6 +140,7 @@ O trabalho é feito com **Claude Code**, um agente por sistema, em lotes de trê
 | 09/10 | **Nomus** documentado (31 consultas de leitura) e liberado no site ao lado do Sagi; chat passa a perguntar o sistema da empresa |
 | 14/10 | **Mercado Livre** e **Qive (Arquivei)** documentados; repositório renomeado para hubsolucoes/STAGIUM |
 | 15/10 | **Qive** liberada no chat com 8 consultas (NF-e, CT-e, CT-e OS, NFS-e, MDF-e, boletos, comprovantes, empresas); filas de eventos, PDFs e webhooks ficam de fora |
+| 15/10 | **Mercado Livre** no chat com conexão por autorização (aplicativo único da HUBx); 6 consultas; fica escondido até os segredos `MERCADO_LIVRE_CLIENT_ID/SECRET` existirem no Lovable |
 | 18/09 | Repositório tornado **público** a pedido do proprietário |
 | 08/10 | Produto passa a se chamar **Stagium**; site em stagium.lovable.app (landing na raiz, chat em /chat) |
 | 08/10 | Credenciais podem ser salvas **no navegador, criptografadas com PIN**; consultas salvas com período relativo |
