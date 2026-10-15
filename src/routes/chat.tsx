@@ -60,6 +60,8 @@ type CampoCredencial = {
   segredo: boolean;
   onde_obter: string;
   default?: string;
+  /** false: o formulário mostra, mas não exige (ex.: chave de parceiro da Qive). */
+  obrigatoria?: boolean;
 };
 
 const EXECUCAO = (
@@ -71,7 +73,13 @@ const EXECUCAO = (
 /** Credenciais que o cliente informa para consultar um sistema. */
 const credenciaisDo = (slug: string) => EXECUCAO[slug]?.auth.credenciais_necessarias ?? [];
 
-const NOMES_CURTOS: Record<string, string> = { sygecom: "Sagi (SyGeCom)", nomus: "Nomus" };
+const NOMES_CURTOS: Record<string, string> = {
+  sygecom: "Sagi (SyGeCom)",
+  nomus: "Nomus",
+  arquivei: "Qive (Arquivei)",
+};
+
+const obrigatoria = (c: CampoCredencial) => c.obrigatoria !== false;
 
 /** Sistemas que o site consulta de verdade (os que têm receita de execução). */
 const SISTEMAS = (conhecimento.sistemas as { slug: string; nome: string }[])
@@ -81,8 +89,20 @@ const SISTEMAS = (conhecimento.sistemas as { slug: string; nome: string }[])
 const nomeDo = (slug: string | null | undefined) =>
   SISTEMAS.find((s) => s.slug === slug)?.nome ?? "seu sistema";
 
+/** Sistemas de nome feminino (a Qive); os demais levam "o". */
+const FEMININOS = new Set(["arquivei"]);
+/** "o Nomus", "a Qive (Arquivei)"; com `de`: "do Nomus", "da Qive (Arquivei)". */
+const comArtigo = (slug: string | null | undefined, de = false) =>
+  `${de ? "d" : ""}${slug && FEMININOS.has(slug) ? "a" : "o"} ${nomeDo(slug)}`;
+
 const SUGESTOES_POR_SISTEMA: Record<string, string[]> = {
   sygecom: ["Produtos cadastrados", "Movimentos de estoque", "Pedidos de compra", "Clientes"],
+  arquivei: [
+    "NF-e recebidas deste mês",
+    "Notas emitidas do mês passado",
+    "CT-e de fretes deste mês",
+    "Boletos a vencer deste mês",
+  ],
   nomus: [
     "Contas a receber em aberto",
     "Pedidos de venda do mês passado",
@@ -339,7 +359,8 @@ function FormularioConsulta({
   const faltaCredencial = modoPin
     ? pin.length < PIN_MINIMO
     : pedirCredenciais &&
-      (CREDENCIAIS.some((c) => !cred[c.nome]?.trim()) || (lembrar && pinNovo.length < PIN_MINIMO));
+      (CREDENCIAIS.some((c) => obrigatoria(c) && !cred[c.nome]?.trim()) ||
+        (lembrar && pinNovo.length < PIN_MINIMO));
 
   async function confirmar() {
     setErroPin("");
@@ -494,6 +515,7 @@ function FormularioConsulta({
               <div key={c.nome} className="space-y-1">
                 <Label htmlFor={`cred-${c.nome}`} className="text-xs">
                   {c.rotulo}
+                  {obrigatoria(c) ? "" : " (opcional)"}
                 </Label>
                 <Input
                   id={`cred-${c.nome}`}
@@ -543,7 +565,7 @@ function FormularioConsulta({
           size="sm"
           disabled={faltaFiltro || faltaCredencial || periodoInvertido || ocupado || abrindo}
         >
-          Consultar o {nomeDo(consulta.slug)}
+          Consultar {comArtigo(consulta.slug)}
         </Button>
       </form>
     </div>
@@ -552,7 +574,7 @@ function FormularioConsulta({
 
 function Index() {
   const [mensagens, setMensagens] = useState<Mensagem[]>(() => [
-    boasVindas(SISTEMAS.map((s) => s.nome)),
+    boasVindas(SISTEMAS.map((s) => comArtigo(s.slug))),
   ]);
   const { pergunta: perguntaInicial, sistema: sistemaDaUrl } = Route.useSearch();
   const [sistema, setSistema] = useState<string | null>(
@@ -573,7 +595,8 @@ function Index() {
 
   const credenciaisDe = (slug: string) => credPorSistema[slug] ?? {};
   const temCredenciaisDe = (slug: string) =>
-    credenciaisDo(slug).length > 0 && credenciaisDo(slug).every((c) => credenciaisDe(slug)[c.nome]);
+    credenciaisDo(slug).length > 0 &&
+    credenciaisDo(slug).every((c) => !obrigatoria(c) || credenciaisDe(slug)[c.nome]);
   const temCredenciais = sistema ? temCredenciaisDe(sistema) : false;
   const credenciaisSalvas = sistema ? Boolean(cofres[sistema]) : false;
   const lerCofres = () =>
@@ -592,10 +615,10 @@ function Index() {
         .map((e) => `"${e.toLowerCase()}"`);
       setMensagens((atual) => [
         ...atual,
-        mensagem("cliente", `Uso o ${nomeDo(slug)}.`),
+        mensagem("cliente", `Uso ${comArtigo(slug)}.`),
         mensagem(
           "assistente",
-          `Certo, vou consultar o **${nomeDo(slug)}**. O que você precisa?` +
+          `Certo, vou consultar ${comArtigo(slug)}. O que você precisa?` +
             (exemplos.length > 0 ? ` Por exemplo: ${exemplos.join(", ")}.` : ""),
         ),
       ]);
@@ -630,7 +653,7 @@ function Index() {
 
     setMensagens((atual) => [...atual, mensagem("cliente", limpo)]);
     setPergunta("");
-    setEtapa(`Procurando a consulta certa no catálogo do ${nomeDo(sistema)}…`);
+    setEtapa(`Procurando a consulta certa no catálogo ${comArtigo(sistema, true)}…`);
     setOcupado(true);
 
     try {
@@ -702,10 +725,11 @@ function Index() {
     consulta: Consulta,
   ) {
     setCredPorSistema((atual) => ({ ...atual, [consulta.slug]: cred }));
-    setEtapa(`Consultando o ${nomeDo(consulta.slug)} e montando a planilha…`);
+    setEtapa(`Consultando ${comArtigo(consulta.slug)} e montando a planilha…`);
     setOcupado(true);
     const resumo = resumirFiltros(consulta, filtros);
-    const nome = nomeDo(consulta.slug);
+    const nome = comArtigo(consulta.slug);
+    const noSistema = `n${comArtigo(consulta.slug)}`;
     const maximo = 1000;
     pararPaginas.current = false;
     try {
@@ -744,7 +768,7 @@ function Index() {
           if (pararPaginas.current) break;
           setEtapa(
             `${linhas.length.toLocaleString("pt-BR")} registros até agora. ` +
-              `O ${nome} libera uma consulta a cada poucos segundos: próxima página em ${falta} s.`,
+              `${nome.charAt(0).toUpperCase()}${nome.slice(1)} libera uma consulta a cada poucos segundos: próxima página em ${falta} s.`,
           );
           await new Promise((r) => setTimeout(r, 1000));
         }
@@ -752,7 +776,7 @@ function Index() {
           interrompida = true;
           break;
         }
-        setEtapa(`Buscando a página ${pagina + 1} no ${nome}…`);
+        setEtapa(`Buscando a página ${pagina + 1} ${noSistema}…`);
       }
       const resultado = {
         ...parcial!,
@@ -762,7 +786,7 @@ function Index() {
           [
             parcial!.aviso,
             interrompida
-              ? `Consulta interrompida a seu pedido com ${linhas.length} registros; pode haver mais no ${nome}.`
+              ? `Consulta interrompida a seu pedido com ${linhas.length} registros; pode haver mais ${noSistema}.`
               : "",
             linhas.length >= maximo
               ? `Parei em ${maximo} registros. Para trazer o restante, divida o período.`
@@ -784,7 +808,7 @@ function Index() {
 
 Observação: ${resultado.aviso}`
                   : "")
-            : `A consulta funcionou, mas o ${nomeDo(consulta.slug)} não devolveu nenhum registro para **${resultado.titulo}**` +
+            : `A consulta funcionou, mas ${comArtigo(consulta.slug)} não devolveu nenhum registro para **${resultado.titulo}**` +
                 (resumo ? ` com os filtros ${resumo}` : "") +
                 ". Tente ampliar o período ou trocar a filial — ou o usuário de integração não tem acesso a esses dados.",
           resultado.linhas.length > 0
@@ -794,7 +818,7 @@ Observação: ${resultado.aviso}`
       ]);
     } catch (erro) {
       const motivo = erro instanceof Error ? erro.message : "falha desconhecida";
-      toast.error(`Não consegui consultar o ${nomeDo(consulta.slug)}`, { description: motivo });
+      toast.error(`Não consegui consultar ${comArtigo(consulta.slug)}`, { description: motivo });
       // Esquece os segredos desta conversa para o formulário pedi-los de novo, em vez de
       // repetir a tentativa com os mesmos; mantém o que não é segredo (ex.: endereço da API).
       const semSegredos = Object.fromEntries(
@@ -929,7 +953,7 @@ Observação: ${resultado.aviso}`
                   setCredPorSistema((atual) => ({ ...atual, [sistema]: {} }));
                   apagarCredenciaisSalvas(sistema);
                   lerCofres();
-                  toast.success(`Credenciais do ${nomeDo(sistema)} apagadas deste navegador`);
+                  toast.success(`Credenciais ${comArtigo(sistema, true)} apagadas deste navegador`);
                 }}
               >
                 Esquecer credenciais
@@ -1111,7 +1135,9 @@ Observação: ${resultado.aviso}`
                 }
               }}
               placeholder={
-                sistema ? `O que você precisa do ${nomeDo(sistema)}?` : "Escolha o sistema acima"
+                sistema
+                  ? `O que você precisa ${comArtigo(sistema, true)}?`
+                  : "Escolha o sistema acima"
               }
               aria-label="Sua pergunta"
               rows={1}

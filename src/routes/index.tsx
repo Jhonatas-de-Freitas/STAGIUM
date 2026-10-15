@@ -14,7 +14,7 @@ export const Route = createFileRoute("/")({
       {
         name: "description",
         content:
-          "Pergunte em português o que precisa do ERP da sua empresa (hoje Sagi e Nomus). O Stagium encontra a consulta certa, pede sua aprovação, lê os dados pela API e devolve a planilha .xlsx.",
+          "Pergunte em português o que precisa do ERP da sua empresa (hoje Sagi, Nomus e Qive). O Stagium encontra a consulta certa, pede sua aprovação, lê os dados pela API e devolve a planilha .xlsx.",
       },
       { property: "og:title", content: "Stagium" },
       {
@@ -155,7 +155,7 @@ function Landing() {
               <BotoesContato centro />
             </div>
             <p className="mt-4 text-sm text-muted-foreground">
-              Hoje com Sagi (SyGeCom) e Nomus. Só leitura, sempre com a sua aprovação.
+              Hoje com Sagi (SyGeCom), Nomus e Qive. Só leitura, sempre com a sua aprovação.
             </p>
           </div>
           <FluxoPlanilhas />
@@ -207,8 +207,8 @@ function Landing() {
             </h2>
             <p className="mt-4 max-w-[58ch] leading-relaxed text-primary-foreground/75">
               Escolha uma informação que a sua equipe pede toda semana e peça ao Stagium. Hoje ele
-              trabalha com o Sagi (SyGeCom) e o Nomus; se a sua empresa usa outro sistema, conte
-              qual.
+              trabalha com o Sagi (SyGeCom), o Nomus e a Qive; se a sua empresa usa outro sistema,
+              conte qual.
             </p>
             <div className="mt-8">
               <BotoesContato invertido />

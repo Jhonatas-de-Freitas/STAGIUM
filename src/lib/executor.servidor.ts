@@ -9,7 +9,8 @@ import conhecimento from "./conhecimento.json";
  * não são gravadas em disco, não entram em log e nunca vão para o modelo de IA.
  *
  * A receita de cada endpoint (caminho, paginação, colunas) e a de autenticação
- * vêm de conhecimento.json, gerado do catálogo real.
+ * vêm de conhecimento.json, gerado do catálogo real. Só entram lá leituras marcadas como
+ * seguras no catálogo; algumas são buscas por POST (ex.: Qive), que não gravam nada.
  */
 
 type Coluna = { titulo: string; caminho: string; tipo?: string; formato_origem?: string };
@@ -31,6 +32,12 @@ type ReceitaEndpoint = {
     offset_base?: number;
     /** Primeira página quando a paginação é por número de página (padrão 1). */
     pagina_inicial?: number;
+    /** Onde vai o cursor: na query (padrão) ou no corpo JSON (ex.: buscas da Qive). */
+    local_cursor?: "query" | "corpo";
+    /** "raiz_da_resposta": o próximo cursor vem na resposta, não dentro dos registros. */
+    origem_proximo?: string;
+    cursor_inicial?: number;
+    fim_alternativo?: string;
   };
   filtros: { parametro: string; descricao: string }[];
   campos_filtro?: CampoFiltro[];
@@ -47,6 +54,16 @@ type ReceitaEndpoint = {
   };
   /** Intervalo mínimo entre requisições exigido pelo sistema (ex.: Nomus: 20 s). */
   intervalo_minimo_s?: number;
+  /** Leitura por POST com corpo JSON: modelo com {data_inicial}, {data_final}, {cnpj}. */
+  corpo?: {
+    modelo: Record<string, unknown>;
+    /** Escolhas do formulário: campo -> caminho no corpo e valor enviado por opção. */
+    escolhas: Record<string, { caminho: string; valores: Record<string, unknown> }>;
+    filial: { caminho: string; modelo: unknown } | null;
+  };
+  /** Campo com o XML do documento em Base64; colunas "xml:<caminho>" saem de dentro dele. */
+  xml?: { campo: string };
+  headers_fixos?: Record<string, string>;
 };
 
 export type CampoFiltro = {
@@ -75,7 +92,15 @@ type ReceitaAuth = {
   header?: string;
   prefixo?: string;
   headers_fixos?: Record<string, string>;
-  credenciais_necessarias: { nome: string; rotulo: string; segredo: boolean; onde_obter: string }[];
+  credenciais_necessarias: {
+    nome: string;
+    rotulo: string;
+    segredo: boolean;
+    onde_obter: string;
+    obrigatoria?: boolean;
+  }[];
+  /** Vários cabeçalhos de credencial (ex.: Qive: X-API-ID e X-API-KEY): cabeçalho -> credencial. */
+  headers_credenciais?: Record<string, string>;
   base_url_por_ambiente?: Record<string, string | null>;
   login?: {
     metodo: string;
@@ -88,7 +113,15 @@ type ReceitaAuth = {
 
 const EXECUCAO = (
   conhecimento as unknown as {
-    execucao: Record<string, { auth: ReceitaAuth; endpoints: Record<string, ReceitaEndpoint> }>;
+    execucao: Record<
+      string,
+      {
+        auth: ReceitaAuth;
+        endpoints: Record<string, ReceitaEndpoint>;
+        /** Valores que a API devolve em inglês e a planilha mostra em português. */
+        traducoes?: Record<string, string>;
+      }
+    >;
   }
 ).execucao;
 
@@ -180,6 +213,10 @@ function extrairLista(corpo: unknown, listaEm: string | null): Registro[] {
   const alvo = valor(corpo, listaEm);
   const candidatos = [alvo, corpo];
   for (const c of candidatos) {
+    // lista de valores simples (ex.: CNPJs da conta na Qive): cada valor vira uma linha em "$"
+    if (Array.isArray(c) && c.length > 0 && c.every((v) => v === null || typeof v !== "object")) {
+      return c.map((v) => ({ $: v }));
+    }
     if (Array.isArray(c)) return c.filter(ehRegistro);
     if (ehRegistro(c)) {
       const interno = Object.values(c).find(
@@ -255,6 +292,8 @@ function camposDe(corpo: unknown): string {
 
 /** Dica extra quando o sistema recusa a credencial (o que costuma dar errado em cada um). */
 const DICAS_CREDENCIAL: Record<string, string> = {
+  arquivei:
+    " Na Qive, confira o API ID e a API KEY; credenciais de testes (sandbox) só funcionam no endereço de testes.",
   sygecom:
     " No Sagi, veja também se a opção 'Bloquear Acesso ao SAGI Mobile' está desmarcada no cadastro do usuário de integração.",
 };
@@ -319,6 +358,14 @@ async function autenticar(
     return cabecalhos;
   }
 
+  if (auth.tipo === "header_api_key" && auth.headers_credenciais) {
+    for (const [cabecalho, nome] of Object.entries(auth.headers_credenciais)) {
+      const valorCredencial = (credenciais[nome] ?? "").trim();
+      if (valorCredencial) cabecalhos[cabecalho] = (auth.prefixo ?? "") + valorCredencial;
+    }
+    return cabecalhos;
+  }
+
   if (auth.tipo === "header_api_key" && auth.header) {
     const nome = auth.credenciais_necessarias[0]?.nome ?? "api_key";
     const chave = (credenciais[nome] ?? "").trim();
@@ -360,6 +407,90 @@ function numeroDeTexto(v: unknown, formato: string): unknown {
 }
 
 const TIPOS_NUMERICOS = new Set(["decimal", "integer", "number", "money", "numero"]);
+
+/**
+ * Preenche o modelo do corpo trocando {marcadores}. O que depende de um marcador sem valor
+ * (ex.: {cnpj} vazio) sai do corpo, em vez de ir como texto vazio.
+ */
+function preencherModelo(modelo: unknown, trocas: Record<string, string>): unknown {
+  if (typeof modelo === "string") {
+    let vazio = false;
+    const texto = modelo.replace(/\{([a-z_]+)\}/g, (_, chave: string) => {
+      const v = trocas[chave];
+      if (!v) vazio = true;
+      return v ?? "";
+    });
+    return vazio ? undefined : texto;
+  }
+  if (Array.isArray(modelo)) {
+    const itens = modelo.map((v) => preencherModelo(v, trocas)).filter((v) => v !== undefined);
+    return modelo.length > 0 && itens.length === 0 ? undefined : itens;
+  }
+  if (modelo && typeof modelo === "object") {
+    const saida: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(modelo)) {
+      const preenchido = preencherModelo(v, trocas);
+      if (preenchido !== undefined) saida[k] = preenchido;
+    }
+    return Object.keys(modelo).length > 0 && Object.keys(saida).length === 0 ? undefined : saida;
+  }
+  return modelo;
+}
+
+/** Grava `valor` em "A.B.C" dentro do objeto, criando os níveis que faltarem. */
+function definirCaminho(alvo: Record<string, unknown>, caminho: string, novo: unknown) {
+  const partes = caminho.split(".");
+  let atual = alvo;
+  for (const parte of partes.slice(0, -1)) {
+    if (!atual[parte] || typeof atual[parte] !== "object") atual[parte] = {};
+    atual = atual[parte] as Record<string, unknown>;
+  }
+  atual[partes.at(-1)!] = novo;
+}
+
+function decodificarBase64(texto: string): string {
+  const bytes = Uint8Array.from(atob(texto.replace(/\s/g, "")), (c) => c.charCodeAt(0));
+  return new TextDecoder("utf-8").decode(bytes);
+}
+
+const escaparRegex = (t: string) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/** Primeiro elemento <nome> (com ou sem prefixo de namespace) e o que há dentro dele. */
+function elementoXml(trecho: string, nome: string): string | null {
+  const tag = escaparRegex(nome);
+  const achado = new RegExp(
+    `<(?:[\\w-]+:)?${tag}(?:\\s[^>]*)?>([\\s\\S]*?)</(?:[\\w-]+:)?${tag}>`,
+  ).exec(trecho);
+  return achado ? achado[1]! : null;
+}
+
+/**
+ * Lê um valor do XML por um caminho como "nfeProc/NFe/infNFe/total/ICMSTot/vNF".
+ * Tolera níveis que não existem no XML guardado (ex.: sem nfeProc) e aceita alternativa
+ * no formato "dest/CNPJ (ou dest/CPF)". Caminhos do catálogo marcados "(ABRASF)" também valem.
+ */
+function lerXml(xml: string, caminho: string): string {
+  const limpo = caminho.replace(/^\(ABRASF\)\s*/, "");
+  const alternativa = /^(.*?)\s*\(ou\s+([^)]+)\)\s*$/.exec(limpo);
+  const caminhos = [alternativa ? alternativa[1]! : limpo];
+  if (alternativa) {
+    const fim = alternativa[2]!.split("/");
+    caminhos.push(caminhos[0]!.split("/").slice(0, -fim.length).concat(fim).join("/"));
+  }
+  for (const c of caminhos) {
+    const partes = c.split("/").map((p) => p.trim().split(" ")[0]!);
+    let trecho: string | null = xml;
+    for (const [i, parte] of partes.entries()) {
+      const dentro = elementoXml(trecho!, parte);
+      if (dentro !== null) trecho = dentro;
+      else if (i === partes.length - 1) trecho = null;
+    }
+    if (trecho !== null && !trecho.includes("<")) return trecho.trim();
+  }
+  return "";
+}
+
+const esperar = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const isoParaBr = (iso: string) => iso.split("-").reverse().join("/");
 
 /** Núcleo da execução, isolado da camada de servidor para poder ser testado. */
@@ -446,6 +577,28 @@ export async function consultarSistema(data: Entrada) {
       if (partes.length > 0) informados[qc.parametro] = partes.join(";");
     }
 
+    // leitura por POST: o formulário preenche o corpo JSON e nada disso vai na query
+    let corpoBase: Record<string, unknown> | null = null;
+    if (receita.corpo) {
+      const trocas: Record<string, string> = {
+        data_inicial: String(informados["data_inicial"] ?? ""),
+        data_final: String(informados["data_final"] ?? ""),
+        cnpj: String(informados["cnpj"] ?? "").replace(/\D/g, ""),
+      };
+      corpoBase = (preencherModelo(receita.corpo.modelo, trocas) ?? {}) as Record<string, unknown>;
+      for (const [nome, escolha] of Object.entries(receita.corpo.escolhas)) {
+        const opcao = informados[nome];
+        if (opcao && escolha.valores[String(opcao)] !== undefined) {
+          definirCaminho(corpoBase, escolha.caminho, escolha.valores[String(opcao)]);
+        }
+      }
+      if (receita.corpo.filial && trocas["cnpj"]) {
+        const filial = preencherModelo(receita.corpo.filial.modelo, trocas);
+        if (filial !== undefined) definirCaminho(corpoBase, receita.corpo.filial.caminho, filial);
+      }
+      for (const c of campos) if (c.papel !== "caminho") delete informados[c.nome];
+    }
+
     const consultaBase: Record<string, string> = {};
     for (const [k, v] of Object.entries(receita.padroes_fixos ?? {})) consultaBase[k] = String(v);
     for (const [k, v] of Object.entries(informados)) consultaBase[k] = String(v);
@@ -461,9 +614,11 @@ export async function consultarSistema(data: Entrada) {
     const tamanho = Math.min(pag.tamanho_max ?? 100, maximo);
     const linhas: Record<string, unknown>[] = [];
     let pagina = porPagina ? Math.max(0, data.pagina ?? 0) : 0;
-    let cursor: string | number | null = null;
+    let cursor: string | number | null = pag.cursor_inicial ?? null;
     let continuar = false;
     let esperarSegundos = 0;
+    let esperas429 = 0;
+    const cursorNoCorpo = pag.local_cursor === "corpo";
 
     while (pagina < MAXIMO_PAGINAS) {
       const parametros = new URLSearchParams(consultaBase);
@@ -477,14 +632,33 @@ export async function consultarSistema(data: Entrada) {
       } else if (
         (pag.tipo === "cursor" || pag.tipo === "versao") &&
         cursor !== null &&
-        pag.param_cursor
+        pag.param_cursor &&
+        !cursorNoCorpo
       ) {
         parametros.set(pag.param_cursor, String(cursor));
       }
 
       const consulta = parametros.toString();
       const endereco = base + caminho + (consulta ? `?${consulta}` : "");
-      let resposta = await comLimite(endereco, { method: receita.metodo, headers: cabecalhos });
+      const corpoPedido = corpoBase
+        ? {
+            ...corpoBase,
+            ...(cursorNoCorpo && cursor !== null && pag.param_cursor
+              ? { [pag.param_cursor]: cursor }
+              : {}),
+          }
+        : null;
+      const pedir = () =>
+        comLimite(endereco, {
+          method: receita.metodo,
+          headers: {
+            ...cabecalhos,
+            ...(receita.headers_fixos ?? {}),
+            ...(corpoPedido ? { "Content-Type": "application/json" } : {}),
+          },
+          ...(corpoPedido ? { body: JSON.stringify(corpoPedido) } : {}),
+        });
+      let resposta = await pedir();
 
       // a documentação do Nomus fala em chave "em Base64", mas a coleção oficial envia crua:
       // tenta crua; se recusar na primeira chamada, tenta uma única vez em Base64
@@ -496,10 +670,23 @@ export async function consultarSistema(data: Entrada) {
       ) {
         chaveEmBase64 = true;
         cabecalhos = await autenticar(slug!, sistema.auth, data.credenciais, base, true);
-        resposta = await comLimite(endereco, { method: receita.metodo, headers: cabecalhos });
+        resposta = await pedir();
       }
 
       if (resposta.status === 401 || resposta.status === 403) throw credencialRecusada(slug!);
+      if (resposta.status === 429 && !porPagina) {
+        // espera curta pedida pelo sistema (Retry-After): aguarda e repete a mesma página
+        const pedida = Number(resposta.headers.get("retry-after") ?? "");
+        if (Number.isFinite(pedida) && pedida > 0 && pedida <= 20 && esperas429 < 3) {
+          esperas429 += 1;
+          await esperar(pedida * 1000);
+          continue;
+        }
+        throw new Error(
+          "O sistema pediu para aguardar (limite de requisições atingido)" +
+            (Number.isFinite(pedida) && pedida > 0 ? `: tente de novo em ${pedida} s.` : "."),
+        );
+      }
       if (resposta.status === 429) {
         let espera = receita.intervalo_minimo_s ?? 0;
         try {
@@ -523,12 +710,43 @@ export async function consultarSistema(data: Entrada) {
 
       const corpo = await resposta.json();
       const itens = extrairLista(corpo, receita.lista_em);
+      // XML em Base64: lê as colunas "xml:..." e descarta o conteúdo bruto da planilha
+      if (receita.xml) {
+        const doXml = receita.colunas.filter((c) => c.caminho.startsWith("xml:"));
+        for (const item of itens) {
+          const bruto = valorFlexivel(item, receita.xml.campo);
+          if (typeof bruto === "string" && bruto) {
+            try {
+              const xml = decodificarBase64(bruto);
+              for (const c of doXml) item[c.caminho] = lerXml(xml, c.caminho.slice(4));
+            } catch {
+              // XML ilegível: as colunas do XML ficam vazias nesta linha
+            }
+          }
+          for (const chave of Object.keys(item)) {
+            if (normalizarCampo(chave) === normalizarCampo(receita.xml.campo)) delete item[chave];
+          }
+        }
+      }
       linhas.push(...itens);
 
       let acabou = pag.tipo === "nenhuma" || itens.length === 0 || linhas.length >= maximo;
       if (!acabou && pag.fim === "pagina_incompleta" && itens.length < tamanho) acabou = true;
       if (!acabou && pag.fim === "hasMore_false" && !valor(corpo, "hasMore")) acabou = true;
-      if (!acabou && (pag.tipo === "versao" || pag.tipo === "cursor")) {
+      if (!acabou && pag.fim_alternativo === "total_atingido" && receita.campo_total) {
+        const total = Number(valor(corpo, receita.campo_total));
+        if (Number.isFinite(total) && total > 0 && linhas.length >= total) acabou = true;
+      }
+      if (!acabou && pag.tipo === "cursor" && pag.origem_proximo === "raiz_da_resposta") {
+        // próximo cursor vem na resposta (no corpo ou como endereço com ?cursor=)
+        let proximo = valor(corpo, pag.campo_proximo ?? null) as unknown;
+        if (typeof proximo === "string" && /^https?:\/\//.test(proximo) && pag.param_cursor) {
+          proximo = new URL(proximo).searchParams.get(pag.param_cursor);
+        }
+        if (proximo === null || proximo === undefined || proximo === "" || proximo === cursor) {
+          acabou = true;
+        } else cursor = proximo as string | number;
+      } else if (!acabou && (pag.tipo === "versao" || pag.tipo === "cursor")) {
         const campo = pag.campo_proximo ?? "versao";
         const valores = itens
           .map((i) => valor(i, campo))
@@ -572,7 +790,8 @@ export async function consultarSistema(data: Entrada) {
         for (const c of colunas) {
           const bruto = valorFlexivel(linha, c.caminho);
           const formato = numericas.get(c.caminho);
-          const v = formato === undefined ? bruto : numeroDeTexto(bruto, formato);
+          const lido = formato === undefined ? bruto : numeroDeTexto(bruto, formato);
+          const v = typeof lido === "string" ? (sistema.traducoes?.[lido] ?? lido) : lido;
           saida[c.caminho] =
             v === null || v === undefined
               ? ""
@@ -580,9 +799,11 @@ export async function consultarSistema(data: Entrada) {
                 ? v
                   ? "Sim"
                   : "Não"
-                : typeof v === "object"
-                  ? JSON.stringify(v)
-                  : (v as string | number);
+                : Array.isArray(v) && v.every((x) => x === null || typeof x !== "object")
+                  ? v.join(", ")
+                  : typeof v === "object"
+                    ? JSON.stringify(v)
+                    : (v as string | number);
         }
         return saida;
       }),

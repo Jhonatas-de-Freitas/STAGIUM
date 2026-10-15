@@ -49,10 +49,11 @@ export function mensagem(
 export const listaPt = (itens: string[]) =>
   itens.length <= 1 ? (itens[0] ?? "") : `${itens.slice(0, -1).join(", ")} e ${itens.at(-1)}`;
 
+/** `sistemas` já com artigo: "o Nomus", "a Qive (Arquivei)". */
 export function boasVindas(sistemas: string[]): Mensagem {
   return mensagem(
     "assistente",
-    `Olá, eu sou o **Stagium**. Leio a API do ERP da sua empresa e trago os dados da operação em planilha. Hoje conheço ${listaPt(sistemas.map((s) => `o **${s}**`))}.
+    `Olá, eu sou o **Stagium**. Leio a API dos sistemas da sua empresa e trago os dados da operação em planilha. Hoje conheço ${listaPt(sistemas)}.
 
 Me diga o que você precisa, em português. Quando você aprovar a consulta, eu peço as credenciais do seu usuário de integração. Elas nunca passam pela IA e, se você quiser, ficam salvas neste navegador, protegidas por um PIN.
 

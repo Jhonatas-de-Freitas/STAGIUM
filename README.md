@@ -1,6 +1,6 @@
-# Stagium — assistente de dados (Sagi/SyGeCom e Nomus)
+# Stagium — assistente de dados (Sagi/SyGeCom, Nomus e Qive)
 
-Chat em que o cliente escolhe o ERP da empresa (hoje **Sagi (SyGeCom)** ou **Nomus**) e pede, em português, a informação que precisa.
+Chat em que o cliente escolhe o sistema da empresa (hoje **Sagi (SyGeCom)**, **Nomus** ou **Qive (Arquivei)**) e pede, em português, a informação que precisa.
 O assistente encontra a consulta certa no catálogo, pede aprovação, solicita as credenciais
 do usuário de integração, consulta a API e devolve a planilha (.xlsx).
 
@@ -9,10 +9,14 @@ do usuário de integração, consulta a API e devolve a planilha (.xlsx).
 1. O cliente pergunta ("produtos cadastrados", "movimentos de estoque da matriz").
 2. A IA responde usando o catálogo e indica a consulta, com método, caminho e colunas.
 3. O cliente clica em **Executar esta consulta**.
-4. Aparece um **formulário** com os filtros e as credenciais do sistema (Sagi: e-mail, senha e endereço; Nomus: chave de integração e endereço).
+4. Aparece um **formulário** com os filtros e as credenciais do sistema (Sagi: e-mail, senha e endereço; Nomus: chave de integração e endereço; Qive: API ID, API KEY e, opcionalmente, o endereço de testes).
 5. O servidor autentica, pagina a consulta e devolve as linhas; a planilha é montada no navegador.
    Sistemas com limite de requisições (Nomus: 1 a cada 20 s) são consultados uma página por chamada:
    o navegador espera o intervalo, mostra o progresso e permite parar e gerar com o que já veio.
+   Na Qive as buscas são POST com corpo JSON (filtros e cursor no corpo) e valor, série e natureza
+   da nota são lidos do XML em Base64. As consultas que o site oferece por sistema, os rótulos dos
+   filtros de corpo e a tradução dos valores ficam em `catalogo/scripts/gerar_conhecimento.py`
+   (`CONSULTAS_DO_SITE`, `CORPO_OPCOES`, `TRADUCOES_DE_VALOR`, `TITULOS_DO_SITE`).
 
 ## Credenciais e segurança
 
@@ -59,10 +63,10 @@ Nunca coloque a chave em arquivo do repositório: ele sincroniza com o GitHub.
 | Consultas salvas e período relativo | `src/lib/consultas-salvas.ts` |
 | Catálogo completo das APIs | `catalogo/` |
 
-Para regerar o conhecimento (hoje Sagi e Nomus):
+Para regerar o conhecimento (hoje Sagi, Nomus e Qive):
 
 ```sh
-cd catalogo && .venv/Scripts/python scripts/gerar_conhecimento.py --sistemas sygecom,nomus
+cd catalogo && .venv/Scripts/python scripts/gerar_conhecimento.py --sistemas sygecom,nomus,arquivei
 ```
 
 Sem `--sistemas`, entram todos os 11 sistemas documentados (o chat só oferece os que têm receita de execução).
