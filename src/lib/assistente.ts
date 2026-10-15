@@ -33,6 +33,8 @@ export type Mensagem = {
   filtrosIniciais?: Record<string, string>;
   /** O que foi executado para gerar a planilha, para poder salvar a consulta. */
   execucao?: { consultaId: string; filtros: Record<string, string> };
+  /** A consulta falhou: a mensagem aparece marcada como erro. */
+  erro?: boolean;
 };
 
 const identificador = () => Math.random().toString(36).slice(2, 10);

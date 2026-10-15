@@ -4,10 +4,10 @@ import {
   ArrowUp,
   Bookmark,
   BookmarkCheck,
+  ChevronDown,
   Download,
-  KeyRound,
+  FileSpreadsheet,
   Loader2,
-  SlidersHorizontal,
   Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -268,14 +268,24 @@ function PreviaPlanilha({
   const [nome, setNome] = useState(nomeSugerido ?? "");
   const [salva, setSalva] = useState(false);
   return (
-    <div className="mt-4 overflow-hidden rounded-md border bg-card">
-      <p className="px-4 pt-3 pb-2 text-sm font-semibold">{planilha.titulo}</p>
+    <div className="folha mt-4">
+      <div className="folha-arquivo">
+        <FileSpreadsheet className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+        <p className="min-w-0 truncate">
+          <span className="font-semibold">{planilha.titulo}</span>
+          <span className="mono ml-2 text-muted-foreground">{planilha.nomeArquivo}</span>
+        </p>
+      </div>
       <Grade
         descricao={`Primeiras linhas de ${planilha.titulo}`}
         titulos={planilha.colunas.map((c) => c.titulo)}
         chaves={planilha.colunas.map((c) => c.chave)}
         linhas={planilha.linhas.slice(0, LINHAS_NA_PREVIA)}
       />
+      <div className="abas" aria-hidden>
+        <span className="aba aba-ativa">Dados</span>
+        <span className="aba">Informações</span>
+      </div>
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
         <Button size="sm" onClick={aoBaixar}>
           <Download className="mr-2 size-4" />
@@ -497,221 +507,222 @@ function FormularioConsulta({
   }
 
   return (
-    <div className="mt-4 rounded-md border bg-card p-4">
+    <div className="folha mt-4">
       <form
-        className="space-y-5"
         onSubmit={(e) => {
           e.preventDefault();
           void confirmar();
         }}
       >
         {camposFiltro.length > 0 && (
-          <fieldset className="space-y-3">
-            <legend className="flex items-center gap-2 text-sm font-medium">
-              <SlidersHorizontal className="size-4 text-muted-foreground" />
-              Filtros da consulta
-            </legend>
-            {periodoSugerido && camposFiltro.some((c) => c.tipo === "data") && (
-              <p className="text-xs text-muted-foreground">
-                Período preenchido a partir da sua pergunta: <b>{periodoSugerido.descricao}</b>.
-                Ajuste se precisar.
-              </p>
-            )}
-            <div className="grid gap-3 sm:grid-cols-2">
-              {camposFiltro.map((c) =>
-                c.tipo === "condicao" ? (
-                  <label key={c.nome} className="flex items-center gap-2 text-sm sm:col-span-2">
-                    <input
-                      type="checkbox"
-                      className="size-4 accent-[var(--foreground)]"
-                      checked={filtros[c.nome] === "1"}
-                      onChange={(e) =>
-                        setFiltros((f) => ({ ...f, [c.nome]: e.target.checked ? "1" : "" }))
-                      }
-                    />
-                    {c.rotulo}
-                  </label>
-                ) : (
-                  <div
-                    key={c.nome}
-                    className={c.papel === "avancado" ? "space-y-1 sm:col-span-2" : "space-y-1"}
-                  >
-                    <Label htmlFor={`filtro-${c.nome}`} className="text-xs">
-                      {c.rotulo}
-                      {c.obrigatorio ? " *" : ""}
-                    </Label>
-                    {c.tipo === "opcao" ? (
-                      <select
-                        id={`filtro-${c.nome}`}
-                        className="h-9 w-full rounded-md border border-input bg-card px-3 text-sm"
-                        value={filtros[c.nome] ?? ""}
-                        onChange={(e) => setFiltros((f) => ({ ...f, [c.nome]: e.target.value }))}
-                      >
-                        {!c.obrigatorio && <option value="">Todas</option>}
-                        {(c.opcoes ?? []).map((o) => (
-                          <option key={o} value={o}>
-                            {o}
-                          </option>
-                        ))}
-                      </select>
-                    ) : (
-                      <Input
-                        id={`filtro-${c.nome}`}
-                        type={c.tipo === "data" ? "date" : "text"}
-                        value={filtros[c.nome] ?? ""}
-                        onChange={(e) => setFiltros((f) => ({ ...f, [c.nome]: e.target.value }))}
-                        placeholder={
-                          c.papel === "filial" && consulta.slug === "sygecom"
-                            ? "TODAS ou o código da filial"
-                            : ""
+          <div className="folha-secao">
+            <fieldset className="space-y-4">
+              <legend className="titulo-bloco">Filtros</legend>
+              {periodoSugerido && camposFiltro.some((c) => c.tipo === "data") && (
+                <p className="dica -mt-2">
+                  Período preenchido a partir da sua pergunta: <b>{periodoSugerido.descricao}</b>.
+                  Ajuste se precisar.
+                </p>
+              )}
+              <div className="grid gap-x-4 gap-y-3.5 sm:grid-cols-2">
+                {camposFiltro.map((c) =>
+                  c.tipo === "condicao" ? (
+                    <label key={c.nome} className="flex items-center gap-2 text-sm sm:col-span-2">
+                      <input
+                        type="checkbox"
+                        className="size-4 accent-[var(--foreground)]"
+                        checked={filtros[c.nome] === "1"}
+                        onChange={(e) =>
+                          setFiltros((f) => ({ ...f, [c.nome]: e.target.checked ? "1" : "" }))
                         }
                       />
-                    )}
-                    {c.dica && c.tipo !== "data" && (
-                      <p className="text-[11px] leading-snug text-muted-foreground">{c.dica}</p>
-                    )}
-                  </div>
-                ),
+                      {c.rotulo}
+                    </label>
+                  ) : (
+                    <div
+                      key={c.nome}
+                      className={c.papel === "avancado" ? "space-y-1 sm:col-span-2" : "space-y-1"}
+                    >
+                      <Label htmlFor={`filtro-${c.nome}`} className="text-xs">
+                        {c.rotulo}
+                        {c.obrigatorio || /opcional/i.test(c.rotulo) ? "" : " (opcional)"}
+                      </Label>
+                      {c.tipo === "opcao" ? (
+                        <select
+                          id={`filtro-${c.nome}`}
+                          className="h-9 w-full rounded-md border border-input bg-card px-3 text-sm"
+                          value={filtros[c.nome] ?? ""}
+                          onChange={(e) => setFiltros((f) => ({ ...f, [c.nome]: e.target.value }))}
+                        >
+                          {!c.obrigatorio && <option value="">Todas</option>}
+                          {(c.opcoes ?? []).map((o) => (
+                            <option key={o} value={o}>
+                              {o}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <Input
+                          id={`filtro-${c.nome}`}
+                          type={c.tipo === "data" ? "date" : "text"}
+                          value={filtros[c.nome] ?? ""}
+                          onChange={(e) => setFiltros((f) => ({ ...f, [c.nome]: e.target.value }))}
+                          placeholder={
+                            c.papel === "filial" && consulta.slug === "sygecom"
+                              ? "TODAS ou o código da filial"
+                              : ""
+                          }
+                        />
+                      )}
+                      {c.dica && c.tipo !== "data" && <p className="dica">{c.dica}</p>}
+                    </div>
+                  ),
+                )}
+              </div>
+              {periodoInvertido && (
+                <p className="text-xs text-destructive">A data inicial é posterior à data final.</p>
               )}
-            </div>
-            {periodoInvertido && (
-              <p className="text-xs text-destructive">A data inicial é posterior à data final.</p>
-            )}
-          </fieldset>
+            </fieldset>
+          </div>
         )}
 
         {modoPin && (
-          <fieldset className="space-y-3">
-            <legend className="flex items-center gap-2 text-sm font-medium">
-              <KeyRound className="size-4 text-muted-foreground" />
-              Credenciais salvas neste navegador
-            </legend>
-            <div className="max-w-xs space-y-1">
-              <Label htmlFor={`pin-${consulta.id}`} className="text-xs">
-                PIN
-              </Label>
-              <Input
-                id={`pin-${consulta.id}`}
-                type="password"
-                autoComplete="off"
-                value={pin}
-                onChange={(e) => setPin(e.target.value)}
-              />
-            </div>
-            <button
-              type="button"
-              className="text-xs underline underline-offset-4"
-              onClick={() => setUsarOutras(true)}
-            >
-              Usar outras credenciais
-            </button>
-          </fieldset>
+          <div className="folha-secao folha-secao-acesso">
+            <fieldset className="space-y-3">
+              <legend className="titulo-bloco">Credenciais salvas neste navegador</legend>
+              <p className="dica -mt-1">Digite o PIN que você criou para abri-las.</p>
+              <div className="max-w-xs space-y-1">
+                <Label htmlFor={`pin-${consulta.id}`} className="text-xs">
+                  PIN
+                </Label>
+                <Input
+                  id={`pin-${consulta.id}`}
+                  type="password"
+                  autoComplete="off"
+                  value={pin}
+                  onChange={(e) => setPin(e.target.value)}
+                />
+              </div>
+              <button
+                type="button"
+                className="text-xs underline underline-offset-4"
+                onClick={() => setUsarOutras(true)}
+              >
+                Usar outras credenciais
+              </button>
+            </fieldset>
+          </div>
         )}
 
         {pedirCredenciais && !modoPin && (
-          <fieldset className="space-y-3">
-            <legend className="flex items-center gap-2 text-sm font-medium">
-              <KeyRound className="size-4 text-muted-foreground" />
-              {conexao
-                ? `Conta ${comArtigo(consulta.slug, true)}`
-                : "Credenciais do seu usuário de integração"}
-            </legend>
-            {conexao ? (
-              conectado ? (
-                <p className="text-sm">
-                  Conta conectada
-                  {conectado["user_id"] ? ` (vendedor ${conectado["user_id"]})` : ""}. O acesso fica
-                  só neste navegador e nunca vai para a IA.
-                </p>
-              ) : (
-                <div className="space-y-2">
-                  <p className="text-xs text-muted-foreground">
-                    Abre a tela {comArtigo(consulta.slug, true)} numa janela. Entre com a conta
-                    principal do vendedor e autorize o Stagium a ler os dados. Você pode revogar a
-                    qualquer momento na própria conta.
+          <div className="folha-secao folha-secao-acesso">
+            <fieldset className="space-y-3.5">
+              <legend className="titulo-bloco">
+                {conexao
+                  ? `Conta ${comArtigo(consulta.slug, true)}`
+                  : "Credenciais do usuário de integração"}
+              </legend>
+              {conexao ? (
+                conectado ? (
+                  <p className="text-sm">
+                    Conta conectada
+                    {conectado["user_id"] ? ` (vendedor ${conectado["user_id"]})` : ""}. O acesso
+                    fica só neste navegador e nunca vai para a IA.
                   </p>
-                  <Button type="button" size="sm" variant="outline" onClick={() => void conectar()}>
-                    {conectando ? "Abrir a janela de novo" : `Conectar ${nomeDo(consulta.slug)}`}
-                  </Button>
-                  {linkNaAba && (
-                    <p className="text-xs">
-                      <a href={linkNaAba} className="underline underline-offset-4">
-                        Conectar nesta aba
-                      </a>{" "}
-                      <span className="text-muted-foreground">
-                        (a conversa recomeça, mas a conta volta conectada)
-                      </span>
+                ) : (
+                  <div className="space-y-2">
+                    <p className="dica">
+                      Abre a tela {comArtigo(consulta.slug, true)} numa janela. Entre com a conta
+                      principal do vendedor e autorize o Stagium a ler os dados. Você pode revogar a
+                      qualquer momento na própria conta.
                     </p>
-                  )}
-                  {conectando && (
-                    <p className="text-xs text-muted-foreground" role="status">
-                      Aguardando a autorização na janela {comArtigo(consulta.slug, true)}…
-                    </p>
-                  )}
-                </div>
-              )
-            ) : (
-              <p className="text-xs text-muted-foreground">
-                Usadas apenas na consulta e nunca enviadas à IA.
-              </p>
-            )}
-            {!conexao &&
-              CREDENCIAIS.map((c) => (
-                <div key={c.nome} className="space-y-1">
-                  <Label htmlFor={`cred-${c.nome}`} className="text-xs">
-                    {c.rotulo}
-                    {obrigatoria(c) ? "" : " (opcional)"}
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => void conectar()}
+                    >
+                      {conectando ? "Abrir a janela de novo" : `Conectar ${nomeDo(consulta.slug)}`}
+                    </Button>
+                    {linkNaAba && (
+                      <p className="text-xs">
+                        <a href={linkNaAba} className="underline underline-offset-4">
+                          Conectar nesta aba
+                        </a>{" "}
+                        <span className="text-muted-foreground">
+                          (a conversa recomeça, mas a conta volta conectada)
+                        </span>
+                      </p>
+                    )}
+                    {conectando && (
+                      <p className="text-xs text-muted-foreground" role="status">
+                        Aguardando a autorização na janela {comArtigo(consulta.slug, true)}…
+                      </p>
+                    )}
+                  </div>
+                )
+              ) : (
+                <p className="dica -mt-1.5">Usadas só nesta consulta. Nunca vão para a IA.</p>
+              )}
+              {!conexao &&
+                CREDENCIAIS.map((c) => (
+                  <div key={c.nome} className="space-y-1">
+                    <Label htmlFor={`cred-${c.nome}`} className="text-xs">
+                      {c.rotulo}
+                      {obrigatoria(c) ? "" : " (opcional)"}
+                    </Label>
+                    <Input
+                      id={`cred-${c.nome}`}
+                      type={c.segredo ? "password" : "text"}
+                      autoComplete={c.segredo ? "current-password" : "off"}
+                      value={cred[c.nome] ?? ""}
+                      onChange={(e) => setCred((atual) => ({ ...atual, [c.nome]: e.target.value }))}
+                      placeholder={c.default ?? ""}
+                    />
+                    <p className="dica">{c.onde_obter}</p>
+                  </div>
+                ))}
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  className="size-4 accent-[var(--foreground)]"
+                  checked={lembrar}
+                  onChange={(e) => setLembrar(e.target.checked)}
+                />
+                Lembrar neste navegador
+              </label>
+              {lembrar && (
+                <div className="max-w-xs space-y-1">
+                  <Label htmlFor={`pin-novo-${consulta.id}`} className="text-xs">
+                    Crie um PIN (mínimo {PIN_MINIMO} caracteres)
                   </Label>
                   <Input
-                    id={`cred-${c.nome}`}
-                    type={c.segredo ? "password" : "text"}
-                    autoComplete={c.segredo ? "current-password" : "off"}
-                    value={cred[c.nome] ?? ""}
-                    onChange={(e) => setCred((atual) => ({ ...atual, [c.nome]: e.target.value }))}
-                    placeholder={c.default ?? ""}
+                    id={`pin-novo-${consulta.id}`}
+                    type="password"
+                    autoComplete="new-password"
+                    value={pinNovo}
+                    onChange={(e) => setPinNovo(e.target.value)}
                   />
-                  <p className="text-[11px] leading-snug text-muted-foreground">{c.onde_obter}</p>
+                  <p className="dica">
+                    As credenciais ficam criptografadas só neste computador. Para usar, você digita
+                    o PIN; ele não fica guardado. Use só em computador de uso próprio.
+                  </p>
                 </div>
-              ))}
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                className="size-4 accent-[var(--foreground)]"
-                checked={lembrar}
-                onChange={(e) => setLembrar(e.target.checked)}
-              />
-              Lembrar neste navegador
-            </label>
-            {lembrar && (
-              <div className="max-w-xs space-y-1">
-                <Label htmlFor={`pin-novo-${consulta.id}`} className="text-xs">
-                  Crie um PIN (mínimo {PIN_MINIMO} caracteres)
-                </Label>
-                <Input
-                  id={`pin-novo-${consulta.id}`}
-                  type="password"
-                  autoComplete="new-password"
-                  value={pinNovo}
-                  onChange={(e) => setPinNovo(e.target.value)}
-                />
-                <p className="text-[11px] leading-snug text-muted-foreground">
-                  As credenciais ficam criptografadas só neste computador. Para usar, você digita o
-                  PIN; ele não fica guardado. Use só em computador de uso próprio.
-                </p>
-              </div>
-            )}
-          </fieldset>
+              )}
+            </fieldset>
+          </div>
         )}
 
-        {erroPin && <p className="text-sm text-destructive">{erroPin}</p>}
-
-        <Button
-          type="submit"
-          size="sm"
-          disabled={faltaFiltro || faltaCredencial || periodoInvertido || ocupado || abrindo}
-        >
-          Consultar {comArtigo(consulta.slug)}
-        </Button>
+        <div className="folha-secao flex flex-wrap items-center gap-x-4 gap-y-2">
+          {erroPin && <p className="w-full text-sm text-destructive">{erroPin}</p>}
+          <Button
+            type="submit"
+            disabled={faltaFiltro || faltaCredencial || periodoInvertido || ocupado || abrindo}
+          >
+            Consultar {comArtigo(consulta.slug)}
+          </Button>
+          <p className="dica">Só leitura: nada é alterado {comArtigo(consulta.slug, true)}.</p>
+        </div>
       </form>
     </div>
   );
@@ -1139,7 +1150,7 @@ Observação: ${resultado.aviso}`
             (cofres[consulta.slug]
               ? " Se as credenciais salvas estiverem desatualizadas, clique em “Usar outras credenciais” e salve as novas."
               : ""),
-          { formulario: consulta, filtrosIniciais: filtros },
+          { formulario: consulta, filtrosIniciais: filtros, erro: true },
         ),
       ]);
     } finally {
@@ -1246,6 +1257,7 @@ Observação: ${resultado.aviso}`
                 onClick={() => setSistema(null)}
               >
                 Sistema: {nomeDo(sistema)}
+                <ChevronDown className="ml-1 size-3.5" aria-hidden />
               </Button>
             )}
             {sistema && (temCredenciais || credenciaisSalvas) && (
@@ -1278,24 +1290,28 @@ Observação: ${resultado.aviso}`
         <div className="flex flex-col gap-7">
           {mensagens.slice(1).map((m) =>
             m.autor === "cliente" ? (
-              <div key={m.id} className="flex justify-end">
-                <div className="max-w-[80%] rounded-md bg-primary px-4 py-2.5 text-[0.9375rem] leading-relaxed text-primary-foreground">
+              <div key={m.id} className="flex justify-end pr-1">
+                <div className="celula-pergunta">
                   <Texto conteudo={m.texto} />
                 </div>
               </div>
             ) : (
               <div key={m.id} className="max-w-full">
-                <div className="max-w-[65ch] space-y-1 text-[0.9375rem] leading-relaxed">
+                <div
+                  className={`max-w-[65ch] space-y-1 text-[0.9375rem] leading-relaxed${m.erro ? " resposta-erro" : ""}`}
+                >
                   <Texto conteudo={m.texto} />
                 </div>
 
                 {m.propostas && m.propostas.length > 0 && (
                   <div className="mt-4 flex flex-col gap-3">
                     {m.propostas.map((consulta, indice) => (
-                      <div key={consulta.id} className="overflow-hidden rounded-md border bg-card">
-                        <div className="px-4 pt-3 pb-3">
-                          <p className="text-sm leading-snug font-medium">{consulta.descricao}</p>
-                          <p className="mono mt-1 text-xs text-muted-foreground">
+                      <div key={consulta.id} className="folha">
+                        <div className="px-4 pt-3.5 pb-3">
+                          <p className="max-w-[60ch] text-sm leading-snug font-medium">
+                            {consulta.descricao}
+                          </p>
+                          <p className="mono mt-1.5 text-[0.6875rem] text-muted-foreground">
                             {consulta.metodo} {consulta.path}
                           </p>
                         </div>
@@ -1369,15 +1385,16 @@ Observação: ${resultado.aviso}`
           )}
 
           {ocupado && (
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-              <p className="flex items-center gap-2 text-sm text-muted-foreground" role="status">
-                <Loader2 className="size-4 animate-spin" />
+            <div className="barra-status">
+              <p className="flex min-w-0 flex-1 basis-60 items-center gap-2" role="status">
+                <Loader2 className="size-3.5 shrink-0 animate-spin" aria-hidden />
                 {etapa}
               </p>
               {paginando && (
                 <Button
                   size="sm"
                   variant="outline"
+                  className="ml-auto h-7 bg-card text-xs"
                   onClick={() => {
                     pararPaginas.current = true;
                     setEtapa("Parando e montando a planilha com o que já veio…");

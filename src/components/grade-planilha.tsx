@@ -9,6 +9,12 @@ export function letraDaColuna(indice: number): string {
   return letra;
 }
 
+/** Inteiros como vêm; decimais com ao menos duas casas (1.234,50), como valores em reais. */
+const numeroBr = (n: number) =>
+  Number.isInteger(n)
+    ? n.toLocaleString("pt-BR")
+    : n.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 4 });
+
 /**
  * Pedaço de planilha: letras das colunas, números das linhas e a linha de títulos.
  * Sem linhas de dados, mostra uma linha vazia (é a proposta, antes de consultar).
@@ -66,7 +72,7 @@ export function Grade({
                       title={valor === undefined ? "" : String(valor)}
                       className={typeof valor === "number" ? "mono grade-numero" : "mono"}
                     >
-                      {typeof valor === "number" ? valor.toLocaleString("pt-BR") : (valor ?? "")}
+                      {typeof valor === "number" ? numeroBr(valor) : (valor ?? "")}
                     </td>
                   );
                 })}

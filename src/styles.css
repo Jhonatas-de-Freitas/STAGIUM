@@ -146,7 +146,9 @@
     background-color: var(--color-background);
     color: var(--color-foreground);
     font-family: var(--font-sans);
-    font-variation-settings: "CASL" 0, "MONO" 0;
+    font-variation-settings:
+      "CASL" 0,
+      "MONO" 0;
     -webkit-font-smoothing: antialiased;
   }
 
@@ -169,7 +171,9 @@
     line-height: 1.3;
     font-weight: 780;
     letter-spacing: -0.02em;
-    font-variation-settings: "CASL" 0.6, "MONO" 0;
+    font-variation-settings:
+      "CASL" 0.6,
+      "MONO" 0;
   }
   .marca-celula::after {
     content: "";
@@ -183,7 +187,9 @@
   }
 
   .mono {
-    font-variation-settings: "CASL" 0, "MONO" 1;
+    font-variation-settings:
+      "CASL" 0,
+      "MONO" 1;
     font-feature-settings: "tnum" 1;
   }
 
@@ -537,7 +543,9 @@
     font-weight: 600;
     fill: var(--primary-foreground);
     white-space: pre;
-    font-variation-settings: "CASL" 0, "MONO" 1;
+    font-variation-settings:
+      "CASL" 0,
+      "MONO" 1;
   }
   .fluxo-icone {
     fill: var(--marca);
@@ -572,6 +580,112 @@
     text-decoration-color: var(--marca);
     background: color-mix(in oklab, var(--marca) 28%, transparent);
   }
+  /* Conversa: a pergunta do cliente é a célula ativa, com a alça de preenchimento do logotipo. */
+  .celula-pergunta {
+    position: relative;
+    max-width: min(80%, 34rem);
+    border: 2px solid var(--foreground);
+    background: var(--card);
+    padding: 0.5rem 0.85rem 0.55rem;
+    font-size: 0.9375rem;
+    line-height: 1.55;
+    overflow-wrap: anywhere;
+  }
+  .celula-pergunta::after {
+    content: "";
+    position: absolute;
+    right: -5px;
+    bottom: -5px;
+    width: 8px;
+    height: 8px;
+    background: var(--foreground);
+    box-shadow: 0 0 0 2px var(--background);
+  }
+  @media (max-width: 640px) {
+    .celula-pergunta {
+      max-width: 88%;
+    }
+  }
+  /* Resposta de consulta que não deu certo */
+  .resposta-erro {
+    border-left: 3px solid var(--destructive);
+    padding-left: 0.9rem;
+  }
+  .resposta-erro > p:first-child {
+    color: var(--destructive);
+    font-weight: 600;
+  }
+
+  /* Folha: a moldura comum da proposta, do formulário e da prévia */
+  .folha {
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--card);
+  }
+  .folha-secao {
+    padding: 1.1rem 1.25rem;
+  }
+  .folha-secao + .folha-secao {
+    border-top: 1px solid var(--border);
+  }
+  .folha-secao-acesso {
+    background: color-mix(in oklab, var(--grade-cabecalho) 55%, var(--card));
+  }
+  .titulo-bloco {
+    margin-bottom: 0.25rem;
+    font-family: "EB Garamond", Georgia, serif;
+    font-size: 1.25rem;
+    line-height: 1.2;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+  }
+  .dica {
+    font-size: 0.75rem;
+    line-height: 1.45;
+    color: var(--muted-foreground);
+  }
+  /* Prévia: barra do arquivo em cima e as abas da planilha embaixo, como no Excel */
+  .folha-arquivo {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.55rem 1rem;
+    font-size: 0.8125rem;
+  }
+  .abas {
+    display: flex;
+    padding-left: 2.25rem;
+    background: var(--grade-cabecalho);
+    border-bottom: 1px solid var(--border);
+    font-size: 0.75rem;
+  }
+  .aba {
+    padding: 0.3rem 0.9rem 0.4rem;
+    border-right: 1px solid var(--border);
+    color: var(--muted-foreground);
+  }
+  .aba-ativa {
+    margin-top: -1px;
+    background: var(--card);
+    color: var(--foreground);
+    font-weight: 600;
+    box-shadow: inset 0 -3px 0 var(--marca);
+  }
+  /* Andamento da consulta: a barra de status da planilha */
+  .barra-status {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--grade-cabecalho);
+    padding: 0.45rem 0.6rem 0.45rem 0.85rem;
+    font-size: 0.8125rem;
+    color: var(--muted-foreground);
+  }
+
   /* O único movimento automático: as linhas da prévia entram de cima para baixo. */
   @media (prefers-reduced-motion: no-preference) {
     .grade-preenche tbody tr {
