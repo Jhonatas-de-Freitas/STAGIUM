@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Publica o estado atual do catálogo no GitHub (hubsolucoes/jhow).
+# Publica o estado atual do catálogo no GitHub (hubsolucoes/STAGIUM; antes hubsolucoes/jhow).
 #
 # Uso (a partir da raiz do projeto jhow):
 #   bash catalogo/scripts/publicar.sh "mensagem do commit"
