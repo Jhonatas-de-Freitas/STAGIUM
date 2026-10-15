@@ -113,6 +113,14 @@ const FEMININOS = new Set(["arquivei"]);
 const comArtigo = (slug: string | null | undefined, de = false) =>
   `${de ? "d" : ""}${slug && FEMININOS.has(slug) ? "a" : "o"} ${nomeDo(slug)}`;
 
+/** O que dá para pedir de cada sistema, em poucas palavras (primeira tela). */
+const DESCRICOES_SISTEMA: Record<string, string> = {
+  sygecom: "Estoque, cargas, compras, vendas, coleta e MTR",
+  nomus: "Financeiro, pedidos, produção, estoque e notas",
+  arquivei: "NF-e, CT-e, NFS-e, boletos e comprovantes",
+  "mercado-livre": "Vendas, anúncios, perguntas e reclamações",
+};
+
 const SUGESTOES_POR_SISTEMA: Record<string, string[]> = {
   sygecom: ["Produtos cadastrados", "Movimentos de estoque", "Pedidos de compra", "Clientes"],
   "mercado-livre": [
@@ -709,6 +717,116 @@ function FormularioConsulta({
   );
 }
 
+/**
+ * Primeira tela da conversa. Sem sistema escolhido: os sistemas como linhas de uma planilha
+ * (escolher é selecionar a linha). Com sistema: "O que você precisa do Nomus?" e os exemplos.
+ */
+function TelaInicial({
+  sistemas,
+  sistema,
+  salvas,
+  ocupado,
+  aoEscolher,
+  aoTrocar,
+  aoPerguntar,
+  aoRodarSalva,
+}: {
+  sistemas: { slug: string; nome: string }[];
+  sistema: string | null;
+  salvas: ConsultaSalva[];
+  ocupado: boolean;
+  aoEscolher: (slug: string) => void;
+  aoTrocar: () => void;
+  aoPerguntar: (texto: string) => void;
+  aoRodarSalva: (salva: ConsultaSalva) => void;
+}) {
+  if (!sistema) {
+    return (
+      <section aria-labelledby="inicio-titulo">
+        <h2 id="inicio-titulo" className="titulo-inicio">
+          De qual sistema vêm os seus dados?
+        </h2>
+        <p className="mt-3 max-w-[52ch] leading-relaxed text-muted-foreground">
+          Escolha um. Depois é só pedir em português e aprovar a consulta: a planilha sai na hora.
+        </p>
+        <div className="escolha-sistema mt-8">
+          <div className="escolha-letras" aria-hidden>
+            <span />
+            <span>A</span>
+            <span>B</span>
+          </div>
+          <div className="escolha-titulos" aria-hidden>
+            <span className="mono">1</span>
+            <span>Sistema</span>
+            <span>O que dá para pedir</span>
+          </div>
+          <ul>
+            {sistemas.map((s, i) => (
+              <li key={s.slug}>
+                <button type="button" className="escolha-linha" onClick={() => aoEscolher(s.slug)}>
+                  <span className="escolha-numero mono" aria-hidden>
+                    {i + 2}
+                  </span>
+                  <span className="escolha-nome">{s.nome}</span>
+                  <span className="escolha-descricao">{DESCRICOES_SISTEMA[s.slug] ?? ""}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+    );
+  }
+
+  const doSistema = salvas.filter((salva) => salva.consultaId.startsWith(sistema + "."));
+  return (
+    <section aria-labelledby="inicio-titulo">
+      <h2 id="inicio-titulo" className="titulo-inicio">
+        O que você precisa {comArtigo(sistema, true)}?
+      </h2>
+      <p className="mt-3 max-w-[52ch] leading-relaxed text-muted-foreground">
+        Escreva do seu jeito no campo abaixo, ou comece por um destes.
+      </p>
+      <ul className="mt-6 space-y-2.5">
+        {doSistema.slice(0, 4).map((salva) => (
+          <li key={salva.id}>
+            <button
+              type="button"
+              className="link-pergunta inline-flex items-center gap-2 text-left text-[0.9375rem]"
+              disabled={ocupado}
+              onClick={() => aoRodarSalva(salva)}
+            >
+              <Bookmark className="size-3.5 shrink-0" aria-hidden />
+              {salva.nome}
+            </button>
+          </li>
+        ))}
+        {sugestoesDo(sistema).map((sugestao) => (
+          <li key={sugestao}>
+            <button
+              type="button"
+              className="link-pergunta text-left text-[0.9375rem]"
+              disabled={ocupado}
+              onClick={() => aoPerguntar(sugestao)}
+            >
+              {sugestao}
+            </button>
+          </li>
+        ))}
+      </ul>
+      {sistemas.length > 1 && (
+        <button
+          type="button"
+          className="mt-8 text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground"
+          onClick={aoTrocar}
+        >
+          Usar outro sistema
+        </button>
+      )}
+    </section>
+  );
+}
+
 function Index() {
   const [mensagens, setMensagens] = useState<Mensagem[]>(() => [
     boasVindas(SISTEMAS.filter((s) => !exigeConexao(s.slug)).map((s) => comArtigo(s.slug))),
@@ -748,26 +866,12 @@ function Index() {
   const lerCofres = () =>
     setCofres(Object.fromEntries(SISTEMAS.map((s) => [s.slug, temCredenciaisSalvas(s.slug)])));
 
-  function escolherSistema(slug: string, avisar = true) {
+  function escolherSistema(slug: string) {
     setSistema(slug);
     try {
       localStorage.setItem(CHAVE_SISTEMA, slug);
     } catch {
       // sem armazenamento: vale só nesta aba
-    }
-    if (avisar) {
-      const exemplos = sugestoesDo(slug)
-        .slice(0, 3)
-        .map((e) => `"${e.toLowerCase()}"`);
-      setMensagens((atual) => [
-        ...atual,
-        mensagem("cliente", `Uso ${comArtigo(slug)}.`),
-        mensagem(
-          "assistente",
-          `Certo, vou consultar ${comArtigo(slug)}. O que você precisa?` +
-            (exemplos.length > 0 ? ` Por exemplo: ${exemplos.join(", ")}.` : ""),
-        ),
-      ]);
     }
   }
 
@@ -1072,7 +1176,7 @@ Observação: ${resultado.aviso}`
       return;
     }
     setPainelAberto(false);
-    if (consulta.slug !== sistema) escolherSistema(consulta.slug, false);
+    if (consulta.slug !== sistema) escolherSistema(consulta.slug);
     const filtros = filtrosParaExecutar(consulta.campos_filtro ?? [], salva);
     setMensagens((atual) => [
       ...atual,
@@ -1172,7 +1276,7 @@ Observação: ${resultado.aviso}`
 
       <div className="mx-auto w-full max-w-3xl flex-1 px-4 py-8">
         <div className="flex flex-col gap-7">
-          {mensagens.map((m) =>
+          {mensagens.slice(1).map((m) =>
             m.autor === "cliente" ? (
               <div key={m.id} className="flex justify-end">
                 <div className="max-w-[80%] rounded-md bg-primary px-4 py-2.5 text-[0.9375rem] leading-relaxed text-primary-foreground">
@@ -1251,6 +1355,19 @@ Observação: ${resultado.aviso}`
             ),
           )}
 
+          {(mensagens.length <= 1 || !sistema) && (
+            <TelaInicial
+              sistemas={sistemasVisiveis}
+              sistema={sistema}
+              salvas={salvas}
+              ocupado={ocupado}
+              aoEscolher={escolherSistema}
+              aoTrocar={() => setSistema(null)}
+              aoPerguntar={(texto) => void enviar(texto)}
+              aoRodarSalva={rodarSalva}
+            />
+          )}
+
           {ocupado && (
             <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
               <p className="flex items-center gap-2 text-sm text-muted-foreground" role="status">
@@ -1277,50 +1394,6 @@ Observação: ${resultado.aviso}`
 
       <div className="sticky bottom-0 border-t bg-background/95 backdrop-blur">
         <div className="mx-auto w-full max-w-3xl px-4 pt-3 pb-4">
-          {!sistema ? (
-            <div className="mb-3">
-              <p className="mb-2 text-sm font-medium">Qual sistema a sua empresa usa?</p>
-              <div className="flex flex-wrap gap-2">
-                {sistemasVisiveis.map((sis) => (
-                  <Button key={sis.slug} size="sm" onClick={() => escolherSistema(sis.slug)}>
-                    {sis.nome}
-                  </Button>
-                ))}
-              </div>
-            </div>
-          ) : (
-            mensagens.length <= 3 && (
-              <div className="mb-3 flex flex-wrap gap-2">
-                {salvas
-                  .filter((salva) => salva.consultaId.startsWith(sistema + "."))
-                  .slice(0, 4)
-                  .map((salva) => (
-                    <Button
-                      key={salva.id}
-                      size="sm"
-                      className="max-w-full"
-                      onClick={() => rodarSalva(salva)}
-                      disabled={ocupado}
-                    >
-                      <Bookmark className="mr-1.5 size-3.5" />
-                      <span className="truncate">{salva.nome}</span>
-                    </Button>
-                  ))}
-                {sugestoesDo(sistema).map((sug) => (
-                  <Button
-                    key={sug}
-                    variant="outline"
-                    size="sm"
-                    className="bg-card"
-                    onClick={() => void enviar(sug)}
-                    disabled={ocupado}
-                  >
-                    {sug}
-                  </Button>
-                ))}
-              </div>
-            )
-          )}
           <form
             className="flex items-end gap-2 rounded-md border border-input bg-card p-1.5 focus-within:border-foreground"
             onSubmit={(e) => {
@@ -1337,11 +1410,7 @@ Observação: ${resultado.aviso}`
                   void enviar(pergunta);
                 }
               }}
-              placeholder={
-                sistema
-                  ? `O que você precisa ${comArtigo(sistema, true)}?`
-                  : "Escolha o sistema acima"
-              }
+              placeholder={sistema ? "Escreva o que você precisa…" : "Escolha o sistema acima"}
               aria-label="Sua pergunta"
               rows={1}
               className="max-h-40 min-h-10 resize-none border-0 bg-transparent px-2.5 py-2 text-[0.9375rem] shadow-none focus-visible:ring-0 focus-visible:shadow-none focus-visible:outline-none"

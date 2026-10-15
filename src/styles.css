@@ -395,6 +395,115 @@
     box-shadow: inset 0 0 0 5px var(--marca);
   }
 
+  /* Chat: primeira tela */
+  .titulo-inicio {
+    font-family: "EB Garamond", Georgia, serif;
+    font-size: clamp(1.9rem, 4.2vw, 2.6rem);
+    line-height: 1.08;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+  }
+  /* escolha do sistema como linhas de planilha: número da linha, sistema, o que dá para pedir */
+  .escolha-sistema {
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--card);
+  }
+  .escolha-letras,
+  .escolha-titulos,
+  .escolha-linha {
+    display: grid;
+    grid-template-columns: 2.5rem minmax(8.5rem, 13rem) minmax(0, 1fr);
+  }
+  .escolha-letras > span,
+  .escolha-titulos > span,
+  .escolha-linha > span {
+    padding: 0.55rem 0.9rem;
+    border-left: 1px solid var(--border);
+  }
+  .escolha-letras > span:first-child,
+  .escolha-titulos > span:first-child,
+  .escolha-linha > span:first-child {
+    border-left: 0;
+  }
+  .escolha-letras {
+    background: var(--grade-cabecalho);
+    color: var(--muted-foreground);
+    font-size: 0.75rem;
+    text-align: center;
+  }
+  .escolha-titulos {
+    border-top: 1px solid var(--border);
+    background: color-mix(in oklab, var(--marca) 60%, var(--card));
+    font-size: 0.8125rem;
+    font-weight: 650;
+  }
+  .escolha-titulos > span:first-child,
+  .escolha-numero {
+    background: var(--grade-cabecalho);
+    color: var(--muted-foreground);
+    font-weight: 500;
+    text-align: center;
+    font-size: 0.75rem;
+  }
+  .escolha-linha {
+    position: relative;
+    width: 100%;
+    border-top: 1px solid var(--border);
+    text-align: left;
+    cursor: pointer;
+  }
+  .escolha-linha > span {
+    padding-top: 0.85rem;
+    padding-bottom: 0.85rem;
+  }
+  .escolha-nome {
+    font-weight: 600;
+  }
+  .escolha-descricao {
+    color: var(--muted-foreground);
+    font-size: 0.875rem;
+  }
+  .escolha-linha:hover {
+    background: color-mix(in oklab, var(--marca) 22%, transparent);
+  }
+  /* foco: a linha ganha a borda de célula selecionada, com a alça do logotipo */
+  .escolha-linha:focus-visible {
+    outline: 2px solid var(--foreground);
+    outline-offset: -2px;
+    box-shadow: none;
+  }
+  .escolha-linha:focus-visible::after {
+    content: "";
+    position: absolute;
+    right: -1px;
+    bottom: -1px;
+    width: 7px;
+    height: 7px;
+    background: var(--foreground);
+  }
+  @media (max-width: 639px) {
+    .escolha-letras,
+    .escolha-titulos,
+    .escolha-linha {
+      grid-template-columns: 2.25rem minmax(0, 1fr);
+    }
+    .escolha-letras > span:last-child,
+    .escolha-titulos > span:last-child {
+      display: none;
+    }
+    .escolha-linha .escolha-descricao {
+      grid-column: 2;
+      border-left: 1px solid var(--border);
+      padding-top: 0;
+    }
+    .escolha-linha .escolha-numero {
+      grid-row: span 2;
+    }
+  }
+
   /* Faixa animada do topo */
   .fluxo {
     margin-top: 0.5rem;
