@@ -672,6 +672,34 @@
     font-weight: 600;
     box-shadow: inset 0 -3px 0 var(--marca);
   }
+  /* Minhas consultas: cada consulta salva é uma linha numerada da planilha */
+  .titulo-painel {
+    font-family: "EB Garamond", Georgia, serif;
+  }
+  .lista-salvas {
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--card);
+  }
+  .salva {
+    display: grid;
+    grid-template-columns: 2.25rem minmax(0, 1fr);
+  }
+  .salva + .salva {
+    border-top: 1px solid var(--border);
+  }
+  .salva-numero {
+    padding-top: 0.95rem;
+    border-right: 1px solid var(--border);
+    background: var(--grade-cabecalho);
+    color: var(--muted-foreground);
+    font-size: 0.75rem;
+    text-align: center;
+  }
+  .salva-corpo {
+    padding: 0.85rem 1rem 0.8rem;
+  }
   /* Andamento da consulta: a barra de status da planilha */
   .barra-status {
     display: flex;

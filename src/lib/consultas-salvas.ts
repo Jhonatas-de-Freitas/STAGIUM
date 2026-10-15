@@ -51,7 +51,9 @@ function gravar(lista: ConsultaSalva[]) {
   try {
     localStorage.setItem(CHAVE, JSON.stringify(lista));
   } catch {
-    throw new Error("Este navegador não permite salvar dados (janela anônima ou bloqueio de cookies).");
+    throw new Error(
+      "Este navegador não permite salvar dados (janela anônima ou bloqueio de cookies).",
+    );
   }
 }
 
@@ -67,6 +69,12 @@ export function salvarConsulta(dados: Omit<ConsultaSalva, "id" | "criadaEm">): C
 
 export function apagarConsultaSalva(id: string) {
   gravar(listarConsultasSalvas().filter((c) => c.id !== id));
+}
+
+/** Desfaz o apagar: devolve a consulta ao lugar dela (mais recentes primeiro). */
+export function restaurarConsultaSalva(salva: ConsultaSalva) {
+  const lista = listarConsultasSalvas().filter((c) => c.id !== salva.id);
+  gravar([...lista, salva].sort((a, b) => b.criadaEm.localeCompare(a.criadaEm)));
 }
 
 const papel = (campos: CampoFiltro[], p: CampoFiltro["papel"]) => campos.find((c) => c.papel === p);
@@ -92,7 +100,9 @@ export function prepararParaSalvar(
       return { filtros: restantes, periodo: expressao };
     }
   } else if (data) {
-    const expressao = ["hoje", "ontem"].find((e) => interpretarPeriodo(e)?.fim === filtros[data.nome]);
+    const expressao = ["hoje", "ontem"].find(
+      (e) => interpretarPeriodo(e)?.fim === filtros[data.nome],
+    );
     if (expressao) {
       delete restantes[data.nome];
       return { filtros: restantes, periodo: expressao };
@@ -102,7 +112,10 @@ export function prepararParaSalvar(
 }
 
 /** Filtros prontos para executar hoje, com o período relativo recalculado. */
-export function filtrosParaExecutar(campos: CampoFiltro[], salva: ConsultaSalva): Record<string, string> {
+export function filtrosParaExecutar(
+  campos: CampoFiltro[],
+  salva: ConsultaSalva,
+): Record<string, string> {
   const filtros = { ...salva.filtros };
   const p = salva.periodo ? interpretarPeriodo(salva.periodo) : null;
   if (p) {

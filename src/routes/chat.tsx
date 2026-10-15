@@ -8,6 +8,7 @@ import {
   Download,
   FileSpreadsheet,
   Loader2,
+  Play,
   Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -54,6 +55,7 @@ import {
   filtrosParaExecutar,
   listarConsultasSalvas,
   prepararParaSalvar,
+  restaurarConsultaSalva,
   salvarConsulta,
   type ConsultaSalva,
 } from "@/lib/consultas-salvas";
@@ -238,16 +240,150 @@ function resumirFiltros(consulta: Consulta, filtros: Record<string, string>): st
 
 const dataBr = (iso: string) => iso.split("-").reverse().join("/");
 
-/** Período de uma consulta salva, como aparece na lista. */
+/** Período de uma consulta salva, com as datas que ela usaria se rodasse agora. */
 function descreverPeriodo(consulta: Consulta | undefined, salva: ConsultaSalva): string {
-  if (salva.periodo) return `Período: ${salva.periodo} (recalculado a cada vez)`;
+  if (salva.periodo) {
+    const nome = salva.periodo.charAt(0).toUpperCase() + salva.periodo.slice(1);
+    const p = interpretarPeriodo(salva.periodo);
+    if (!p) return nome;
+    return p.inicio === p.fim
+      ? `${nome}, que hoje é ${dataBr(p.fim)}`
+      : `${nome}, que hoje vai de ${dataBr(p.inicio)} a ${dataBr(p.fim)}`;
+  }
   const campos = consulta?.campos_filtro ?? [];
   const inicio = campos.find((c) => c.papel === "periodo_inicio");
   const fim = campos.find((c) => c.papel === "periodo_fim");
   if (inicio && fim && salva.filtros[inicio.nome] && salva.filtros[fim.nome]) {
-    return `Período fixo: ${dataBr(salva.filtros[inicio.nome]!)} a ${dataBr(salva.filtros[fim.nome]!)}`;
+    return `Datas fixas: ${dataBr(salva.filtros[inicio.nome]!)} a ${dataBr(salva.filtros[fim.nome]!)}`;
   }
   return "";
+}
+
+/** Os demais filtros da consulta salva (sem as datas), em uma linha. */
+function descreverOutrosFiltros(consulta: Consulta | undefined, salva: ConsultaSalva): string {
+  if (!consulta) return "";
+  const datas = new Set(
+    (consulta.campos_filtro ?? []).filter((c) => c.tipo === "data").map((c) => c.nome),
+  );
+  return resumirFiltros(
+    consulta,
+    Object.fromEntries(Object.entries(salva.filtros).filter(([k]) => !datas.has(k))),
+  );
+}
+
+/**
+ * Painel "Minhas consultas": cada consulta salva é uma linha numerada, como na escolha do
+ * sistema. Com consultas de mais de um sistema, a lista se divide por sistema.
+ */
+function PainelConsultas({
+  aberto,
+  aoMudarAberto,
+  salvas,
+  ocupado,
+  aoRodar,
+  aoApagar,
+}: {
+  aberto: boolean;
+  aoMudarAberto: (aberto: boolean) => void;
+  salvas: ConsultaSalva[];
+  ocupado: boolean;
+  aoRodar: (salva: ConsultaSalva) => void;
+  aoApagar: (salva: ConsultaSalva) => void;
+}) {
+  const slugDa = (salva: ConsultaSalva) => salva.consultaId.split(".")[0] ?? "";
+  // a ordem dos grupos segue a consulta salva mais recente de cada sistema
+  const slugs = [...new Set(salvas.map(slugDa))];
+  const grupos = slugs.map((slug) => ({
+    slug,
+    itens: salvas.filter((salva) => slugDa(salva) === slug),
+  }));
+
+  return (
+    <Sheet open={aberto} onOpenChange={aoMudarAberto}>
+      <SheetContent className="flex w-full flex-col gap-0 overflow-y-auto p-0 sm:max-w-md">
+        <SheetHeader className="border-b px-6 pt-6 pb-5 text-left">
+          <SheetTitle className="titulo-painel text-[1.75rem] leading-tight font-medium tracking-[-0.015em]">
+            Minhas consultas
+          </SheetTitle>
+          <SheetDescription>
+            Salvas neste navegador para rodar de novo com um clique. As credenciais nunca ficam
+            aqui.
+          </SheetDescription>
+        </SheetHeader>
+
+        <div className="flex-1 px-6 py-6">
+          {salvas.length === 0 ? (
+            <div className="folha">
+              <Grade descricao="Nenhuma consulta salva" titulos={["Nome", "Período", "Filtros"]} />
+              <div className="px-4 py-4">
+                <p className="text-sm font-medium">Nenhuma consulta salva ainda.</p>
+                <p className="dica mt-1.5">
+                  Depois de gerar uma planilha, clique em <b>Salvar esta consulta</b>, embaixo dela.
+                  Se o período for relativo, como “mês passado”, as datas se atualizam cada vez que
+                  você rodar.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {grupos.map((grupo) => (
+                <section key={grupo.slug} aria-label={nomeDo(grupo.slug)}>
+                  {grupos.length > 1 && (
+                    <h3 className="mb-2 text-xs font-semibold text-muted-foreground">
+                      {nomeDo(grupo.slug)}
+                    </h3>
+                  )}
+                  <ol className="lista-salvas">
+                    {grupo.itens.map((salva, i) => {
+                      const consulta = CONSULTAS.find((c) => c.id === salva.consultaId);
+                      const periodo = descreverPeriodo(consulta, salva);
+                      const outros = descreverOutrosFiltros(consulta, salva);
+                      return (
+                        <li key={salva.id} className="salva">
+                          <span className="salva-numero mono" aria-hidden>
+                            {i + 1}
+                          </span>
+                          <div className="salva-corpo">
+                            <p className="leading-snug font-medium">{salva.nome}</p>
+                            {periodo && <p className="dica mt-1">{periodo}</p>}
+                            {outros && <p className="dica mt-0.5">{outros}</p>}
+                            {!consulta && (
+                              <p className="mt-1 text-xs text-destructive">
+                                Esta consulta saiu do catálogo e não roda mais.
+                              </p>
+                            )}
+                            <div className="mt-3 flex items-center gap-1">
+                              <Button
+                                size="sm"
+                                disabled={ocupado || !consulta}
+                                onClick={() => aoRodar(salva)}
+                              >
+                                <Play className="mr-1.5 size-3.5" aria-hidden />
+                                Rodar
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="text-muted-foreground hover:text-destructive"
+                                onClick={() => aoApagar(salva)}
+                              >
+                                <Trash2 className="mr-1.5 size-3.5" aria-hidden />
+                                Apagar
+                              </Button>
+                            </div>
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ol>
+                </section>
+              ))}
+            </div>
+          )}
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
 }
 
 const LINHAS_NA_PREVIA = 6;
@@ -1238,7 +1374,7 @@ Observação: ${resultado.aviso}`
               Stagium
             </Link>
           </h1>
-          <div className="ml-auto flex items-center gap-3 text-xs text-muted-foreground">
+          <div className="ml-auto flex flex-wrap items-center justify-end gap-x-3 gap-y-1 text-xs text-muted-foreground">
             <Button
               variant="ghost"
               size="sm"
@@ -1275,12 +1411,18 @@ Observação: ${resultado.aviso}`
                 Esquecer credenciais
               </Button>
             )}
-            <span className="flex items-center gap-1.5">
+            <span
+              className="flex items-center gap-1.5"
+              title={iaLigada ? "IA conectada" : "IA desligada"}
+            >
               <span
                 className={`size-2 rounded-full ${iaLigada ? "bg-emerald-600" : "bg-muted-foreground/50"}`}
                 aria-hidden
               />
-              {iaLigada ? "IA conectada" : "IA desligada"}
+              {/* no celular fica só o ponto: o texto não cabe ao lado dos botões */}
+              <span className="sr-only sm:not-sr-only">
+                {iaLigada ? "IA conectada" : "IA desligada"}
+              </span>
             </span>
           </div>
         </div>
@@ -1448,70 +1590,26 @@ Observação: ${resultado.aviso}`
           </p>
         </div>
       </div>
-      <Sheet open={painelAberto} onOpenChange={setPainelAberto}>
-        <SheetContent className="w-full overflow-y-auto sm:max-w-md">
-          <SheetHeader>
-            <SheetTitle>Minhas consultas</SheetTitle>
-            <SheetDescription>
-              Salvas neste navegador. As credenciais nunca ficam aqui.
-            </SheetDescription>
-          </SheetHeader>
-          {salvas.length === 0 ? (
-            <p className="mt-6 text-sm text-muted-foreground">
-              Nenhuma consulta salva ainda. Depois de gerar uma planilha, use “Salvar esta consulta”
-              para rodar de novo com um clique.
-            </p>
-          ) : (
-            <ul className="mt-6 divide-y border-y">
-              {salvas.map((salva) => {
-                const consulta = CONSULTAS.find((c) => c.id === salva.consultaId);
-                const periodo = descreverPeriodo(consulta, salva);
-                const outros = consulta
-                  ? resumirFiltros(
-                      consulta,
-                      Object.fromEntries(
-                        Object.entries(salva.filtros).filter(
-                          ([k]) =>
-                            !(consulta.campos_filtro ?? []).some(
-                              (c) => c.nome === k && c.tipo === "data",
-                            ),
-                        ),
-                      ),
-                    )
-                  : "";
-                return (
-                  <li key={salva.id} className="py-4">
-                    <p className="font-medium">{salva.nome}</p>
-                    {SISTEMAS.length > 1 && consulta && (
-                      <p className="mt-0.5 text-xs text-muted-foreground">
-                        {nomeDo(consulta.slug)}
-                      </p>
-                    )}
-                    {periodo && <p className="mt-1 text-xs text-muted-foreground">{periodo}</p>}
-                    {outros && <p className="mt-0.5 text-xs text-muted-foreground">{outros}</p>}
-                    <div className="mt-3 flex gap-2">
-                      <Button size="sm" disabled={ocupado} onClick={() => rodarSalva(salva)}>
-                        Rodar
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => {
-                          apagarConsultaSalva(salva.id);
-                          setSalvas(listarConsultasSalvas());
-                        }}
-                      >
-                        <Trash2 className="mr-1.5 size-3.5" />
-                        Apagar
-                      </Button>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </SheetContent>
-      </Sheet>
+      <PainelConsultas
+        aberto={painelAberto}
+        aoMudarAberto={setPainelAberto}
+        salvas={salvas}
+        ocupado={ocupado}
+        aoRodar={rodarSalva}
+        aoApagar={(salva) => {
+          apagarConsultaSalva(salva.id);
+          setSalvas(listarConsultasSalvas());
+          toast(`“${salva.nome}” apagada`, {
+            action: {
+              label: "Desfazer",
+              onClick: () => {
+                restaurarConsultaSalva(salva);
+                setSalvas(listarConsultasSalvas());
+              },
+            },
+          });
+        }}
+      />
     </main>
   );
 }
