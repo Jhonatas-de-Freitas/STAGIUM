@@ -4,6 +4,15 @@ Chat em que o cliente escolhe o sistema da empresa (hoje **Sagi (SyGeCom)**, **N
 O assistente encontra a consulta certa no catálogo, pede aprovação, solicita as credenciais
 do usuário de integração, consulta a API e devolve a planilha (.xlsx).
 
+## Implementações do Jhonatas (branch `Jho`)
+
+Registro do que foi implementado nesta branch, do mais recente para o mais antigo. Nada aqui
+está na `main` (que é a que o Lovable publica) até ser revisado e juntado.
+
+| Data | O quê | Onde |
+|---|---|---|
+| 19/10/2026 | **WinThor e Protheus no catálogo e no chat** (lote P4). Protheus traz o financeiro (contas a receber e a pagar, baixas, movimentos bancários com "só não conciliados", extrato e saldos); WinThor traz pedidos, clientes, produtos, preços e estoque (a API dele não tem financeiro). Executor ganhou senha em MD5, cookie de sessão, Basic com `tenantId`, `where` montado só pelo executor e fim de página por `hasNext`; recusa endereço por IP. | `catalogo/sistemas/totvs-*`, `src/lib/executor.servidor.ts`, `catalogo/relatorios/winthor.md` e `protheus.md` |
+
 ## Fluxo
 
 1. O cliente pergunta ("produtos cadastrados", "movimentos de estoque da matriz").
