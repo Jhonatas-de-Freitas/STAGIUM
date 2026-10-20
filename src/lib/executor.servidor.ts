@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 
 import conhecimento from "./conhecimento.json";
+import { md5 } from "./md5";
 
 /**
  * Executa uma consulta de LEITURA na API do cliente — só no servidor.
@@ -51,6 +52,12 @@ type ReceitaEndpoint = {
     periodos: Record<string, string>;
     filial: string | null;
     condicoes: Record<string, string>;
+    /** Como as condições se juntam: ";" (Nomus, padrão) ou " AND " (SQL do Protheus). */
+    separador?: string;
+    /** Expressão com {banco}, {agencia} e {conta} (Protheus: movimentos e extrato por conta). */
+    conta_bancaria?: string | null;
+    /** false: o formulário não oferece filtro livre (ex.: where em SQL do Protheus). */
+    filtro_livre?: boolean;
   };
   /** Intervalo mínimo entre requisições exigido pelo sistema (ex.: Nomus: 20 s). */
   intervalo_minimo_s?: number;
@@ -76,6 +83,8 @@ type ReceitaEndpoint = {
   /** Consulta em duas etapas: a primeira traz ids, a segunda os detalhes em lotes. */
   segunda_etapa?: { endpoint: string; lote: number; parametro: string } | null;
   headers_fixos?: Record<string, string>;
+  /** Opções do formulário com rótulo em português: campo -> parâmetro e valor enviado (ex.: WinThor). */
+  escolhas_query?: Record<string, { parametro: string; valores: Record<string, string> }>;
 };
 
 export type CampoFiltro = {
@@ -90,7 +99,11 @@ export type CampoFiltro = {
     | "opcao"
     | "caminho"
     | "condicao"
-    | "avancado";
+    | "avancado"
+    /** Número enviado como está no parâmetro de mesmo nome (ex.: WinThor: dias de busca). */
+    | "numero"
+    /** Banco, agência ou conta, que entram juntos no filtro composto (ex.: Protheus). */
+    | "conta_bancaria";
   /** Formato em que a API espera a data (o formulário sempre usa AAAA-MM-DD). */
   formato?: "dd/mm/aaaa";
   obrigatorio: boolean;
@@ -117,6 +130,8 @@ type ReceitaAuth = {
   conexao?: { tipo: string; url_autorizacao: string };
   /** Vários cabeçalhos de credencial (ex.: Qive: X-API-ID e X-API-KEY): cabeçalho -> credencial. */
   headers_credenciais?: Record<string, string>;
+  /** Basic com usuário e senha (ex.: Protheus): quais credenciais formam "usuario:senha". */
+  basic_campos?: { usuario: string; senha: string };
   base_url_por_ambiente?: Record<string, string | null>;
   login?: {
     metodo: string;
@@ -124,7 +139,18 @@ type ReceitaAuth = {
     corpo: Record<string, string>;
     campo_token: string;
     prefixo?: string;
+    /** O sistema guarda a sessão em cookie (ex.: WinThor): o login devolve e as consultas reenviam. */
+    repassar_cookies?: boolean;
   };
+};
+
+/**
+ * Transformações aplicadas a uma credencial no corpo do login, no marcador {credencial|nome}.
+ * O cliente digita a senha normal; o servidor converte no formato que o sistema exige.
+ */
+const TRANSFORMACOES: Record<string, (valor: string) => string> = {
+  // WinThor: MD5 em maiúsculas da senha passada para maiúsculas (Totvs@123 -> 29F7F1E7...)
+  md5_maiusculo: (v) => md5(v.toUpperCase()).toUpperCase(),
 };
 
 const EXECUCAO = (
@@ -312,7 +338,45 @@ const DICAS_CREDENCIAL: Record<string, string> = {
     " Na Qive, confira o API ID e a API KEY; credenciais de testes (sandbox) só funcionam no endereço de testes.",
   sygecom:
     " No Sagi, veja também se a opção 'Bloquear Acesso ao SAGI Mobile' está desmarcada no cadastro do usuário de integração.",
+  "totvs-winthor":
+    " No WinThor, use a mesma senha do WinThor Anywhere e confira, na rotina 530, se o usuário tem acesso às rotinas 801, 810, 812 e 814.",
+  "totvs-protheus":
+    " No Protheus, confira usuário, senha e o código de empresa e filial; o usuário precisa ter acesso às tabelas consultadas.",
 };
+
+const DATA_ISO = /^\d{4}-\d{2}-\d{2}$/;
+/** Banco, agência e conta entram no filtro SQL do Protheus: só letras, números, espaço, ponto e hífen. */
+const CODIGO_SEGURO = /^[A-Za-z0-9 .-]{1,20}$/;
+
+/** Troca {data_inicial}/{data_final} (AAAA-MM-DD) e as variantes _aaaammdd (Protheus) no modelo. */
+const preencherDatas = (modelo: string, inicio: string, fim: string) =>
+  modelo
+    .replace(/\{data_inicial_aaaammdd\}/g, inicio.replace(/-/g, ""))
+    .replace(/\{data_final_aaaammdd\}/g, fim.replace(/-/g, ""))
+    .replace(/\{data_inicial\}/g, inicio)
+    .replace(/\{data_final\}/g, fim);
+
+/**
+ * O servidor do site roda na Cloudflare, que não deixa chamar um IP direto (só endereço com
+ * nome). ERPs instalados no cliente (WinThor, Protheus) costumam vir como http://IP:porta.
+ * Endereço local (localhost, 127.x) passa: é teste na própria máquina.
+ */
+function conferirEndereco(base: string) {
+  let host = "";
+  try {
+    host = new URL(base).hostname;
+  } catch {
+    throw new Error("Endereço da API inválido: comece com http:// ou https://.");
+  }
+  const ehIp = /^\d{1,3}(\.\d{1,3}){3}$/.test(host) || host.startsWith("[");
+  const local = host === "localhost" || host.startsWith("127.") || host === "[::1]";
+  if (ehIp && !local) {
+    throw new Error(
+      "O endereço da API precisa ter um nome (ex.: https://erp.suaempresa.com.br), não um IP. " +
+        "Peça ao TI da empresa um nome de domínio apontando para o servidor do sistema.",
+    );
+  }
+}
 
 const credencialRecusada = (slug: string) =>
   new Error("Credenciais recusadas pelo sistema." + (DICAS_CREDENCIAL[slug] ?? ""));
@@ -398,8 +462,17 @@ async function autenticar(
     const corpo: Record<string, string> = {};
     for (const [campo, modelo] of Object.entries(auth.login.corpo)) {
       corpo[campo] = modelo.replace(
-        /\{([a-z0-9_]+)\}/g,
-        (_, chave: string) => credenciais[chave] ?? "",
+        /\{([a-z0-9_]+)(?:\|([a-z0-9_]+))?\}/g,
+        (_, chave: string, transformacao?: string) => {
+          const valorCredencial = credenciais[chave] ?? "";
+          if (!transformacao) return valorCredencial;
+          const aplicar = TRANSFORMACOES[transformacao];
+          if (!aplicar)
+            throw new Error(
+              `O catálogo pede a transformação '${transformacao}', que o executor não conhece.`,
+            );
+          return aplicar(valorCredencial);
+        },
       );
     }
     const resposta = await comLimite(base + auth.login.caminho, {
@@ -435,11 +508,30 @@ async function autenticar(
     }
     cabecalhos["Authorization"] =
       (auth.login.prefixo ?? "Bearer ") + String(token).replace(/^Bearer\s+/i, "");
+    if (auth.login.repassar_cookies) {
+      // só nome=valor de cada cookie; atributos (Path, Expires...) não voltam ao servidor
+      const pares = (resposta.headers.getSetCookie?.() ?? [])
+        .map((c) => c.split(";")[0]!.trim())
+        .filter((c) => c.includes("="));
+      if (pares.length > 0) cabecalhos["Cookie"] = pares.join("; ");
+    }
     return cabecalhos;
   }
 
   if (auth.tipo === "oauth2_refresh_token") {
     cabecalhos["Authorization"] = "Bearer " + (credenciais["access_token"] ?? "");
+    return cabecalhos;
+  }
+
+  if (auth.tipo === "basic" && auth.basic_campos) {
+    // Protheus: Basic base64(usuario:senha) em toda chamada, mais o tenantId (empresa e filial)
+    const par = `${credenciais[auth.basic_campos.usuario] ?? ""}:${credenciais[auth.basic_campos.senha] ?? ""}`;
+    cabecalhos["Authorization"] =
+      "Basic " + btoa(String.fromCharCode(...new TextEncoder().encode(par)));
+    for (const [cabecalho, nome] of Object.entries(auth.headers_credenciais ?? {})) {
+      const valorCredencial = (credenciais[nome] ?? "").trim();
+      if (valorCredencial) cabecalhos[cabecalho] = valorCredencial;
+    }
     return cabecalhos;
   }
 
@@ -593,6 +685,11 @@ function resumirItens(lista: unknown[]): string | null {
   return partes.every((p) => p !== null) && partes.length > 0 ? partes.join("; ") : null;
 }
 const isoParaBr = (iso: string) => iso.split("-").reverse().join("/");
+/** "2015-3-3" (Protheus) -> "2015-03-03"; outros textos passam como estão. */
+const datasComZero = (texto: string) => {
+  const m = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(texto);
+  return m ? `${m[1]}-${m[2]!.padStart(2, "0")}-${m[3]!.padStart(2, "0")}` : texto;
+};
 
 /** Núcleo da execução, isolado da camada de servidor para poder ser testado. */
 export async function consultarSistema(data: Entrada) {
@@ -633,6 +730,7 @@ export async function consultarSistema(data: Entrada) {
       ""
     ).replace(/\/$/, "");
     if (!base) throw new Error("Endereço da API não informado.");
+    conferirEndereco(base);
 
     // filtros: valida obrigatórios antes de autenticar, para não gastar login à toa
     const campos = receita.campos_filtro ?? [];
@@ -673,36 +771,61 @@ export async function consultarSistema(data: Entrada) {
     // filtros que vão juntos num parâmetro só (período, empresa, condições e filtro livre)
     const qc = receita.query_composta;
     if (qc) {
+      // o parâmetro composto é sempre montado aqui, nunca recebido pronto do navegador
+      delete informados[qc.parametro];
       const partes: string[] = [];
-      const ini = informados["data_inicial"];
-      const fimP = informados["data_final"];
+      const ini = String(informados["data_inicial"] ?? "");
+      const fimP = String(informados["data_final"] ?? "");
       if (ini && fimP) {
+        if (!DATA_ISO.test(ini) || !DATA_ISO.test(fimP)) {
+          throw new Error("Datas do período em formato inválido.");
+        }
         const porRotulo = informados["periodo_por"];
         const modelo =
           (porRotulo && qc.periodos[String(porRotulo)]) || Object.values(qc.periodos)[0];
-        if (modelo) {
-          partes.push(
-            modelo.replace("{data_inicial}", String(ini)).replace("{data_final}", String(fimP)),
-          );
-        }
+        if (modelo) partes.push(preencherDatas(modelo, ini, fimP));
       }
       if (qc.filial && informados["id_empresa"]) {
         partes.push(qc.filial.replace("{id_empresa}", String(informados["id_empresa"]).trim()));
       }
+      if (qc.conta_bancaria) {
+        const conta = ["banco", "agencia", "conta"].map((n) => String(informados[n] ?? "").trim());
+        if (conta.some(Boolean)) {
+          if (!conta.every((v) => CODIGO_SEGURO.test(v))) {
+            throw new Error(
+              "Para filtrar por conta, preencha banco, agência e conta (só letras, números, ponto e hífen).",
+            );
+          }
+          partes.push(
+            qc.conta_bancaria
+              .replace("{banco}", conta[0]!)
+              .replace("{agencia}", conta[1]!)
+              .replace("{conta}", conta[2]!),
+          );
+        }
+      }
       for (const [nome, expressao] of Object.entries(qc.condicoes)) {
         if (informados[nome]) partes.push(expressao);
       }
-      if (informados["filtro_adicional"])
+      if (informados["filtro_adicional"] && qc.filtro_livre !== false)
         partes.push(String(informados["filtro_adicional"]).trim());
+      delete informados["filtro_adicional"];
       for (const c of campos.filter((c) => c.nome in informados && c.papel !== "caminho")) {
         if (
-          ["periodo_inicio", "periodo_fim", "filial", "condicao", "avancado"].includes(c.papel) ||
+          [
+            "periodo_inicio",
+            "periodo_fim",
+            "filial",
+            "condicao",
+            "avancado",
+            "conta_bancaria",
+          ].includes(c.papel) ||
           c.nome === "periodo_por"
         ) {
           delete informados[c.nome];
         }
       }
-      if (partes.length > 0) informados[qc.parametro] = partes.join(";");
+      if (partes.length > 0) informados[qc.parametro] = partes.join(qc.separador ?? ";");
     }
 
     // filtros por recomendação do catálogo: período no modelo do fornecedor, conta conectada, opções
@@ -759,6 +882,15 @@ export async function consultarSistema(data: Entrada) {
       for (const c of campos) if (c.papel !== "caminho") delete informados[c.nome];
     }
 
+    // opções com rótulo em português: troca o rótulo escolhido pelo valor que a API espera
+    for (const [nome, escolha] of Object.entries(receita.escolhas_query ?? {})) {
+      const opcao = informados[nome];
+      delete informados[nome];
+      if (opcao && escolha.valores[String(opcao)] !== undefined) {
+        informados[escolha.parametro] = escolha.valores[String(opcao)]!;
+      }
+    }
+
     const consultaBase: Record<string, string> = {};
     for (const [k, v] of Object.entries(receita.padroes_fixos ?? {})) consultaBase[k] = String(v);
     for (const [k, v] of Object.entries(informados)) consultaBase[k] = String(v);
@@ -779,6 +911,7 @@ export async function consultarSistema(data: Entrada) {
     let continuar = false;
     let esperarSegundos = 0;
     let esperas429 = 0;
+    let assinaturaAnterior = "";
     const cursorNoCorpo = pag.local_cursor === "corpo";
 
     while (pagina < MAXIMO_PAGINAS) {
@@ -890,6 +1023,10 @@ export async function consultarSistema(data: Entrada) {
 
       const corpo = await resposta.json();
       const itens = extrairLista(corpo, receita.lista_em);
+      // página igual à anterior: o sistema ignorou o número da página; para em vez de duplicar
+      const assinatura = itens.length > 0 ? JSON.stringify(itens) : "";
+      if (assinatura && assinatura === assinaturaAnterior) break;
+      assinaturaAnterior = assinatura;
       // XML em Base64: lê as colunas "xml:..." e descarta o conteúdo bruto da planilha
       if (receita.xml) {
         const doXml = receita.colunas.filter((c) => c.caminho.startsWith("xml:"));
@@ -913,6 +1050,11 @@ export async function consultarSistema(data: Entrada) {
       let acabou = pag.tipo === "nenhuma" || itens.length === 0 || linhas.length >= maximo;
       if (!acabou && pag.fim === "pagina_incompleta" && itens.length < tamanho) acabou = true;
       if (!acabou && pag.fim === "hasMore_false" && !valor(corpo, "hasMore")) acabou = true;
+      if (!acabou && pag.fim === "hasNext_false") {
+        // WinThor: {first, items, hasNext}. Sem o campo na resposta, vale a página incompleta.
+        const proxima = valor(corpo, "hasNext");
+        if (typeof proxima === "boolean" ? !proxima : itens.length < tamanho) acabou = true;
+      }
       if (
         !acabou &&
         (pag.fim === "total_atingido" || pag.fim_alternativo === "total_atingido") &&
@@ -1021,7 +1163,8 @@ export async function consultarSistema(data: Entrada) {
           const bruto = valorFlexivel(linha, c.caminho);
           const formato = numericas.get(c.caminho);
           const lido = formato === undefined ? bruto : numeroDeTexto(bruto, formato);
-          const v = typeof lido === "string" ? (sistema.traducoes?.[lido] ?? lido) : lido;
+          const v =
+            typeof lido === "string" ? (sistema.traducoes?.[lido] ?? datasComZero(lido)) : lido;
           saida[c.caminho] =
             v === null || v === undefined
               ? ""

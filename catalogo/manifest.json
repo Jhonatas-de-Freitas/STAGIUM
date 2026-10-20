@@ -5,7 +5,7 @@
   "aguardando_aprovacao": false,
   "aprovado_em": "2026-09-14",
   "criado_em": "2026-09-14",
-  "atualizado_em": "2026-10-14",
+  "atualizado_em": "2026-10-19",
   "legenda_status": {
     "pendente": "ainda não iniciado",
     "em_andamento": "lote em execução",
@@ -152,6 +152,18 @@
       "concluido_em": "2026-10-14"
     },
     {
+      "lote": "P4",
+      "onda": 1,
+      "tema": "Adiantado — ERPs TOTVS dos clientes (WinThor, Protheus)",
+      "sistemas": [
+        "totvs-winthor",
+        "totvs-protheus"
+      ],
+      "status": "concluido",
+      "motivo": "pedido do usuário em 2026-10-19: ERPs de clientes do escritório do proprietário (WinThor, cliente novo citado em 2026-09-23; Protheus, citado em 2026-09-14)",
+      "concluido_em": "2026-10-19"
+    },
+    {
       "lote": 3,
       "onda": 1,
       "tema": "Fiscal — padrão e gateways",
@@ -193,7 +205,6 @@
       "onda": 1,
       "tema": "ERP médio/grande porte (risco de acesso restrito)",
       "sistemas": [
-        "totvs-protheus",
         "sankhya",
         "senior"
       ],
@@ -1072,19 +1083,97 @@
       "nome": "TOTVS Protheus",
       "categoria": "erp_nacional",
       "onda": 1,
-      "lote": 6,
+      "lote": "P4",
       "prioridade": {
         "adocao": 3,
         "doc": 2,
         "valor": 3,
         "total": 18
       },
-      "status": "pendente",
+      "status": "concluido",
       "hipoteses_a_validar": [
         "API REST on-premise por cliente (sem base_url única)",
         "TOTVS Developers/TDN como fonte"
       ],
-      "risco": "APIs variam por release e customização do cliente"
+      "risco": "APIs variam por release e customização do cliente",
+      "adiantado_fora_da_ordem": true,
+      "justificativa_inclusao": "Pedido do usuário em 2026-10-19: clientes do escritório do proprietário usam Protheus.",
+      "resultado": {
+        "endpoints_detalhados": 27,
+        "endpoints_catalogados": 568,
+        "faq": 23,
+        "indice_integrabilidade": 37,
+        "bloqueio_para_o_piloto": "credencial: usuário do Protheus só de leitura, tenantId e endereço do REST publicado",
+        "data": "2026-10-19"
+      },
+      "concluido_em": "2026-10-19",
+      "endpoints_detalhados": 27,
+      "endpoints_catalogados": 568,
+      "faq": 23,
+      "indice_integrabilidade": 37,
+      "validador": "0 erros, 0 avisos",
+      "execucao": {
+        "completo_em": "2026-10-19",
+        "endpoints_executaveis": 25,
+        "endpoints_total": 27
+      },
+      "conferencia_orquestrador": "páginas oficiais da TDN conferidas por amostragem; executor do site e da CLI testados contra servidor simulado; nenhuma chamada real",
+      "pendencias": [
+        "REST publicado pelo TI do cliente (HTTPS, porta e /rest); tenantId com empresa e filial",
+        "versão mínima da LIB para a genericQuery não publicada",
+        "filtro de estornos e baixas canceladas na SE5 não documentado",
+        "nomes page/pagesize inferidos do guia de APIs TOTVS",
+        "modo token (bearer_alternativo) ainda não usado pelos executores",
+        "sem sandbox, webhooks ou termos de uso para produto de terceiro; cada chamada consome licença"
+      ]
+    },
+    {
+      "slug": "totvs-winthor",
+      "nome": "TOTVS WinThor",
+      "categoria": "erp_nacional",
+      "onda": 1,
+      "lote": "P4",
+      "prioridade": null,
+      "prioridade_observacao": "Fora da lista original; entrou por pedido do usuário.",
+      "status": "concluido",
+      "adicionado_fora_lista": true,
+      "justificativa_inclusao": "ERP de cliente novo do escritório do proprietário (2026-09-23), com foco em distribuição e varejo.",
+      "hipoteses_a_validar": [
+        "documentação de integração publicada na TDN e na Central de Atendimento TOTVS",
+        "API instalada no servidor do cliente (sem base_url única)",
+        "acesso pode depender de licença ou parceria TOTVS"
+      ],
+      "fontes_iniciais": [
+        "https://tdn.totvs.com/pages/releaseview.action?pageId=573185595",
+        "https://centraldeatendimento.totvs.com/hc/pt-br/articles/15615773269655-WINT-Como-realizar-integra%C3%A7%C3%A3o-com-terceiros"
+      ],
+      "resultado": {
+        "endpoints_detalhados": 23,
+        "endpoints_catalogados": 104,
+        "faq": 18,
+        "indice_integrabilidade": 31,
+        "bloqueio_para_o_piloto": "credencial: usuário de integração (rotinas 528/530) e endereço do WTA com nome de domínio",
+        "data": "2026-10-19"
+      },
+      "concluido_em": "2026-10-19",
+      "endpoints_detalhados": 23,
+      "endpoints_catalogados": 104,
+      "faq": 18,
+      "indice_integrabilidade": 31,
+      "validador": "0 erros, 0 avisos",
+      "execucao": {
+        "completo_em": "2026-10-19",
+        "endpoints_executaveis": 15,
+        "endpoints_total": 23
+      },
+      "conferencia_orquestrador": "páginas oficiais da TDN conferidas por amostragem; executor do site e da CLI testados contra servidor simulado; nenhuma chamada real",
+      "pendencias": [
+        "sem API de financeiro (contas a receber/pagar, baixas, banco): conciliação bancária não atendida",
+        "WTA precisa ser publicado com nome de domínio (o servidor do site não chama IP) e, de preferência, HTTPS",
+        "nome do cookie de sessão não publicado; Bearer nas rotas /api/... é inferido",
+        "envelope {first, items, hasNext} de pedidos e clientes inferido",
+        "sem sandbox, webhooks, rate limit publicado ou termos de uso para produto de terceiro"
+      ]
     },
     {
       "slug": "sankhya",

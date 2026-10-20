@@ -1,0 +1,797 @@
+{
+  "slug": "totvs-protheus",
+  "nome": "TOTVS Protheus",
+  "categoria": "erp_nacional",
+  "fornecedor": {
+    "razao_social": "TOTVS S.A.",
+    "pais": "BR",
+    "site": "https://www.totvs.com/",
+    "cnpj": "53113791000122",
+    "observacao": "Razão social e CNPJ conforme a página de termos de uso do site da TOTVS.",
+    "fonte_url": "https://www.totvs.com/termos-de-uso/",
+    "data_consulta": "2026-10-19"
+  },
+  "descricao_curta": "ERP da TOTVS para médias e grandes empresas, instalado no servidor de cada cliente ou no TOTVS Cloud. Expõe um serviço REST no próprio servidor (https://<servidor>:<porta>/rest), com autenticação por usuário e senha do Protheus (Basic ou token Bearer de 1 hora), escolha de empresa e filial pelo cabeçalho tenantId, uma API genérica oficial de leitura de tabelas (genericQuery) e dezenas de APIs padrão TOTVS que variam com a release, a LIB e os módulos do cliente.",
+  "porte_alvo": [
+    "media",
+    "grande"
+  ],
+  "verticais": [
+    "industria",
+    "distribuicao",
+    "servicos",
+    "agronegocio",
+    "varejo",
+    "construcao",
+    "saude"
+  ],
+  "status": "documentado",
+  "api": {
+    "estilo": "REST",
+    "base_urls": {
+      "producao": null,
+      "sandbox": null
+    },
+    "base_url_modelo": "https://<servidor>:<porta>/rest",
+    "base_url_observacao": "Não há host único. O endereço é o do serviço REST configurado no appserver.ini do cliente (seção do socket com a porta e seção [HTTPURI] com a chave URL, em geral /rest). Exemplo da documentação: http://localhost:8080/rest. Ambientes no TOTVS Cloud aparecem em exemplo oficial no formato https://<ambiente>.protheus.cloudtotvs.com.br:<porta>/rest. Para um serviço na nuvem chegar ao REST, o TI do cliente precisa publicá-lo (HTTPS, firewall, eventualmente VPN).",
+    "versao_atual": "Protheus 12.1.x (releases 12.1.2410, 12.1.2510...); APIs com versão no caminho (/api/<dominio>/v1)",
+    "politica_versionamento": "Versão no caminho de cada API (ex.: /api/framework/v1, /api/crm/v1, /api/supply/v2). O comportamento muda por release do Protheus e por LIB (pacote de framework): recursos novos chegam por expedição contínua e são registrados em documentos técnicos (DT) no TDN. O guia de APIs TOTVS manda criar nova versão para mudanças incompatíveis.",
+    "formatos": [
+      "json"
+    ],
+    "spec_oficial_url": "https://api.totvs.com.br/",
+    "spec_observacao": "Não existe uma especificação OpenAPI única do Protheus. O portal TOTVS Developers publica 125 especificações OpenAPI 3.0 de APIs padrão TOTVS disponíveis no Protheus (arquivos no GitHub oficial totvs/ttalk-standard-message), quase todas de cadastros, CRM, MRP, RH, agro e varejo; o financeiro, o fiscal e o estoque não têm API padrão ali e são lidos pela genericQuery, documentada no TDN.",
+    "openapi_disponivel": true,
+    "openapi_observacao": "Só para as APIs padrão do TOTVS Developers; o openapi.yaml deste catálogo é reconstruído.",
+    "llms_txt": null,
+    "fonte_url": "https://api.totvs.com.br/",
+    "data_consulta": "2026-10-19"
+  },
+  "autenticacao": {
+    "tipos": [
+      "basic",
+      "jwt"
+    ],
+    "fluxo_resumido": "Toda chamada usa um usuário do próprio Protheus. (1) Basic: cabeçalho Authorization: Basic base64(usuario:senha). (2) Bearer: POST /api/oauth2/v1/token?grant_type=password com username e password (o TDN manda em cabeçalhos; a especificação TOTVS Developers e o exemplo AdvPL usam a query string) devolve access_token JWT (expires_in 3600), refresh_token (24 h), scope default e token_type Bearer; depois Authorization: Bearer <access_token>. Renovação: POST /api/oauth2/v1/token?grant_type=refresh_token&refresh_token=<...>. Em ambos, o cabeçalho tenantId: <grupo>,<filial> define empresa e filial da requisição.",
+    "escopos_permissoes": [],
+    "escopos_observacao": "Não há escopos de API (scope sempre 'default'). O que a chamada enxerga é o que o usuário do Protheus enxerga: privilégios de rotina, acesso a filiais, nível de campo e dados protegidos (LGPD). Usuário sem acesso à filial do tenantId recebe 401.",
+    "expiracao_token": "access_token: 3600 s; refresh_token: 24 h (fixos, não configuráveis)",
+    "renovacao": "grant_type=refresh_token renova os dois prazos; vencido o refresh, novo login com usuário e senha.",
+    "ip_allowlist_obrigatorio": false,
+    "ip_allowlist_observacao": "Nada obrigatório na API; na prática o acesso depende de o TI publicar o REST na rede (firewall, VPN ou allowlist definidos pelo cliente).",
+    "seguranca_servidor": "Chave Security do socket REST: desde a release 12.1.33 (out/2021) a ausência da chave liga a autenticação; desde a 12.24.10 (out/2024) ela não pode mais ser desligada. A genericQuery, a genericList e os BasicProtheusServices só funcionam com Security=1.",
+    "mfa_observacao": "Desde o release 20241007 a resposta do token traz hasMFA.",
+    "pat_observacao": "Há uma página do TDN sobre token de acesso pessoal (PAT), alterada em 14/07/2026, mas ainda sem versão publicada; não documentada aqui.",
+    "fonte_url": "https://tdn.totvs.com/pages/viewpage.action?pageId=465383509",
+    "data_consulta": "2026-10-19"
+  },
+  "execucao_auth": {
+    "tipo": "basic",
+    "header": "Authorization",
+    "prefixo": "Basic ",
+    "usuario_basic_e_a_credencial": false,
+    "basic_campos": {
+      "usuario": "usuario",
+      "senha": "senha"
+    },
+    "headers_fixos": {
+      "Accept": "application/json"
+    },
+    "headers_credenciais": {
+      "tenantId": "tenant_id"
+    },
+    "token_url": null,
+    "credenciais_necessarias": [
+      {
+        "nome": "usuario",
+        "rotulo": "Usuário do Protheus",
+        "segredo": false,
+        "obrigatoria": true,
+        "onde_obter": "Criado pelo administrador no Configurador do Protheus (cadastro de usuários). Use um usuário dedicado à integração, com acesso só de visualização às rotinas e filiais necessárias e sem acesso a tabelas de RH."
+      },
+      {
+        "nome": "senha",
+        "rotulo": "Senha desse usuário",
+        "segredo": true,
+        "obrigatoria": true,
+        "onde_obter": "Definida no mesmo cadastro de usuário do Protheus."
+      },
+      {
+        "nome": "base_url",
+        "rotulo": "Endereço do REST do Protheus",
+        "segredo": false,
+        "obrigatoria": true,
+        "exemplo": "https://protheus.suaempresa.example.com:8080/rest",
+        "onde_obter": "Pedir ao TI ou ao parceiro TOTVS: é o endereço público (HTTPS) e a porta do serviço REST, mais o caminho configurado em [HTTPURI] (em geral /rest), sem barra no fim. No TOTVS Cloud segue o formato https://<ambiente>.protheus.cloudtotvs.com.br:<porta>/rest. Abrir esse endereço no navegador mostra a tela de serviços do REST (pede login)."
+      },
+      {
+        "nome": "tenant_id",
+        "rotulo": "Empresa e filial (tenantId)",
+        "segredo": false,
+        "obrigatoria": true,
+        "exemplo": "01,0101",
+        "onde_obter": "Código do grupo de empresas e da filial separados por vírgula, como aparecem na tela de entrada do Protheus (ex.: T1,D MG 01). Pode ir só o grupo. Sem ele, com PrepareIn=All, os dados podem vir de uma empresa qualquer."
+      }
+    ],
+    "base_url_por_ambiente": {
+      "sandbox": null,
+      "producao": null
+    },
+    "bearer_alternativo": {
+      "metodo": "POST",
+      "caminho": "/api/oauth2/v1/token",
+      "query": {
+        "grant_type": "password"
+      },
+      "headers": {
+        "username": "{usuario}",
+        "password": "{senha}"
+      },
+      "corpo": null,
+      "campo_token": "access_token",
+      "campo_refresh": "refresh_token",
+      "prefixo": "Bearer ",
+      "expira_em_s": 3600,
+      "refresh": {
+        "metodo": "POST",
+        "caminho": "/api/oauth2/v1/token",
+        "query": {
+          "grant_type": "refresh_token",
+          "refresh_token": "{refresh_token}"
+        },
+        "validade_refresh_s": 86400
+      },
+      "observacao": "Mesmo par usuário/senha do Basic. A TOTVS recomenda este modo porque a senha só trafega no login. Credenciais em cabeçalhos (TDN); a especificação TOTVS Developers mostra as mesmas chaves na query string."
+    },
+    "observacao": "Autenticação real: HTTP Basic com usuário:senha de um usuário do Protheus (Authorization: Basic base64(usuario:senha)) em toda chamada, mais o cabeçalho tenantId com grupo de empresas e filial. Não é chave de API: o executor precisa montar o Base64 a partir de usuario e senha e enviar tenantId. Alternativa equivalente: Bearer via POST /api/oauth2/v1/token?grant_type=password, com username e password em CABEÇALHOS e sem corpo (não cabe em login_credenciais, que envia corpo JSON), token em access_token, 1 h de validade. A URL base é do cliente (credencial base_url). Leituras de negócio vão por GET /api/framework/v1/genericQuery com tables/fields/where; o where é SQL e as datas vão como texto AAAAMMDD. O mesmo usuário pode ter permissão de escrita no ERP: o executor nunca deve usá-lo em POST/PUT/DELETE fora do login de token.",
+    "suporte_executor_atual": {
+      "site_executor_servidor_ts": "Suporta desde 2026-10-19: tipo basic com basic_campos (Basic base64(usuario:senha)) e tenantId por headers_credenciais; where montado de composicao_where (condições com ' AND ', datas AAAAMMDD, banco/agência/conta validados, sem filtro livre); tables e fields de parametros_fixos; fim de página por hasNext. Testado só contra mock local.",
+      "scripts_executar_py": "Suporta basic com basic_campos e envia tenantId (headers_credenciais).",
+      "token_bearer": "O modo bearer_alternativo (token de 1 h) ainda não é usado pelos executores."
+    },
+    "confianca": "verificado",
+    "fonte_url": "https://tdn.totvs.com/pages/viewpage.action?pageId=185748452",
+    "fonte_complementar_url": [
+      "https://tdn.totvs.com/pages/viewpage.action?pageId=465383509",
+      "https://tdn.totvs.com/display/framework/02.+REST+com+ERP+Microsiga+Protheus",
+      "https://tdn.totvs.com/pages/viewpage.action?pageId=502457209",
+      "https://tdn.totvs.com/display/public/framework/GenericQuery"
+    ],
+    "data_consulta": "2026-10-19"
+  },
+  "ambiente_testes": {
+    "sandbox": false,
+    "como_obter": "A TOTVS não oferece sandbox público da API. O teste é feito num ambiente de homologação do próprio cliente (outro environment/base no appserver, criado pelo TI ou parceiro) ou, só com leituras, na base de produção.",
+    "custo": null,
+    "dados_ficticios": false,
+    "observacao": "Sem base de testes, prefira consultas de leitura com recorte de período curto e um usuário sem permissão de escrita.",
+    "fonte_url": "https://tdn.totvs.com/pages/viewpage.action?pageId=185747842",
+    "data_consulta": "2026-10-19"
+  },
+  "limites": {
+    "rate_limit": null,
+    "janela": null,
+    "burst": null,
+    "rate_limit_observacao": "Nenhum limite de requisições é publicado. A capacidade depende do servidor do cliente: número de working threads da chave Instances, licenças disponíveis (com consumo por demanda, falta de licença vira HTTP 503) e peso da consulta no banco. O consumo de licença por demanda adiciona 50 a 80 ms por requisição.",
+    "paginacao": {
+      "estilo": "page",
+      "tamanho_max": null,
+      "observacao": "Padrão TOTVS: page (desde 1) e pageSize (padrão 10); resposta {hasNext, items}; nunca devolve a coleção inteira. Na genericQuery/genericList o exemplo oficial grafa 'pagesize' e a resposta traz também remainingRecords. Teto de página não publicado."
+    },
+    "tamanho_max_payload": "Requisições acima de 1 MB exigem MAXSTRINGSIZE >= 10 no servidor; URLs devem ficar abaixo de 2.000 caracteres (guia de APIs TOTVS).",
+    "timeout_recomendado": "120 s para leituras (inferido: consultas grandes rodam SQL no banco do ERP).",
+    "politica_retry": "Nada publicado. Recomendação própria: repetir 503/502/504 com espera crescente (10 s, 20 s) e no máximo 3 tentativas; nunca repetir 401 ou 404.",
+    "idempotencia": {
+      "suportada": false,
+      "header": null
+    },
+    "volatil": true,
+    "fonte_url": "https://tdn.totvs.com/pages/viewpage.action?pageId=527852596",
+    "data_consulta": "2026-10-19"
+  },
+  "webhooks": {
+    "suportados": false,
+    "eventos": [],
+    "verificacao_assinatura": null,
+    "politica_reentrega": null,
+    "requer_endpoint_publico": false,
+    "observacao": "Nenhum cadastro de webhook para terceiros foi encontrado na documentação do REST do Protheus. As integrações por evento da TOTVS (EAI, TOTVS Smartlink com CloudEvents) são configuradas dentro do ERP para produtos e parceiros específicos. Para o assistente, tudo é consulta periódica.",
+    "fonte_url": "https://tdn.totvs.com/pages/viewpage.action?pageId=708894306",
+    "data_consulta": "2026-10-19"
+  },
+  "erros": {
+    "formato": "APIs no padrão TTALK devolvem o ErrorModel TOTVS: {code, message, detailedMessage, helpUrl, details[]}. APIs antigas usam o formato legado da função SetRestFault (não documentado como JSON). No REST 2.0 a página de 404 vem em HTML e barras extras no caminho também dão 404.",
+    "codigos_principais": [
+      {
+        "status": 200,
+        "quando": "Sucesso (listas com hasNext e items)."
+      },
+      {
+        "status": 401,
+        "quando": "Credencial inválida, token vencido ou tenantId com filial sem acesso para o usuário."
+      },
+      {
+        "status": 403,
+        "quando": "Autenticado sem permissão para a operação (regra do guia de APIs TOTVS)."
+      },
+      {
+        "status": 404,
+        "quando": "Recurso inexistente, API não publicada na release do cliente ou endereço errado."
+      },
+      {
+        "status": 409,
+        "quando": "Conflito previsto na especificação da API de token."
+      },
+      {
+        "status": 503,
+        "quando": "Sem licença disponível no License Server (REST com consumo por demanda)."
+      }
+    ],
+    "fonte_url": "https://tdn.totvs.com/pages/viewpage.action?pageId=484701395",
+    "data_consulta": "2026-10-19"
+  },
+  "sdks_oficiais": [],
+  "sdks_observacao": "Não há SDK oficial para consumidores externos. A plataforma tem cliente REST em AdvPL (FWRest), útil só dentro do Protheus. As especificações das APIs padrão estão no GitHub oficial totvs/ttalk-standard-message, e o portal TOTVS Developers as exibe.",
+  "comercial": {
+    "modelo_acesso": "sob_contrato",
+    "custo_api": null,
+    "custo_api_observacao": "Não há preço público da API. O acesso exige ser cliente licenciado do Protheus, e o REST consome licença TOTVS I (por working thread ou, com Stateless=1, por requisição); licenças de aplicativo só valem com API Manager da TOTVS (Mingle ou WSO2). Expor o REST na internet é trabalho do TI ou do parceiro TOTVS do cliente.",
+    "exige_homologacao": false,
+    "tempo_medio_aprovacao": null,
+    "volatil": true,
+    "fonte_url": "https://tdn.totvs.com/pages/viewpage.action?pageId=527852596",
+    "data_consulta": "2026-10-19"
+  },
+  "conformidade": {
+    "trafega_dado_pessoal": true,
+    "dado_sensivel": false,
+    "dado_sensivel_observacao": "As receitas do catálogo não tocam tabelas de RH, mas a genericQuery alcança qualquer tabela que o usuário possa ver, inclusive folha e funcionários: o usuário de integração não deve ter esse acesso.",
+    "base_legal_tipica": "Execução de contrato e cumprimento de obrigação legal (LGPD art. 7º, V e II). A API devolve nomes, CPF/CNPJ, endereços, e-mails e telefones de clientes e fornecedores. O Protheus tem controle de dados protegidos: campos sensíveis podem ser ocultados por usuário e aparecem em protectedDataFields.",
+    "exige_certificado_digital": false,
+    "regulador": null,
+    "residencia_dados": "No servidor do cliente (on-premise) ou no TOTVS Cloud.",
+    "termos_uso_url": "https://www.totvs.com/termos-de-uso/",
+    "termos_uso_observacao": "Termos gerais do site da TOTVS; não há termos específicos de uso da API por terceiros.",
+    "permite_uso_em_produto_terceiro": "indefinido",
+    "permite_uso_em_produto_terceiro_observacao": "Nada publicado. O acesso usa a licença e o usuário do próprio cliente; confirmar com o cliente (e, se preciso, com a TOTVS) o uso por um serviço de terceiro e o consumo de licença.",
+    "fonte_url": "https://tdn.totvs.com/pages/viewpage.action?pageId=527852596",
+    "data_consulta": "2026-10-19"
+  },
+  "esforco_integracao": {
+    "complexidade": "alta",
+    "horas_estimadas_mvp": 40,
+    "premissa_estimativa": "MVP só de leitura com 8 a 10 receitas genericQuery (receber, pagar, baixas, movimentos bancários, extrato, clientes, produtos, estoque, notas), Basic Auth com tenantId, paginação por hasNext, montagem do where com datas AAAAMMDD e tratamento de 401/503. Não inclui o tempo do TI do cliente para publicar o REST com HTTPS, que costuma ser o gargalo.",
+    "principais_armadilhas": [
+      "Não há host público: o REST do cliente precisa estar publicado (HTTPS, firewall/VPN) para um serviço na nuvem alcançá-lo.",
+      "Sem o cabeçalho tenantId e com PrepareIn=All, a resposta pode vir de outra empresa do grupo.",
+      "Datas no where são texto AAAAMMDD: enviar AAAA-MM-DD compara errado e devolve dados incorretos sem erro.",
+      "O financeiro, o fiscal e o estoque não têm API padrão no TOTVS Developers: a leitura é pela genericQuery, com SQL no where.",
+      "Instalações diferem: campos de usuário, tabelas compartilhadas ou exclusivas, privilégios e dados protegidos mudam o que volta.",
+      "Usuário Protheus, não chave de API: a mesma credencial pode gravar no ERP; crie um usuário só de leitura.",
+      "Cada requisição consome licença (ou falha com 503 quando faltam licenças por demanda).",
+      "Consultas com várias tabelas sem condição de junção geram produto cartesiano e podem pesar no banco do ERP.",
+      "No REST 2.0, 404 vem em HTML e barra duplicada no endereço também dá 404: normalize a URL base sem barra final.",
+      "Situação de pedido, título ou nota não é um campo único: depende de combinações de campos (ex.: C5_NOTA, C6_QTDENT, C6_BLQ).",
+      "Sem webhooks: sincronização por consulta periódica."
+    ]
+  },
+  "casos_uso_negocio": [
+    {
+      "titulo": "Conciliação bancária assistida",
+      "dor_resolvida": "O financeiro passa horas cruzando extrato e ERP conta a conta e não enxerga o que ficou sem conciliar no mês.",
+      "endpoints_envolvidos": [
+        "totvs-protheus.transacao.listar.movimentos_bancarios",
+        "totvs-protheus.transacao.listar.extrato_bancario",
+        "totvs-protheus.transacao.listar.saldos_bancarios",
+        "totvs-protheus.tabela_auxiliar.listar.bancos"
+      ],
+      "valor_percebido": "Planilha por conta com movimentos do ERP marcados como conciliados ou não, linhas do extrato importado no mesmo período e saldo do sistema na data: as diferenças aparecem sem abrir tela por tela."
+    },
+    {
+      "titulo": "Aging de recebíveis e inadimplência",
+      "dor_resolvida": "A diretoria pede a carteira vencida por cliente e faixa de atraso e o relatório padrão não sai como precisam.",
+      "endpoints_envolvidos": [
+        "totvs-protheus.conta_receber.listar",
+        "totvs-protheus.pagamento.listar.baixas",
+        "totvs-protheus.cliente.listar"
+      ],
+      "valor_percebido": "Títulos em aberto com vencimento real, saldo e cliente, mais o recebido no período com juros e descontos."
+    },
+    {
+      "titulo": "Programação de pagamentos e fluxo de caixa",
+      "dor_resolvida": "Tesouraria monta o fluxo de caixa semanal copiando o contas a pagar e a receber para o Excel.",
+      "endpoints_envolvidos": [
+        "totvs-protheus.conta_pagar.listar",
+        "totvs-protheus.conta_receber.listar",
+        "totvs-protheus.plano_contas.listar.naturezas",
+        "totvs-protheus.centro_custo.listar"
+      ],
+      "valor_percebido": "Entradas e saídas previstas por dia, natureza e centro de custo, atualizadas sob demanda."
+    },
+    {
+      "titulo": "Faturamento e carteira de pedidos",
+      "dor_resolvida": "Comercial e controladoria não batem o vendido, o faturado e o que ainda falta faturar.",
+      "endpoints_envolvidos": [
+        "totvs-protheus.nota_fiscal.listar.saida",
+        "totvs-protheus.nota_fiscal.listar.saida_itens",
+        "totvs-protheus.pedido.listar.venda",
+        "totvs-protheus.pedido.listar.venda_itens"
+      ],
+      "valor_percebido": "Faturamento por produto, CFOP, cliente e vendedor e carteira a faturar por item, na mesma base."
+    },
+    {
+      "titulo": "Estoque disponível e ruptura",
+      "dor_resolvida": "Vendas não sabe quanto pode prometer e o estoque físico não desconta empenhos e reservas.",
+      "endpoints_envolvidos": [
+        "totvs-protheus.estoque.listar.saldos",
+        "totvs-protheus.produto.listar"
+      ],
+      "valor_percebido": "Saldo por produto e armazém com empenhado, reservado e comprometido em pedidos, mais descrição e NCM."
+    },
+    {
+      "titulo": "Compras: pedido x recebimento",
+      "dor_resolvida": "Suprimentos não acompanha pedidos de compra atrasados nem diferenças entre pedido e nota recebida.",
+      "endpoints_envolvidos": [
+        "totvs-protheus.pedido.listar.compra",
+        "totvs-protheus.nota_fiscal.listar.entrada_itens",
+        "totvs-protheus.fornecedor.listar"
+      ],
+      "valor_percebido": "Itens com saldo a receber por fornecedor e conferência de quantidade e preço contra as notas de entrada."
+    }
+  ],
+  "indice_integrabilidade": {
+    "score": 37,
+    "componentes": {
+      "documentacao": {
+        "peso": 20,
+        "pontos": 11,
+        "justificativa": "TDN extenso e público, com páginas claras sobre REST, token, tenantId, genericQuery e serviços básicos, e 125 especificações OpenAPI no TOTVS Developers. Mas a documentação é fragmentada em milhares de páginas, várias em rascunho não publicado (NGF, PAT), sem dicionário de dados oficial consolidado nas páginas lidas e sem API padrão para financeiro, fiscal e estoque."
+      },
+      "sandbox": {
+        "peso": 15,
+        "pontos": 2,
+        "justificativa": "Não há sandbox público nem base fictícia; testes dependem de um ambiente de homologação montado pelo cliente."
+      },
+      "autenticacao": {
+        "peso": 15,
+        "pontos": 8,
+        "justificativa": "Oferece token JWT com refresh e chave pública (JWKS), além de Basic. Porém a credencial é usuário e senha de pessoa/usuário do ERP, sem client credentials, sem escopos e com validade fixa."
+      },
+      "webhooks": {
+        "peso": 15,
+        "pontos": 0,
+        "justificativa": "Nenhum webhook para terceiros documentado; eventos só por EAI/Smartlink configurados no ERP."
+      },
+      "limites_paginacao": {
+        "peso": 10,
+        "pontos": 6,
+        "justificativa": "Paginação padronizada (page/pageSize, hasNext) e, na genericQuery, remainingRecords. Sem rate limit publicado, sem teto de página documentado e capacidade presa a threads e licenças do cliente."
+      },
+      "sdks_comunidade": {
+        "peso": 10,
+        "pontos": 3,
+        "justificativa": "Sem SDK oficial externo; existe ecossistema grande de desenvolvedores AdvPL e as especificações estão no GitHub oficial, mas nada pronto para consumo em Python/TypeScript."
+      },
+      "acesso_sem_barreira": {
+        "peso": 10,
+        "pontos": 4,
+        "justificativa": "Documentação aberta sem login. A barreira é operacional: licença Protheus, REST publicado pelo TI com HTTPS, usuário configurado e consumo de licença por requisição."
+      },
+      "versionamento": {
+        "peso": 5,
+        "pontos": 3,
+        "justificativa": "Versão no caminho e documentos técnicos por LIB, mas o comportamento varia por release, LIB e customização de cada cliente, sem changelog único."
+      }
+    }
+  },
+  "qualidade_doc": {
+    "nota": 6,
+    "observacoes": "Boa profundidade técnica em páginas isoladas (token, genericQuery, FWAdapterBaseV2, BasicProtheusServices, conciliador) e especificações OpenAPI das APIs padrão. Pontos fracos: dispersão, páginas em rascunho, ausência de lista oficial de campos por tabela num só lugar, divergências de grafia (pagesize/pageSize, credenciais em cabeçalho ou query) e formatos de erro diferentes entre APIs antigas e novas."
+  },
+  "monitoramento": {
+    "changelog_url": null,
+    "changelog_observacao": "Não há changelog único. Mudanças saem em documentos técnicos (DT) do TDN, rotulados por LIB (ex.: lib_20220905) e por release.",
+    "canal_breaking_changes": null,
+    "canal_breaking_changes_observacao": "Acompanhar as páginas GenericQuery, FWAdapterBaseV2, API de token e 'Entendendo as novidades do REST' no TDN, e as especificações no GitHub totvs/ttalk-standard-message.",
+    "frequencia_revisao_sugerida": "trimestral"
+  },
+  "lacunas": [
+    {
+      "campo": "api.base_urls",
+      "impacto": "alto",
+      "descricao": "Não existe URL pública: cada cliente tem o seu servidor, porta e caminho, e o REST pode nem estar exposto à internet. O cliente precisa informar a URL e o TI precisa publicá-la com HTTPS."
+    },
+    {
+      "campo": "execucao_auth",
+      "impacto": "alto",
+      "descricao": "O executor do site não monta Basic usuário:senha nem envia o cabeçalho tenantId, e o login_credenciais atual manda corpo JSON, enquanto o token do Protheus recebe username/password em cabeçalhos (ou query). Sem esses ajustes nenhuma receita roda pelo site."
+    },
+    {
+      "campo": "execucao.composicao_where",
+      "impacto": "alto",
+      "descricao": "Os filtros da genericQuery vão num único parâmetro SQL (where), unidos por ' AND ', com datas AAAAMMDD. O mecanismo atual de filtro composto do site une com ';' e insere datas AAAA-MM-DD: precisa de separador e formato de data por receita."
+    },
+    {
+      "campo": "genericQuery — disponibilidade",
+      "impacto": "alto",
+      "descricao": "A página oficial (atualizada em 10/10/2024) não informa a LIB mínima; a proteção que exige Security=1 é da LIB 20220905 e o sufixo PFW, da LIB 20241125. Instalações antigas podem não ter a API (404)."
+    },
+    {
+      "campo": "limites.paginacao",
+      "impacto": "medio",
+      "descricao": "Teto de pagesize não publicado; o exemplo oficial da genericList usa 'pagesize' e o guia TOTVS 'pageSize'. O parâmetro 'order' na genericQuery é inferido da classe base. Testar no primeiro uso."
+    },
+    {
+      "campo": "limites.rate_limit",
+      "impacto": "medio",
+      "descricao": "Sem limite publicado; a vazão real depende de Instances, licenças e banco do cliente. Falta de licença vira 503."
+    },
+    {
+      "campo": "customização por cliente",
+      "impacto": "alto",
+      "descricao": "Campos de usuário, tabelas compartilhadas ou exclusivas, privilégios por rotina, nível de campo e dados protegidos mudam o resultado de cada instalação; campos ocultos aparecem em protectedDataFields/nivelFields. Use basicProtheusServices/fwformstructview para conhecer os campos do cliente."
+    },
+    {
+      "campo": "semântica de códigos",
+      "impacto": "medio",
+      "descricao": "As páginas lidas não tabelam os valores de E5_TIPODOC, E5_MOTBX, E1_SITUACA, E1_TIPO/E2_TIPO, F2_TIPO, A1_RISCO e ED_TIPO; o catálogo mostra os códigos crus."
+    },
+    {
+      "campo": "E5_RECPAG",
+      "impacto": "medio",
+      "descricao": "Os valores R (receber) e P (pagar) estão documentados para FK5_RECPAG no conciliador; na SE5 o uso igual é inferido (um DT cita E5_RECPAG = 'P'). Na integração Gesplan os códigos de entrada são S/E, mas são parâmetros da rotina automática."
+    },
+    {
+      "campo": "baixas e estornos (SE5)",
+      "impacto": "alto",
+      "descricao": "A regra para excluir estornos e baixas canceladas da SE5 não está documentada nas páginas lidas; o BI oficial diz apenas que considera baixas sem cancelamento. Somar a SE5 sem esse filtro pode inflar recebimentos e pagamentos."
+    },
+    {
+      "campo": "extrato importado (SIG)",
+      "impacto": "medio",
+      "descricao": "O valor entra sem sinal no layout documentado; o campo que indica crédito ou débito e a tabela de códigos de movimento dependem do banco e da configuração. Também não foi confirmado o campo de filial da SIG."
+    },
+    {
+      "campo": "notas fiscais",
+      "impacto": "medio",
+      "descricao": "Chave de acesso, protocolo e situação na SEFAZ não foram confirmados em campos das tabelas SF2/SF1 nas páginas lidas e ficaram fora das receitas."
+    },
+    {
+      "campo": "estoque — valor",
+      "impacto": "medio",
+      "descricao": "Valor e custo médio do estoque na SB2 não foram confirmados nas páginas lidas; a receita traz só quantidades."
+    },
+    {
+      "campo": "datas no retorno",
+      "impacto": "baixo",
+      "descricao": "Datas voltam como AAAA-MM-DD; antes da correção DFRM1-37674 (mai/2025) vinham sem zero à esquerda (2015-3-3). O formato de data vazia não é documentado."
+    },
+    {
+      "campo": "erros.formato",
+      "impacto": "baixo",
+      "descricao": "O formato JSON do erro legado (SetRestFault sem flag TTALK) e o corpo do 401 não são documentados."
+    },
+    {
+      "campo": "ambiente_testes",
+      "impacto": "alto",
+      "descricao": "Não há sandbox; todo teste é em base do cliente."
+    },
+    {
+      "campo": "webhooks",
+      "impacto": "medio",
+      "descricao": "Não há webhooks para terceiros: tudo por consulta periódica."
+    },
+    {
+      "campo": "APIs padrão (customerVendor, costcenters)",
+      "impacto": "medio",
+      "descricao": "Dependem do adapter compilado e ativo na release do cliente; o catálogo não confirma a grafia exata das propriedades do centro de custo em uma resposta real (vem do schema oficial)."
+    },
+    {
+      "campo": "autenticacao — PAT e NGF",
+      "impacto": "baixo",
+      "descricao": "A página de token de acesso pessoal (PAT) e as páginas dos endpoints do Novo Gestor Financeiro (FINA710: ReceivableDocuments, PayableDocuments, CashFlow, Banks) existem no TDN mas sem versão publicada; não foram catalogadas."
+    },
+    {
+      "campo": "conformidade.permite_uso_em_produto_terceiro",
+      "impacto": "alto",
+      "descricao": "Sem termos específicos de API. O uso por um serviço de terceiro com a licença e o usuário do cliente precisa de aceite do cliente e, idealmente, posição da TOTVS."
+    },
+    {
+      "campo": "taxonomia — saldos bancários e contas",
+      "impacto": "baixo",
+      "descricao": "Saldos bancários (SE8) foram mapeados em Transacao e contas bancárias (SA6) em TabelaAuxiliar. Sugestão de extensão: entidade 'ContaBancaria' (cadastro e saldo por data)."
+    },
+    {
+      "campo": "taxonomia — baixas",
+      "impacto": "baixo",
+      "descricao": "Baixas de títulos a receber e a pagar ficaram em Pagamento (registro de liquidação). Reforça a sugestão já feita no Nomus de uma entidade 'Recebimento' ou de ampliar Pagamento para entradas."
+    }
+  ],
+  "fontes": [
+    {
+      "url": "https://tdn.totvs.com/pages/viewpage.action?pageId=465383509",
+      "titulo": "TDN — API para obtenção do token de acesso às APIs REST no Protheus",
+      "data_consulta": "2026-10-19"
+    },
+    {
+      "url": "https://tdn.totvs.com/pages/viewpage.action?pageId=465386127",
+      "titulo": "TDN — Autenticação baseada em token",
+      "data_consulta": "2026-10-19"
+    },
+    {
+      "url": "https://tdn.totvs.com/pages/viewpage.action?pageId=185748452",
+      "titulo": "TDN — Autenticação HTTP Basic",
+      "data_consulta": "2026-10-19"
+    },
+    {
+      "url": "https://tdn.totvs.com/pages/viewpage.action?pageId=185747842",
+      "titulo": "TDN — REST: Configuração (appserver.ini, Security, URIs)",
+      "data_consulta": "2026-10-19"
+    },
+    {
+      "url": "https://tdn.totvs.com/display/framework/02.+REST+com+ERP+Microsiga+Protheus",
+      "titulo": "TDN — REST com ERP Microsiga Protheus (PrepareIn e tenantId)",
+      "data_consulta": "2026-10-19"
+    },
+    {
+      "url": "https://tdn.totvs.com/pages/viewpage.action?pageId=502457209",
+      "titulo": "TDN — Alteração de comportamento: usuários no REST (tenantId)",
+      "data_consulta": "2026-10-19"
+    },
+    {
+      "url": "https://tdn.totvs.com/display/public/framework/GenericQuery",
+      "titulo": "TDN — GenericQuery",
+      "data_consulta": "2026-10-19"
+    },
+    {
+      "url": "https://tdn.totvs.com/display/public/framework/GenericList",
+      "titulo": "TDN — GenericList",
+      "data_consulta": "2026-10-19"
+    },
+    {
+      "url": "https://tdn.totvs.com/display/public/framework/09.+FWAdapterBaseV2",
+      "titulo": "TDN — FWAdapterBaseV2",
+      "data_consulta": "2026-10-19"
+    },
+    {
+      "url": "https://tdn.totvs.com/display/framework/DFRM1-27825+DT+FWAdapterBaseV2+-+Quantidade+de+registros",
+      "titulo": "TDN — DT FWAdapterBaseV2: quantidade de registros (remainingRecords)",
+      "data_consulta": "2026-10-19"
+    },
+    {
+      "url": "https://tdn.totvs.com/pages/viewpage.action?pageId=929929665",
+      "titulo": "TDN — DT FWAdapterBaseV2: formatação da data",
+      "data_consulta": "2026-10-19"
+    },
+    {
+      "url": "https://tdn.totvs.com/display/public/framework/BasicProtheusServices",
+      "titulo": "TDN — BasicProtheusServices",
+      "data_consulta": "2026-10-19"
+    },
+    {
+      "url": "https://tdn.totvs.com/pages/viewpage.action?pageId=706129501",
+      "titulo": "TDN — DT Proteção de novos serviços (Security=1)",
+      "data_consulta": "2026-10-19"
+    },
+    {
+      "url": "https://tdn.totvs.com/pages/viewpage.action?pageId=782309164",
+      "titulo": "TDN — Escopo Integração SFA (ERP Protheus — APIs nativas)",
+      "data_consulta": "2026-10-19"
+    },
+    {
+      "url": "https://tdn.totvs.com/pages/viewpage.action?pageId=240976375",
+      "titulo": "TDN — Área Finanças — BI — P12",
+      "data_consulta": "2026-10-19"
+    },
+    {
+      "url": "https://tdn.totvs.com/pages/viewpage.action?pageId=753654798",
+      "titulo": "TDN — Conciliador BackOffice: conciliação bancária automática",
+      "data_consulta": "2026-10-19"
+    },
+    {
+      "url": "https://tdn.totvs.com/pages/viewpage.action?pageId=721003068",
+      "titulo": "TDN — Processo de conciliação com o Conciliador BackOffice",
+      "data_consulta": "2026-10-19"
+    },
+    {
+      "url": "https://tdn.totvs.com/pages/viewpage.action?pageId=937698300",
+      "titulo": "TDN — DT CTBA940: campo E5_RECONC ao desconciliar",
+      "data_consulta": "2026-10-19"
+    },
+    {
+      "url": "https://tdn.totvs.com/pages/viewpage.action?pageId=776535966",
+      "titulo": "TDN — F474EFT (campos do extrato bancário SIG)",
+      "data_consulta": "2026-10-19"
+    },
+    {
+      "url": "https://tdn.totvs.com/pages/viewpage.action?pageId=1060210245",
+      "titulo": "TDN — Importação de extrato bancário por layout MILE",
+      "data_consulta": "2026-10-19"
+    },
+    {
+      "url": "https://tdn.totvs.com/pages/viewpage.action?pageId=747320567",
+      "titulo": "TDN — FINA475: retorno de extratos bancários automático",
+      "data_consulta": "2026-10-19"
+    },
+    {
+      "url": "https://tdn.totvs.com/pages/viewpage.action?pageId=556381843",
+      "titulo": "TDN — Execução automática de contas a pagar (FINA050)",
+      "data_consulta": "2026-10-19"
+    },
+    {
+      "url": "https://tdn.totvs.com/pages/viewpage.action?pageId=516631673",
+      "titulo": "TDN — Movimentos bancários automáticos (FINA100)",
+      "data_consulta": "2026-10-19"
+    },
+    {
+      "url": "https://tdn.totvs.com/pages/viewpage.action?pageId=708894306",
+      "titulo": "TDN — Integração Gesplan: movimento bancário (campos SE5)",
+      "data_consulta": "2026-10-19"
+    },
+    {
+      "url": "https://tdn.totvs.com/pages/viewpage.action?pageId=733202239",
+      "titulo": "TDN — Rotina automática de fornecedores (MATA020)",
+      "data_consulta": "2026-10-19"
+    },
+    {
+      "url": "https://tdn.totvs.com/pages/viewpage.action?pageId=6089279",
+      "titulo": "TDN — Rotina automática de pedido de compras (MATA120)",
+      "data_consulta": "2026-10-19"
+    },
+    {
+      "url": "https://tdn.totvs.com/display/PROT/12309760+DMICNS-12194+DT+Inconsistencias+en+cantidad+entregada+C7_QUJE+al+borrar+RCD+ARG",
+      "titulo": "TDN — DT quantidade entregue C7_QUJE",
+      "data_consulta": "2026-10-19"
+    },
+    {
+      "url": "https://tdn.totvs.com/pages/viewpage.action?pageId=379319739",
+      "titulo": "TDN — DT atualização do E2_SALDO",
+      "data_consulta": "2026-10-19"
+    },
+    {
+      "url": "https://tdn.totvs.com/pages/viewpage.action?pageId=900450343",
+      "titulo": "TDN — Atualização dos campos E1_BAIXA e E2_BAIXA nas compensações",
+      "data_consulta": "2026-10-19"
+    },
+    {
+      "url": "https://tdn.totvs.com/pages/viewpage.action?pageId=490336149",
+      "titulo": "TDN — DT gravação de E5_DTDISPO (data de crédito)",
+      "data_consulta": "2026-10-19"
+    },
+    {
+      "url": "https://tdn.totvs.com/pages/viewpage.action?pageId=520653056",
+      "titulo": "TDN — DT correção monetária gravando E5_RECPAG",
+      "data_consulta": "2026-10-19"
+    },
+    {
+      "url": "https://tdn.totvs.com/pages/viewpage.action?pageId=569477911",
+      "titulo": "TDN — LP 560/561: transferência bancária (campos SA6)",
+      "data_consulta": "2026-10-19"
+    },
+    {
+      "url": "https://tdn.totvs.com/display/PROT/512485+DSERFINR-21+FINA210+Saldo+A6_SALATU",
+      "titulo": "TDN — DT FINA210 saldo A6_SALATU",
+      "data_consulta": "2026-10-19"
+    },
+    {
+      "url": "https://tdn.totvs.com/pages/viewpage.action?pageId=817641054",
+      "titulo": "TDN — DT FINA210 valores na E8_SALATUA",
+      "data_consulta": "2026-10-19"
+    },
+    {
+      "url": "https://tdn.totvs.com/display/TREP/Como+converter+campos+de+data+do+tipo+texto+para+o+tipo+datetime+%28PROTHEUS%29+em+conectores+SQL",
+      "titulo": "TDN — Converter campos de data do tipo texto (Protheus) em conectores SQL",
+      "data_consulta": "2026-10-19"
+    },
+    {
+      "url": "https://tdn.totvs.com/pages/viewpage.action?pageId=527852596",
+      "titulo": "TDN — Consumo de licença por demanda no REST do Protheus",
+      "data_consulta": "2026-10-19"
+    },
+    {
+      "url": "https://tdn.totvs.com/pages/viewpage.action?pageId=484701395",
+      "titulo": "TDN — Guia de implementação de API V2.0",
+      "data_consulta": "2026-10-19"
+    },
+    {
+      "url": "https://tdn.totvs.com/pages/viewpage.action?pageId=453308173",
+      "titulo": "TDN — API Protheus com mensagens de erro no padrão TTALK",
+      "data_consulta": "2026-10-19"
+    },
+    {
+      "url": "https://tdn.totvs.com/display/framework/SetRestFault",
+      "titulo": "TDN — SetRestFault",
+      "data_consulta": "2026-10-19"
+    },
+    {
+      "url": "https://tdn.totvs.com/display/framework/Invalidar+token+JWT+gerado",
+      "titulo": "TDN — Invalidar token JWT gerado",
+      "data_consulta": "2026-10-19"
+    },
+    {
+      "url": "https://tdn.totvs.com/pages/viewpage.action?pageId=894394585",
+      "titulo": "TDN — FAT0321: integração via API ao Protheus Faturamento (customerVendor, carrier)",
+      "data_consulta": "2026-10-19"
+    },
+    {
+      "url": "https://tdn.totvs.com/display/public/framework/Entendendo+as+novidades+do+REST",
+      "titulo": "TDN — Entendendo as novidades do REST (REST 2.0)",
+      "data_consulta": "2026-10-19"
+    },
+    {
+      "url": "https://tdn.totvs.com/pages/viewpage.action?pageId=659907386",
+      "titulo": "TDN — Autenticação na tela de serviços do REST",
+      "data_consulta": "2026-10-19"
+    },
+    {
+      "url": "https://tdn.totvs.com/display/framework/FWRestModel+-+API+RESTful+dos+modelos+de+dados+do+Protheus",
+      "titulo": "TDN — FWRestModel: API RESTful dos modelos de dados",
+      "data_consulta": "2026-10-19"
+    },
+    {
+      "url": "https://tdn.totvs.com/pages/viewpage.action?pageId=559293494",
+      "titulo": "TDN — DT API de consulta genérica relacional (genericRecords)",
+      "data_consulta": "2026-10-19"
+    },
+    {
+      "url": "https://tdn.totvs.com/pages/viewpage.action?pageId=572224308",
+      "titulo": "TDN — Acesso às tabelas em consultas genéricas",
+      "data_consulta": "2026-10-19"
+    },
+    {
+      "url": "https://tdn.totvs.com/display/TCADFDVS/Plugin+de+download+de+Boletos",
+      "titulo": "TDN — Plugin de download de boletos (exemplo de endereço TOTVS Cloud)",
+      "data_consulta": "2026-10-19"
+    },
+    {
+      "url": "https://tdn.totvs.com/pages/viewpage.action?pageId=1084184135",
+      "titulo": "TDN — Token de acesso pessoal (página sem versão publicada)",
+      "data_consulta": "2026-10-19"
+    },
+    {
+      "url": "https://api.totvs.com.br/",
+      "titulo": "TOTVS Developers — catálogo de APIs (busca filtrada por Protheus: 125 APIs)",
+      "data_consulta": "2026-10-19"
+    },
+    {
+      "url": "https://api.totvs.com.br/apidetails/CustomerVendor_v1_000.json",
+      "titulo": "TOTVS Developers — Cliente/Fornecedor (CustomerVendor v1)",
+      "data_consulta": "2026-10-19"
+    },
+    {
+      "url": "https://api.totvs.com.br/apidetails/CostCenter_v1_000.json",
+      "titulo": "TOTVS Developers — Centro de Custo (CostCenter v1)",
+      "data_consulta": "2026-10-19"
+    },
+    {
+      "url": "https://api.totvs.com.br/apidetails/Token_v1_000.json",
+      "titulo": "TOTVS Developers — Token (OAuth 2.0)",
+      "data_consulta": "2026-10-19"
+    },
+    {
+      "url": "https://github.com/totvs/ttalk-standard-message/tree/master/jsonschema/apis",
+      "titulo": "GitHub oficial totvs/ttalk-standard-message — especificações das APIs",
+      "data_consulta": "2026-10-19"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/totvs/ttalk-standard-message/master/jsonschema/schemas/CustomerVendor_2_008.json",
+      "titulo": "Schema oficial CustomerVendor 2.008 (mapeamento para campos SA1/SA2)",
+      "data_consulta": "2026-10-19"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/totvs/ttalk-standard-message/master/jsonschema/schemas/CostCenter_3_001.json",
+      "titulo": "Schema oficial CostCenter 3.001 (mapeamento para campos CTT)",
+      "data_consulta": "2026-10-19"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/totvs/ttalk-standard-message/master/jsonschema/apis/types/totvsApiTypesBase.json",
+      "titulo": "Tipos base das APIs TOTVS (page, pageSize, order, fields, ErrorModel)",
+      "data_consulta": "2026-10-19"
+    },
+    {
+      "url": "https://www.totvs.com/termos-de-uso/",
+      "titulo": "TOTVS — Termos de uso do site",
+      "data_consulta": "2026-10-19"
+    }
+  ]
+}

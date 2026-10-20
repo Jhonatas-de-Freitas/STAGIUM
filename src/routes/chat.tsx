@@ -97,6 +97,8 @@ const NOMES_CURTOS: Record<string, string> = {
   sygecom: "Sagi (SyGeCom)",
   nomus: "Nomus",
   arquivei: "Qive (Arquivei)",
+  "totvs-winthor": "WinThor (TOTVS)",
+  "totvs-protheus": "Protheus (TOTVS)",
 };
 
 const obrigatoria = (c: CampoCredencial) => c.obrigatoria !== false;
@@ -121,6 +123,8 @@ const DESCRICOES_SISTEMA: Record<string, string> = {
   nomus: "Financeiro, pedidos, produção, estoque e notas",
   arquivei: "NF-e, CT-e, NFS-e, boletos e comprovantes",
   "mercado-livre": "Vendas, anúncios, perguntas e reclamações",
+  "totvs-winthor": "Pedidos, clientes, produtos, preços e estoque",
+  "totvs-protheus": "Financeiro, banco, pedidos, notas e estoque",
 };
 
 const SUGESTOES_POR_SISTEMA: Record<string, string[]> = {
@@ -142,6 +146,18 @@ const SUGESTOES_POR_SISTEMA: Record<string, string[]> = {
     "Pedidos de venda do mês passado",
     "Movimentações de estoque",
     "Ordens de produção",
+  ],
+  "totvs-winthor": [
+    "Pedidos de venda dos últimos 30 dias",
+    "Estoque disponível por filial",
+    "Tabela de preços",
+    "Clientes",
+  ],
+  "totvs-protheus": [
+    "Contas a receber em aberto",
+    "Movimentos bancários não conciliados deste mês",
+    "Contas a pagar deste mês",
+    "Notas fiscais de saída do mês passado",
   ],
 };
 

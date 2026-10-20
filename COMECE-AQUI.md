@@ -23,9 +23,9 @@ O valor está no **catálogo**: a documentação das APIs de cada sistema, conve
 
 | Item | Situação |
 |---|---|
-| Sistemas documentados | **11** — Asaas, Bling, Focus NFe, Mercado Pago, NFE.io, Nomus, Pagar.me, Pix (Bacen), PlugNotas, SEFAZ, SyGeCom (Sagi) |
-| Endpoints | 547 detalhados, 1.017 catalogados, **302 executáveis** pelo assistente (Nomus: 35, 159 e 31) |
-| Site (chat) | No ar em stagium.lovable.app; o cliente escolhe **Sagi, Nomus, Qive ou Mercado Livre** (este só depois de configurar o aplicativo) |
+| Sistemas documentados | **15** — Asaas, Bling, Focus NFe, Mercado Livre, Mercado Pago, NFE.io, Nomus, Pagar.me, Pix (Bacen), PlugNotas, Qive (Arquivei), SEFAZ, SyGeCom (Sagi), TOTVS Protheus, TOTVS WinThor |
+| Endpoints | 682 detalhados + 1.827 catalogados, **413 executáveis** pelo assistente (contados dos `endpoints.json` em 19/10) |
+| Site (chat) | No ar em stagium.lovable.app; o cliente escolhe **Sagi, Nomus, Qive, Mercado Livre, WinThor ou Protheus** (Mercado Livre só depois de configurar o aplicativo). WinThor e Protheus estão na branch `feat/lote-p4-winthor-protheus`, ainda não publicada |
 | Executor no servidor | Funciona. Testado contra servidor local no formato do Sagi; **ainda não rodou contra a API real** |
 | IA no site | Código pronto; **depende da variável `ANTHROPIC_API_KEY`** no Lovable |
 | Piloto | Cliente atual do proprietário, usa **Sagi (SyGeCom)** |
@@ -144,6 +144,8 @@ O trabalho é feito com **Claude Code**, um agente por sistema, em lotes de trê
 | 18/09 | Repositório tornado **público** a pedido do proprietário |
 | 08/10 | Produto passa a se chamar **Stagium**; site em stagium.lovable.app (landing na raiz, chat em /chat) |
 | 08/10 | Credenciais podem ser salvas **no navegador, criptografadas com PIN**; consultas salvas com período relativo |
+| 19/10 | **WinThor** e **Protheus** documentados (lote P4) e oferecidos no chat. WinThor não tem API de financeiro; no Protheus o financeiro vem pela genericQuery, com `where` montado só pelo executor (sem filtro livre) |
+| 19/10 | Endereço de API por IP é recusado no site: a Cloudflare não chama IP direto; ERP instalado no cliente precisa de nome de domínio |
 
 ## 7. Pendências, em ordem de prioridade
 
@@ -156,6 +158,7 @@ O trabalho é feito com **Claude Code**, um agente por sistema, em lotes de trê
 7. **Taxonomia v1.3**, proposta no Lote 3 e pendente de decisão: `Disponibilidade`, `CertificadoDigital`, `AssinaturaDistribuicao`, ações `testar` e `sincronizar`.
 8. **Revisar Focus NFe, PlugNotas e NFE.io** para os códigos de rejeição de 4 posições da reforma tributária (NT 2025.002-RTC).
 9. **Lote 4:** Omie, Tiny, Conta Azul.
+9b. **Piloto do WinThor e do Protheus com credencial real**, com autorização escrita do cliente: o TI publica o WTA/REST com nome de domínio e HTTPS e cria um usuário só de leitura (Protheus: informar também o `tenantId`). Conferir na primeira chamada os pontos inferidos (`pagesize` do Protheus, envelope `hasNext` e Bearer do WinThor) — estão em `relatorios/winthor.md` e `relatorios/protheus.md`.
 10. **Busca da IA:** hoje o recorte do catálogo que vai ao modelo é escolhido por palavra-chave. Com muitos sistemas, vai precisar de busca semântica.
 
 ## 8. Cuidados que já custaram caro

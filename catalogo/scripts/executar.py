@@ -18,6 +18,7 @@ Segurança:
     - No produto, esse arquivo é substituído pelo cofre do backend.
 """
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -150,6 +151,23 @@ def detalhar(args):
 
 # ------------------------------------------------------------ autenticação
 
+# {credencial} ou {credencial|transformacao} no corpo do login (ESPECIFICACAO.md, seção 6.1)
+MARCADOR = r"\{([a-z0-9_]+)(?:\|([a-z0-9_]+))?\}"
+TRANSFORMACOES = {
+    # WinThor: MD5 em maiúsculas da senha passada para maiúsculas
+    "md5_maiusculo": lambda v: hashlib.md5(v.upper().encode("utf-8")).hexdigest().upper(),
+}
+
+
+def preencher_marcador(m, credenciais):
+    valor = str(credenciais.get(m.group(1), ""))
+    if not m.group(2):
+        return valor
+    if m.group(2) not in TRANSFORMACOES:
+        raise SystemExit(f"Transformação desconhecida no login: {m.group(2)}")
+    return TRANSFORMACOES[m.group(2)](valor)
+
+
 def preparar_sessao(sistema, credenciais, ambiente):
     """Devolve (sessão configurada, base_url). Nunca imprime valores de credencial."""
     auth = sistema.get("execucao_auth") or {}
@@ -168,6 +186,13 @@ def preparar_sessao(sistema, credenciais, ambiente):
     elif tipo == "bearer":
         chave = "access_token" if "access_token" in credenciais else auth["credenciais_necessarias"][0]["nome"]
         s.headers["Authorization"] = "Bearer " + credenciais[chave]
+    elif tipo == "basic" and auth.get("basic_campos"):
+        # usuário e senha do ERP (ex.: Protheus), mais cabeçalhos vindos de credenciais (tenantId)
+        campos = auth["basic_campos"]
+        s.auth = (credenciais.get(campos["usuario"], ""), credenciais.get(campos["senha"], ""))
+        for cabecalho, nome in (auth.get("headers_credenciais") or {}).items():
+            if credenciais.get(nome):
+                s.headers[cabecalho] = credenciais[nome]
     elif tipo == "basic":
         nome = auth["credenciais_necessarias"][0]["nome"]
         s.auth = (credenciais[nome], "") if auth.get("usuario_basic_e_a_credencial") else \
@@ -209,7 +234,7 @@ def preparar_sessao(sistema, credenciais, ambiente):
     if tipo == "login_credenciais":
         # ERPs que autenticam com usuário e senha e devolvem um token
         log = auth.get("login") or {}
-        corpo = {k: re.sub(r"\{([a-z0-9_]+)\}", lambda m: str(credenciais.get(m.group(1), "")), str(v))
+        corpo = {k: re.sub(MARCADOR, lambda m: preencher_marcador(m, credenciais), str(v))
                  if isinstance(v, str) else v
                  for k, v in (log.get("corpo") or {}).items()}
         caminho_login = log.get("caminho") or "/login"
@@ -286,6 +311,11 @@ def coletar(sessao, base, endpoint, filtros, maximo, corpo=None):
             break
         if fim == "hasMore_false" and not caminho(corpo, "hasMore"):
             break
+        if fim == "hasNext_false":
+            # WinThor: {first, items, hasNext}; sem o campo, vale a página incompleta
+            proxima = caminho(corpo, "hasNext")
+            if (not proxima) if isinstance(proxima, bool) else len(lote) < tamanho:
+                break
         if tipo == "cursor":
             cursor = caminho(corpo, pag.get("campo_proximo") or "next")
             if not cursor:

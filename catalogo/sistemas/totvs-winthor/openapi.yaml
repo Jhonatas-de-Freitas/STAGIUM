@@ -1,0 +1,2034 @@
+# TOTVS WinThor — OpenAPI reconstruída pelo catálogo (não oficial). Fonte: https://tdn.totvs.com/pages/releaseview.action?pageId=573185595
+openapi: 3.1.0
+info:
+  title: TOTVS WinThor — APIs do WinThor Anywhere (reconstruída)
+  version: '2026-10-19'
+  description: 'Spec reconstruída pelo catálogo a partir da TDN e das coleções Postman oficiais; não é publicada pela TOTVS. A API roda no servidor
+    do cliente. Autenticação: POST /winthor/autenticacao/v1/login devolve accessToken (JWT, 4 h) e grava cookie de sessão; o esquema Bearer abaixo
+    é o transporte documentado só para a liberação de pedido.'
+  x-fonte-url: https://tdn.totvs.com/pages/releaseview.action?pageId=573185595
+servers:
+- url: http://{host}:{porta}
+  description: 'Produção: WinThor Anywhere (WTA) do cliente'
+  variables:
+    host:
+      default: localhost
+      description: IP ou nome do servidor do WTA (parâmetro 2851 da rotina 132)
+    porta:
+      default: '8181'
+      description: Porta do WTA (org.ops4j.pax.web.cfg / parâmetro 2849); exemplos oficiais usam 8181, 8889 e 8282
+- url: http://{host}:{porta}
+  description: 'Homologação: base de testes do próprio cliente (não há sandbox público)'
+  variables:
+    host:
+      default: localhost
+    porta:
+      default: '8181'
+security:
+- sessaoWTA: []
+components:
+  securitySchemes:
+    sessaoWTA:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: 'accessToken do login. Transporte documentado: cookie gravado pelo WTA (nome não publicado). Bearer documentado só na API de
+        liberação de pedido.'
+paths:
+  /winthor/autenticacao/v1/login:
+    post:
+      operationId: totvs-winthor__autenticacao__autenticar
+      summary: Usuário - Login
+      description: 'Abre a sessão nas APIs do WinThor com login e senha de um usuário do ERP. A senha não vai em texto: vai como hash MD5 hexadecimal
+        em maiúsculas da senha do WTA convertida para maiúsculas. Devolve accessToken (JWT) e o WTA guarda a sessão em cookie, válida por 4 horas.
+        Quando usar: Antes de qualquer outra chamada às APIs do WinThor e de novo a cada 4 horas ou depois de um 403. Quando não usar: não é preciso
+        chamar as APIs de saúde (health), que dispensam login.'
+      tags:
+      - Autenticacao
+      x-confianca: verificado
+      x-fonte-url: https://tdn.totvs.com/pages/releaseview.action?pageId=644722134
+      x-servico-wta: WTA (serviços da página 'Parametrizações WTA')
+      x-seguro-para-executar: false
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                login:
+                  type: string
+                  description: Login do usuário do WinThor criado para a integração (o mesmo usado no WTA). Use usuário dedicado, com o mínimo
+                    de rotinas liberadas na 530.
+                senha:
+                  type: string
+                  pattern: ^[0-9A-F]{32}$
+                  description: 'Hash MD5 hexadecimal, em letras maiúsculas, da senha do WTA previamente convertida para maiúsculas. Exemplo publicado
+                    pela TOTVS: a senha ''Totvs@123'' vira ''TOTVS@123'' e depois o MD5 29F7F1E7DF1C2500C86561185392F280. Prefira calcular o hash
+                    localmente a usar sites de MD5.'
+              required:
+              - login
+              - senha
+            example:
+              login: <<USUARIO_DE_INTEGRACAO>>
+              senha: <<SENHA_EM_MD5_MAIUSCULO>>
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              example:
+                accessToken: <<TOKEN_JWT_DEVOLVIDO_PELO_WTA>>
+        '404':
+          description: Error 404 Not Found / Problem accessing — Porta errada ou indisponível; o IP e a porta da API são os mesmos do WTA.
+  /winthor/autenticacao/v1/logout:
+    get:
+      operationId: totvs-winthor__autenticacao__autenticar__logout
+      summary: Usuário - Logout
+      description: 'Encerra a sessão aberta pelo login, invalidando o uso do token/cookie a partir dali. Quando usar: Ao terminar uma extração,
+        para não deixar sessão aberta no WTA. Quando não usar: no meio de uma paginação, porque as páginas seguintes passariam a receber 403.'
+      tags:
+      - Autenticacao
+      x-confianca: verificado
+      x-fonte-url: https://tdn.totvs.com/pages/releaseview.action?pageId=644722134
+      x-servico-wta: WTA
+      x-seguro-para-executar: false
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              example: {}
+        '404':
+          description: 'HTML do Jetty: "HTTP ERROR 404 Problem accessing <caminho>. Reason: Not Found" — Serviço do WTA que atende a rota não
+            está instalado ou ativo, ou a porta informada não é a do WTA.'
+  /api/wholesale/v1/orders/list:
+    get:
+      operationId: totvs-winthor__pedido__listar
+      summary: Listar Pedidos (winthor-pedido-venda)
+      description: 'Lista pedidos de venda de uma ou mais filiais, paginados: cabeçalho (cliente, posição, origem, plano, cobrança, total), itens
+        (produto, quantidade, preço, custos) e, se pedido, a NF de saída e as devoluções. Quando usar: Para planilha de vendas, carteira de pedidos
+        e conferência de NF emitida (viewDocument=true). Recorte por branchId e período (daysOfSearch, lastChange). Quando não usar: para um pedido
+        só use pedido.obter; títulos financeiros da venda não têm API pública.'
+      tags:
+      - Pedido
+      x-confianca: verificado
+      x-fonte-url: https://tdn.totvs.com/pages/releaseview.action?pageId=632099891
+      x-servico-wta: winthor-pedido-venda
+      x-seguro-para-executar: true
+      parameters:
+      - name: branchId
+        in: query
+        required: true
+        schema:
+          type: string
+          description: Código da filial; aceita várias separadas por vírgula.
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 1
+          minimum: 1
+          description: Número da página.
+      - name: pageSize
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          description: Pedidos por página. Máximo não publicado; a coleção oficial usa até 70000 num exemplo.
+      - name: daysOfSearch
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 15
+          description: Janela de busca em dias contados para trás, sobre a data de alteração do pedido. Sem o parâmetro só vêm pedidos alterados
+            nos últimos 15 dias, mesmo que criados antes.
+      - name: lastChange
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+          description: Data/hora da última alteração a partir da qual buscar.
+      - name: orderId
+        in: query
+        required: false
+        schema:
+          type: integer
+          description: Número do pedido (PCPEDC.NUMPED).
+      - name: saleOrigin
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - B
+          - R
+          - K
+          - C
+          - F
+          - T
+          - W
+          - A
+          default: W
+          description: 'Origem do pedido no WinThor. B balcão, R balcão reserva, K broker, C call center, F força de vendas, T telemarketing,
+            W web, A autosserviço. O padrão é W: sem informar, só pedidos web.'
+      - name: orderStatus
+        in: query
+        required: false
+        schema:
+          type: string
+          description: 'Posição do pedido (PCPEDC.POSICAO), ex.: L liberado, B bloqueado. A tabela completa de posições está num artigo da Central
+            de Atendimento citado pela TDN.'
+      - name: order
+        in: query
+        required: false
+        schema:
+          type: string
+          default: lastChange
+          description: Campo de ordenação da busca.
+      - name: customerId
+        in: query
+        required: false
+        schema:
+          type: integer
+          description: Código do cliente. Aparece na coleção Postman oficial, não na página da TDN.
+      - name: hasOrderIdHube
+        in: query
+        required: false
+        schema:
+          type: boolean
+          description: Só pedidos com número de hub/conector. A partir da versão 1.0.84.229.
+      - name: hasOrderIdMktplace
+        in: query
+        required: false
+        schema:
+          type: boolean
+          description: Só pedidos com número de marketplace. A partir da versão 1.0.84.229.
+      - name: integrationOrigin
+        in: query
+        required: false
+        schema:
+          type: string
+          description: 'Filtra pela coluna ORIGEMINTEGRACAO (ex.: pedidos vindos do PDVSYNC). A partir da versão 1.3.0.40.'
+      - name: ignoreExcludedCustomers
+        in: query
+        required: false
+        schema:
+          type: boolean
+          description: Ignora o filtro de clientes excluídos na busca.
+      - name: viewDocument
+        in: query
+        required: false
+        schema:
+          type: boolean
+          default: false
+          description: Quando true, inclui o grupo document com número, série, chave, valor e data de autorização da NF de saída, mais as notas
+            de devolução do cliente e itens devolvidos. A partir da versão 1.39.5.17 do winthor-pedido-venda. NF cancelada não aparece; pedido
+            não faturado traz valores padrão (1900-01-01); NF pendente na SEFAZ aparece como 'Em processamento da SEFAZ'.
+      - name: supplierCode
+        in: query
+        required: false
+        schema:
+          type: integer
+          description: Filtra pedidos que tenham ao menos um item do fornecedor informado. A partir da versão 1.39.5.17.
+      - name: onlyProductsSupplierCode
+        in: query
+        required: false
+        schema:
+          type: boolean
+          description: Com supplierCode, devolve só os itens (e devoluções) desse fornecedor. Sem supplierCode a API responde 400.
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              example:
+                first: true
+                hasNext: false
+                items:
+                - orderId: '1234567'
+                  createData: '2026-08-03T10:15:00'
+                  lastChange: '2026-08-04T08:02:11'
+                  branchId: '1'
+                  orderStatus: L
+                  saleOrigin: F
+                  saleType: 1
+                  paymentPlanId: 12
+                  chargingId: BK
+                  totalValue: '1520.40'
+                  customer:
+                    id: 3021
+                    tradeName: MERCADO EXEMPLO
+                    email: compras@example.com
+                    corporate: true
+                    sellerId: 15
+                  listOfOrderItem:
+                  - productId: 1001
+                    productSKUERPReferenceKey: 7890000000017-1001
+                    quantity: 12.0
+                    sellPrice: 126.7
+                    tablePrice: 130.0
+                    discountPercentage: 2.5
+                    realCost: 98.1
+                    warehouseBranchId: '1'
+                    position: 1
+                  document:
+                    documentNumber: 456789
+                    series: '1'
+                    keyDocument: <<CHAVE_NFE_44_DIGITOS>>
+                    totalValue: 1520.4
+                    sefazAuthorizationDate: '2026-08-04T08:01:55'
+                    documentType: NF-e
+                    listOfReturnDocuments: []
+        '400':
+          description: Bad Request — onlyProductsSupplierCode=true sem supplierCode.
+        '403':
+          description: '{"code": "UNK-ERR", "message": "Erro de Requisição", "detailedMessage": "The current Subject is not authenticated. Access
+            denied.", "details": []} — Chamada sem sessão válida: login não feito, cookie/token não reenviado ou token vencido (vale 4 horas).'
+        '404':
+          description: 'HTML do Jetty: "HTTP ERROR 404 Problem accessing <caminho>. Reason: Not Found" — Serviço do WTA que atende a rota não
+            está instalado ou ativo, ou a porta informada não é a do WTA.'
+  /api/wholesale/v1/orders/:
+    get:
+      operationId: totvs-winthor__pedido__obter
+      summary: Consultar Pedido (winthor-pedido-venda)
+      description: 'Devolve um pedido de venda pelo número, com cabeçalho, cliente, itens, cobranças múltiplas e, com viewDocument=true, os dados
+        da NF de saída e das devoluções. Quando usar: Para conferir um pedido específico (posição, itens, NF). Quando não usar: para vários pedidos
+        ou um período use pedido.listar.'
+      tags:
+      - Pedido
+      x-confianca: verificado
+      x-fonte-url: https://tdn.totvs.com/pages/releaseview.action?pageId=632099891
+      x-servico-wta: winthor-pedido-venda
+      x-seguro-para-executar: true
+      parameters:
+      - name: orderId
+        in: query
+        required: true
+        schema:
+          type: integer
+          description: Número do pedido no WinThor (PCPEDC.NUMPED).
+      - name: viewDocument
+        in: query
+        required: false
+        schema:
+          type: boolean
+          default: false
+          description: Quando true, inclui o grupo document com número, série, chave, valor e data de autorização da NF de saída, mais as notas
+            de devolução do cliente e itens devolvidos. A partir da versão 1.39.5.17 do winthor-pedido-venda. NF cancelada não aparece; pedido
+            não faturado traz valores padrão (1900-01-01); NF pendente na SEFAZ aparece como 'Em processamento da SEFAZ'.
+      - name: supplierCode
+        in: query
+        required: false
+        schema:
+          type: integer
+          description: Filtra pedidos que tenham ao menos um item do fornecedor informado. A partir da versão 1.39.5.17.
+      - name: onlyProductsSupplierCode
+        in: query
+        required: false
+        schema:
+          type: boolean
+          description: Com supplierCode, devolve só os itens (e devoluções) desse fornecedor. Sem supplierCode a API responde 400.
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              example:
+                orderId: '1234567'
+                createData: '2026-08-03T10:15:00'
+                lastChange: '2026-08-04T08:02:11'
+                branchId: '1'
+                orderStatus: L
+                saleOrigin: W
+                totalValue: '1520.40'
+                customer:
+                  id: 3021
+                listOfOrderItem:
+                - productId: 1001
+                  quantity: 12.0
+                  sellPrice: 126.7
+                document:
+                  documentNumber: 456789
+                  series: '1'
+                  documentType: NF-e
+        '403':
+          description: '{"code": "UNK-ERR", "message": "Erro de Requisição", "detailedMessage": "The current Subject is not authenticated. Access
+            denied.", "details": []} — Chamada sem sessão válida: login não feito, cookie/token não reenviado ou token vencido (vale 4 horas).'
+        '404':
+          description: 'HTML do Jetty: "HTTP ERROR 404 Problem accessing <caminho>. Reason: Not Found" — Serviço do WTA que atende a rota não
+            está instalado ou ativo, ou a porta informada não é a do WTA.'
+    post:
+      operationId: totvs-winthor__pedido__criar
+      summary: Gravar pedido (winthor-pedido-venda)
+      description: 'Inclui um pedido de venda no WinThor (PCPEDC/PCPEDI) com cliente, filial, plano de pagamento, cobrança, itens (SKU codauxiliar-codprod,
+        quantidade, preço, filial de retirada), frete, dados de intermediador e, opcionalmente, múltiplas cobranças e dados do consumidor. Quando
+        usar: Para integrar pedidos de e-commerce, marketplace ou B2B no ERP. Quando não usar: o assistente não executa; para consultar pedidos
+        use pedido.listar.'
+      tags:
+      - Pedido
+      x-confianca: verificado
+      x-fonte-url: https://tdn.totvs.com/pages/releaseview.action?pageId=632099891
+      x-servico-wta: winthor-pedido-venda
+      x-seguro-para-executar: false
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                createData:
+                  type: string
+                  format: date-time
+                  description: Data de criação do pedido.
+                customer:
+                  type: object
+                  properties:
+                    id:
+                      type: integer
+                      description: Código do cliente (PCPEDC.CODCLI).
+                branchId:
+                  type: string
+                  description: Filial do pedido.
+                paymentPlanId:
+                  type: integer
+                  description: Plano de pagamento.
+                saleType:
+                  type: integer
+                  enum:
+                  - 1
+                  - 5
+                  - 7
+                  - 8
+                  description: 1 venda normal (5, 7 e 8 marcados para uso futuro).
+                saleOrigin:
+                  type: string
+                  enum:
+                  - B
+                  - R
+                  - K
+                  - C
+                  - F
+                  - T
+                  - W
+                  - A
+                  description: Origem do pedido.
+                chargingId:
+                  type: string
+                  description: Cobrança; sem ela grava BK.
+                orderIdHube:
+                  type: string
+                  description: Número do pedido no hub/conector (com orderIdMktplace, chave de duplicidade).
+                orderIdMktplace:
+                  type: string
+                  description: Número do pedido no marketplace.
+                seller:
+                  type: integer
+                  description: RCA; sem ele usa o parâmetro 4012 da rotina 132.
+                valueFreight:
+                  type: number
+                  description: Valor do frete.
+                otherExpenses:
+                  type: number
+                  description: Outras despesas.
+                permissions:
+                  type: object
+                  properties:
+                    acceptOrderWithoutTax:
+                      type: boolean
+                      description: false rejeita item sem figura tributária.
+                listOfOrderItem:
+                  type: array
+                  items: &id001 {}
+                  description: 'Itens: productSKUERPReferenceKey (codauxiliar-codprod), quantity, sellPrice, discountValue, warehouseBranchId,
+                    gift, taxFigureId, deliveryType.'
+                listPayment:
+                  type: array
+                  items: *id001
+                  description: Múltiplas cobranças (exige parâmetro 3968 da rotina 132).
+                listConsumerData:
+                  type: array
+                  items: *id001
+                  description: Dados do consumidor gravados na PCVENDACONSUM.
+              required:
+              - createData
+              - customer
+              - branchId
+              - paymentPlanId
+              - saleType
+              - saleOrigin
+              - listOfOrderItem
+            example:
+              createData: '2026-08-03T10:15:00'
+              customer:
+                id: 3021
+              branchId: '1'
+              paymentPlanId: 12
+              saleType: 1
+              saleOrigin: W
+              orderIdHube: HUB-0001
+              orderIdMktplace: MKT-0001
+              permissions:
+                acceptOrderWithoutTax: false
+              listOfOrderItem:
+              - productSKUERPReferenceKey: 7890000000017-1001
+                quantity: 2
+                sellPrice: 27.9
+                warehouseBranchId: '1'
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              example:
+                orderId: '1234568'
+                orderStatus: L
+        '403':
+          description: '{"code": "UNK-ERR", "message": "Erro de Requisição", "detailedMessage": "The current Subject is not authenticated. Access
+            denied.", "details": []} — Chamada sem sessão válida: login não feito, cookie/token não reenviado ou token vencido (vale 4 horas).'
+    delete:
+      operationId: totvs-winthor__pedido__cancelar
+      summary: CancelarPedido / CancelarItemPedido
+      description: 'Cancela um pedido inteiro ou, informando produto e sequência, só um item, com motivo e opção de avisar o RCA. Quando usar:
+        Para refletir no ERP um cancelamento feito no canal de venda. Quando não usar: o assistente não executa cancelamentos.'
+      tags:
+      - Pedido
+      x-confianca: verificado
+      x-fonte-url: https://tdn.totvs.com/pages/releaseview.action?pageId=632099891
+      x-servico-wta: winthor-pedido-venda
+      x-seguro-para-executar: false
+      parameters:
+      - name: id
+        in: query
+        required: true
+        schema:
+          type: integer
+          description: Número do pedido.
+      - name: reasonCancellation
+        in: query
+        required: true
+        schema:
+          type: string
+          description: Motivo do cancelamento.
+      - name: sendMessageRca
+        in: query
+        required: false
+        schema:
+          type: boolean
+          description: Enviar mensagem ao RCA.
+      - name: productCode
+        in: query
+        required: false
+        schema:
+          type: integer
+          description: Código do produto, para cancelar só um item.
+      - name: sequence
+        in: query
+        required: false
+        schema:
+          type: integer
+          description: Sequência do item no pedido, para cancelar só um item.
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              example: {}
+        '403':
+          description: '{"code": "UNK-ERR", "message": "Erro de Requisição", "detailedMessage": "The current Subject is not authenticated. Access
+            denied.", "details": []} — Chamada sem sessão válida: login não feito, cookie/token não reenviado ou token vencido (vale 4 horas).'
+  /api/wholesale/v1/customer/list:
+    get:
+      operationId: totvs-winthor__cliente__listar
+      summary: Listar cadastro de clientes (winthor-pedido-venda)
+      description: 'Lista o cadastro de clientes (rotina 302) com dados fiscais, endereços comercial, de cobrança e de entrega, contato, RCA,
+        praça, plano de pagamento, rede, situação (ativo, bloqueado) e, opcionalmente, endereços de entrega adicionais. Quando usar: Para base
+        de clientes, cruzamento com pedidos e análise por cidade, RCA ou rede. Use lastChange para carga incremental. Quando não usar: para um
+        cliente só use cliente.obter; para só contar use cliente.listar.contagem.'
+      tags:
+      - Cliente
+      x-confianca: verificado
+      x-fonte-url: https://tdn.totvs.com/pages/releaseview.action?pageId=632097966
+      x-servico-wta: winthor-pedido-venda
+      x-seguro-para-executar: true
+      parameters:
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 1
+          minimum: 1
+          description: Página.
+      - name: pageSize
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 10
+          minimum: 1
+          description: Registros por página.
+      - name: order
+        in: query
+        required: false
+        schema:
+          type: string
+          default: CODCLI
+          description: Campo(s) de ordenação, com ASC/DESC e vários separados por vírgula. Campo inválido devolve 400.
+      - name: lastChange
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+          description: Clientes alterados a partir desta data/hora. A TDN mostra o exemplo 1900-01-01T12:00:00 e descreve o formato como 'yyyy-MM-dd
+            HH:mm:ss'; teste qual a instalação aceita.
+      - name: personIdentificationNumber
+        in: query
+        required: false
+        schema:
+          type: string
+          description: 'CPF ou CNPJ do cliente. Disponível a partir da versão 1.3.0.1. Sem resultado: 404.'
+      - name: finalCostumer
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - S
+          - N
+          description: 'S só consumidor final, N só não consumidor final. Grafia do fornecedor: finalCostumer (com ''Costumer'').'
+      - name: personalType
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - J
+          - F
+          description: J só pessoa jurídica, F só pessoa física.
+      - name: branchId
+        in: query
+        required: false
+        schema:
+          type: string
+          description: Filial ou filiais do cliente, separadas por vírgula.
+      - name: ignoreClientPDVOmni
+        in: query
+        required: false
+        schema:
+          type: boolean
+          default: false
+          description: Ignora clientes inseridos pelo PDV Omni.
+      - name: withDeliveryAddress
+        in: query
+        required: false
+        schema:
+          type: boolean
+          default: false
+          description: Inclui a lista deliveryAddresses de cada cliente. A partir da versão 1.2.0.1122 do winthor-pedido-venda.
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              example:
+                first: true
+                hasNext: false
+                items:
+                - id: 3021
+                  name: MERCADO EXEMPLO LTDA
+                  tradeName: MERCADO EXEMPLO
+                  personIdentificationNumber: 00000000000191
+                  stateInscription: ISENTO
+                  corporate: true
+                  businessCity: GOIANIA
+                  commercialZipCode: '74000000'
+                  email: compras@example.com
+                  corporatePhone: '6200000000'
+                  sellerId: 15
+                  paymentPlanId: 12
+                  active: true
+                  isBlocked: false
+                  lastChange: '2026-08-02T14:20:00'
+        '400':
+          description: Valor informado no parâmetro 'order' não encontrado ou inválido. — Campo de ordenação inexistente.
+        '404':
+          description: 'Não foi possível encontrar os clientes com os dados informados: personIdentificationNumber: ... — CPF/CNPJ sem cadastro.'
+        '403':
+          description: '{"code": "UNK-ERR", "message": "Erro de Requisição", "detailedMessage": "The current Subject is not authenticated. Access
+            denied.", "details": []} — Chamada sem sessão válida: login não feito, cookie/token não reenviado ou token vencido (vale 4 horas).'
+  /api/wholesale/v1/customer/:
+    get:
+      operationId: totvs-winthor__cliente__obter
+      summary: Buscar cliente por ID (winthor-pedido-venda)
+      description: 'Devolve o cadastro de um cliente pelo código, com os mesmos campos da listagem e, se pedido, os endereços de entrega. Quando
+        usar: Para completar um pedido com os dados do cliente ou conferir um cadastro. Quando não usar: para muitos clientes use cliente.listar
+        (uma chamada por cliente é lenta).'
+      tags:
+      - Cliente
+      x-confianca: verificado
+      x-fonte-url: https://tdn.totvs.com/pages/releaseview.action?pageId=632097966
+      x-servico-wta: winthor-pedido-venda
+      x-seguro-para-executar: true
+      parameters:
+      - name: customerId
+        in: query
+        required: true
+        schema:
+          type: integer
+          description: Código do cliente (PCCLIENT.CODCLI).
+      - name: branchId
+        in: query
+        required: false
+        schema:
+          type: string
+          description: Filial ou filiais do cliente, separadas por vírgula.
+      - name: withDeliveryAddress
+        in: query
+        required: false
+        schema:
+          type: boolean
+          default: false
+          description: Inclui os endereços de entrega.
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              example:
+                id: 3021
+                name: MERCADO EXEMPLO LTDA
+                personIdentificationNumber: 00000000000191
+                email: compras@example.com
+                active: true
+                deliveryAddresses: []
+        '403':
+          description: '{"code": "UNK-ERR", "message": "Erro de Requisição", "detailedMessage": "The current Subject is not authenticated. Access
+            denied.", "details": []} — Chamada sem sessão válida: login não feito, cookie/token não reenviado ou token vencido (vale 4 horas).'
+        '404':
+          description: 'HTML do Jetty: "HTTP ERROR 404 Problem accessing <caminho>. Reason: Not Found" — Serviço do WTA que atende a rota não
+            está instalado ou ativo, ou a porta informada não é a do WTA.'
+    post:
+      operationId: totvs-winthor__cliente__criar
+      summary: Cadastrar Cliente (winthor-pedido-venda)
+      description: 'Cadastra um cliente na rotina 302 a partir de dados de e-commerce, com CEP validado online (ViaCEP/ByJG) quando configurado
+        e preenchimento automático de praça, CNAE e ramo de atividade. Quando usar: Para levar ao ERP clientes captados em loja virtual ou B2B.
+        Quando não usar: o assistente não executa; para consultar use cliente.listar.'
+      tags:
+      - Cliente
+      x-confianca: verificado
+      x-fonte-url: https://tdn.totvs.com/pages/releaseview.action?pageId=632097966
+      x-servico-wta: winthor-pedido-venda
+      x-seguro-para-executar: false
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                corporate:
+                  type: boolean
+                  description: true pessoa jurídica (J), false física (F).
+                name:
+                  type: string
+                  description: Nome/razão social (até 60).
+                personIdentificationNumber:
+                  type: string
+                  description: CPF/CNPJ.
+                stateInscription:
+                  type: string
+                  description: Inscrição estadual ou ISENTO.
+                commercialAddress:
+                  type: string
+                  description: Endereço comercial (até 40).
+                businessDistrict:
+                  type: string
+                  description: Bairro.
+                commercialZipCode:
+                  type: string
+                  description: CEP.
+                email:
+                  type: string
+                  description: E-mail.
+                customerOrigin:
+                  type: string
+                  enum:
+                  - VT
+                  - WB
+                  - WTN
+                  - WTW
+                  - N
+                  description: Origem do cadastro.
+                cityId:
+                  type: integer
+                  description: Código da cidade no WinThor.
+                sellerId:
+                  type: integer
+                  description: RCA; sem ele usa o parâmetro 4012.
+                branchParameterId:
+                  type: string
+                  description: Filial de referência para parâmetros de alteração automática.
+              required:
+              - corporate
+              - name
+              - personIdentificationNumber
+              - stateInscription
+              - commercialAddress
+              - businessDistrict
+              - commercialZipCode
+              - email
+              - customerOrigin
+            example:
+              corporate: true
+              name: MERCADO EXEMPLO LTDA
+              personIdentificationNumber: 00000000000191
+              stateInscription: ISENTO
+              commercialAddress: RUA EXEMPLO
+              businessDistrict: CENTRO
+              commercialZipCode: '74000000'
+              email: compras@example.com
+              customerOrigin: VT
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              example:
+                Id: 3022
+        '403':
+          description: '{"code": "UNK-ERR", "message": "Erro de Requisição", "detailedMessage": "The current Subject is not authenticated. Access
+            denied.", "details": []} — Chamada sem sessão válida: login não feito, cookie/token não reenviado ou token vencido (vale 4 horas).'
+    put:
+      operationId: totvs-winthor__cliente__atualizar
+      summary: Atualizar Cliente (winthor-pedido-venda)
+      description: 'Altera o cadastro de um cliente identificado por CPF/CNPJ e IE, se o parâmetro 4532 da rotina 132 permitir alteração automática
+        para a filial informada em branchParameterId. Quando usar: Para levar ao ERP clientes captados em loja virtual ou B2B. Quando não usar:
+        o assistente não executa; para consultar use cliente.listar.'
+      tags:
+      - Cliente
+      x-confianca: verificado
+      x-fonte-url: https://tdn.totvs.com/pages/releaseview.action?pageId=632097966
+      x-servico-wta: winthor-pedido-venda
+      x-seguro-para-executar: false
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                corporate:
+                  type: boolean
+                  description: true pessoa jurídica (J), false física (F).
+                name:
+                  type: string
+                  description: Nome/razão social (até 60).
+                personIdentificationNumber:
+                  type: string
+                  description: CPF/CNPJ.
+                stateInscription:
+                  type: string
+                  description: Inscrição estadual ou ISENTO.
+                commercialAddress:
+                  type: string
+                  description: Endereço comercial (até 40).
+                businessDistrict:
+                  type: string
+                  description: Bairro.
+                commercialZipCode:
+                  type: string
+                  description: CEP.
+                email:
+                  type: string
+                  description: E-mail.
+                customerOrigin:
+                  type: string
+                  enum:
+                  - VT
+                  - WB
+                  - WTN
+                  - WTW
+                  - N
+                  description: Origem do cadastro.
+                cityId:
+                  type: integer
+                  description: Código da cidade no WinThor.
+                sellerId:
+                  type: integer
+                  description: RCA; sem ele usa o parâmetro 4012.
+                branchParameterId:
+                  type: string
+                  description: Filial de referência para parâmetros de alteração automática.
+              required:
+              - corporate
+              - name
+              - personIdentificationNumber
+              - stateInscription
+              - commercialAddress
+              - businessDistrict
+              - commercialZipCode
+              - email
+              - customerOrigin
+            example:
+              corporate: true
+              name: MERCADO EXEMPLO LTDA
+              personIdentificationNumber: 00000000000191
+              stateInscription: ISENTO
+              commercialAddress: RUA EXEMPLO
+              businessDistrict: CENTRO
+              commercialZipCode: '74000000'
+              email: compras@example.com
+              customerOrigin: VT
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              example:
+                Id: 3022
+        '403':
+          description: '{"code": "UNK-ERR", "message": "Erro de Requisição", "detailedMessage": "The current Subject is not authenticated. Access
+            denied.", "details": []} — Chamada sem sessão válida: login não feito, cookie/token não reenviado ou token vencido (vale 4 horas).'
+  /api/wholesale/v1/customer/list/count:
+    get:
+      operationId: totvs-winthor__cliente__listar__contagem
+      summary: Quantidade total de registros de clientes
+      description: 'Conta quantos clientes atendem aos filtros, sem trazer os registros. Aceita os mesmos filtros da listagem (data de alteração,
+        CPF/CNPJ, consumidor final, tipo de pessoa, filial). Quando usar: Antes de uma carga grande de clientes, para estimar quantas páginas
+        serão lidas. Quando não usar: para obter os dados em si (use cliente.listar).'
+      tags:
+      - Cliente
+      x-confianca: verificado
+      x-fonte-url: https://tdn.totvs.com/pages/releaseview.action?pageId=632097966
+      x-servico-wta: winthor-pedido-venda
+      x-seguro-para-executar: true
+      parameters:
+      - name: lastChange
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+          description: Data/hora da última alteração.
+      - name: personIdentificationNumber
+        in: query
+        required: false
+        schema:
+          type: string
+          description: CPF/CNPJ.
+      - name: finalCostumer
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - S
+          - N
+          description: Consumidor final (S/N).
+      - name: personalType
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - F
+          - J
+          description: F física ou J jurídica.
+      - name: branchId
+        in: query
+        required: false
+        schema:
+          type: string
+          description: Lista de códigos de filial.
+      - name: ignoreClientPDVOmni
+        in: query
+        required: false
+        schema:
+          type: boolean
+          description: Ignora clientes vindos do PDV Omni.
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              example:
+                count: 1830
+        '403':
+          description: '{"code": "UNK-ERR", "message": "Erro de Requisição", "detailedMessage": "The current Subject is not authenticated. Access
+            denied.", "details": []} — Chamada sem sessão válida: login não feito, cookie/token não reenviado ou token vencido (vale 4 horas).'
+        '404':
+          description: 'HTML do Jetty: "HTTP ERROR 404 Problem accessing <caminho>. Reason: Not Found" — Serviço do WTA que atende a rota não
+            está instalado ou ativo, ou a porta informada não é a do WTA.'
+  /api/purchases/v1/products/:
+    get:
+      operationId: totvs-winthor__produto__listar
+      summary: products list (winthor-compras-produto)
+      description: 'Lista o cadastro de produtos (rotina 203) com descrição, NCM, unidade, fornecedor, marca, departamento, seção, categoria e
+        subcategoria, pesos e dimensões, tipo de mercadoria, situação e datas. Quando usar: Para base de produtos e para dar nome, fornecedor
+        e classificação às linhas de pedidos, estoque e preços. Use lastChange para carga incremental. Quando não usar: para saldo use estoque.listar;
+        para preço use produto.listar.precos.'
+      tags:
+      - Produto
+      x-confianca: verificado
+      x-fonte-url: https://tdn.totvs.com/pages/releaseview.action?pageId=632096738
+      x-servico-wta: winthor-compras-produto
+      x-seguro-para-executar: true
+      parameters:
+      - name: branchId
+        in: query
+        required: false
+        schema:
+          type: string
+          description: Filial.
+      - name: lastChange
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+          description: Produtos alterados a partir desta data/hora.
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 1
+          minimum: 1
+          description: Página.
+      - name: pageSize
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          description: Produtos por página.
+      - name: order
+        in: query
+        required: false
+        schema:
+          type: string
+          description: Ordenação.
+      - name: callOrigin
+        in: query
+        required: false
+        schema:
+          type: string
+          default: W
+          description: Origem da chamada; W é a origem padrão de e-commerce.
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              example:
+                first: true
+                hasNext: false
+                items:
+                - id: 1001
+                  name: ARROZ TIPO 1 5KG
+                  productSKUId: 7890000000017-1001
+                  NCM: '10063021'
+                  unity: FD
+                  supplierId: 77
+                  supplierDescription: FORNECEDOR EXEMPLO
+                  brandId: 5
+                  categoryId: 12
+                  sectionId: 3
+                  merchandiseType: L
+                  realWeightKg: 5.1
+                  isActive: true
+                  releaseDate: '2024-02-10T00:00:00'
+                  lastChange: '2026-08-05T09:00:00'
+        '403':
+          description: '{"code": "UNK-ERR", "message": "Erro de Requisição", "detailedMessage": "The current Subject is not authenticated. Access
+            denied.", "details": []} — Chamada sem sessão válida: login não feito, cookie/token não reenviado ou token vencido (vale 4 horas).'
+        '404':
+          description: 'HTML do Jetty: "HTTP ERROR 404 Problem accessing <caminho>. Reason: Not Found" — Serviço do WTA que atende a rota não
+            está instalado ou ativo, ou a porta informada não é a do WTA.'
+  /api/wholesale/v1/price/list:
+    get:
+      operationId: totvs-winthor__produto__listar__precos
+      summary: Retornar Lista de Preço API (/wholesale/v1/price/list)
+      description: 'Lista os preços de venda por filial e produto, conforme o tipo de precificação da filial (rotina 201 ou 2017 por embalagem,
+        atacado ou varejo), com preço de oferta e vigência, valores de ST, IPI e FECP calculados e figura tributária. Quando usar: Para tabela
+        de preços por filial, comparação de preço x custo e conferência de ofertas. Filtre por fornecedor, departamento, seção, categoria ou marca.
+        Quando não usar: preço praticado em cada venda está nos itens de pedido.listar.'
+      tags:
+      - Produto
+      x-confianca: verificado
+      x-fonte-url: https://tdn.totvs.com/pages/releaseview.action?pageId=632108371
+      x-servico-wta: winthor-pedido-venda
+      x-seguro-para-executar: true
+      parameters:
+      - name: branchId
+        in: query
+        required: true
+        schema:
+          type: string
+          description: Código da filial.
+      - name: customerId
+        in: query
+        required: false
+        schema:
+          type: integer
+          description: Cliente, para aplicar regras específicas dele.
+      - name: productSKUERPReferenceKey
+        in: query
+        required: false
+        schema:
+          type: string
+          description: Código do produto.
+      - name: providerId
+        in: query
+        required: false
+        schema:
+          type: integer
+          description: Código do fornecedor.
+      - name: departmentId
+        in: query
+        required: false
+        schema:
+          type: integer
+          description: Código do departamento.
+      - name: sectionId
+        in: query
+        required: false
+        schema:
+          type: integer
+          description: Código da seção.
+      - name: categoryId
+        in: query
+        required: false
+        schema:
+          type: integer
+          description: Código da categoria.
+      - name: subcategoryId
+        in: query
+        required: false
+        schema:
+          type: integer
+          description: Código da subcategoria.
+      - name: productSegmentId
+        in: query
+        required: false
+        schema:
+          type: integer
+          description: Código do segmento (linha) do produto.
+      - name: brandId
+        in: query
+        required: false
+        schema:
+          type: integer
+          description: Código da marca.
+      - name: paymentPlanId
+        in: query
+        required: false
+        schema:
+          type: integer
+          description: Plano de pagamento.
+      - name: measuredUnit
+        in: query
+        required: false
+        schema:
+          type: string
+          description: Unidade de medida.
+      - name: imported
+        in: query
+        required: false
+        schema:
+          type: boolean
+          description: Só importados (true) ou nacionais (false).
+      - name: callOrigin
+        in: query
+        required: false
+        schema:
+          type: string
+          default: W
+          description: Origem da chamada.
+      - name: order
+        in: query
+        required: false
+        schema:
+          type: string
+          default: lastChange
+          description: Ordenação.
+      - name: lastChange
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+          description: Preços alterados a partir desta data/hora.
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 1
+          minimum: 1
+          description: Página.
+      - name: pageSize
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          description: Registros por página.
+      - name: multiRegionPrice
+        in: query
+        required: false
+        schema:
+          type: boolean
+          description: Traz as regiões configuradas para o e-commerce (rotina 519).
+      - name: useMultiplePricesPerProductPackage
+        in: query
+        required: false
+        schema:
+          type: boolean
+          description: Retorna preços por embalagem (depende de parâmetros da rotina 132).
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              example:
+                first: true
+                hasNext: false
+                items:
+                - branchId: '1'
+                  erpReferenceKey: 1001
+                  skuId: 7890000000017-1001
+                  price: 27.9
+                  noTaxesPrice: 24.1
+                  fixedPrice: false
+                  offerPrice: 0
+                  offerStartDate: ''
+                  offerEndDate: ''
+                  st: 0
+                  ipi: 0
+                  taxFigureId: 10
+                  unitMultiplier: 1
+                  priceRegion: 1
+                  origin: 201
+                  lastChange: '2026-08-01T07:30:00'
+        '403':
+          description: '{"code": "UNK-ERR", "message": "Erro de Requisição", "detailedMessage": "The current Subject is not authenticated. Access
+            denied.", "details": []} — Chamada sem sessão válida: login não feito, cookie/token não reenviado ou token vencido (vale 4 horas).'
+        '404':
+          description: 'HTML do Jetty: "HTTP ERROR 404 Problem accessing <caminho>. Reason: Not Found" — Serviço do WTA que atende a rota não
+            está instalado ou ativo, ou a porta informada não é a do WTA.'
+  /api/stock-vtex/v1/available/list:
+    get:
+      operationId: totvs-winthor__estoque__listar
+      summary: Listar Estoque API (winthor-estoque-vtex)
+      description: 'Lista o estoque disponível por produto e filial (uma ou várias), com quantidade disponível calculada pelo ERP, indicação de
+        venda sem estoque, fator de embalagem e datas de última alteração e de movimento. Quando usar: Para posição de estoque por filial, ruptura
+        e cruzamento com vendas. Filtre por fornecedor, departamento, seção, categoria, produto ou tipo de mercadoria. Quando não usar: para custo,
+        giro ou kardex não há API pública (só saldo disponível).'
+      tags:
+      - Estoque
+      x-confianca: verificado
+      x-fonte-url: https://tdn.totvs.com/pages/releaseview.action?pageId=632097669
+      x-servico-wta: winthor-estoque-vtex
+      x-seguro-para-executar: true
+      parameters:
+      - name: branchId
+        in: query
+        required: true
+        schema:
+          type: string
+          description: Filial ou filiais separadas por vírgula.
+      - name: lastChange
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+          description: Considera a mais recente entre a alteração do disponível e a do produto.
+      - name: lastMovStock
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+          description: Data da última alteração do estoque. Não usar junto com lastChange.
+      - name: order
+        in: query
+        required: false
+        schema:
+          type: string
+          default: lastChange
+          description: Ordenação.
+      - name: categoryId
+        in: query
+        required: false
+        schema:
+          type: integer
+          description: Categoria.
+      - name: subcategoryId
+        in: query
+        required: false
+        schema:
+          type: integer
+          description: Subcategoria.
+      - name: sectionId
+        in: query
+        required: false
+        schema:
+          type: integer
+          description: Seção.
+      - name: departmentId
+        in: query
+        required: false
+        schema:
+          type: integer
+          description: Departamento.
+      - name: providerId
+        in: query
+        required: false
+        schema:
+          type: integer
+          description: Fornecedor.
+      - name: productId
+        in: query
+        required: false
+        schema:
+          type: integer
+          description: Produto.
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 0
+          description: Página.
+      - name: pageSize
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          description: Tamanho da página.
+      - name: resale
+        in: query
+        required: false
+        schema:
+          type: boolean
+          description: Só produtos de revenda (true) ou não (false); nulo traz todos.
+      - name: merchandiseType
+        in: query
+        required: false
+        schema:
+          type: string
+          description: 'Tipos de mercadoria (ex.: PA, KT, CB). Tipo inexistente devolve lista vazia.'
+      - name: callOrigin
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - W
+          - WSH
+          default: W
+          description: W aplica a restrição de e-commerce (só produtos marcados para enviar); WSH não aplica essa restrição (uso do PDVSYNC).
+            Para análise de estoque de todos os produtos, avalie WSH com o cliente.
+      - name: usesPackagingSales
+        in: query
+        required: false
+        schema:
+          type: boolean
+          default: false
+          description: Divide a quantidade disponível por embalagem.
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              example:
+                first: true
+                hasNext: false
+                items:
+                - createDate: '2024-02-10T00:00:00'
+                  lastChange: '2026-08-05T17:42:10'
+                  productId: 7890000000017-1001
+                  quantity: 340
+                  unlimitedQuantity: false
+                  warehouseBranchId: '1'
+                  warehouseBranchName: DISTRIBUIDORA EXEMPLO
+                  unitMultiplier: 1
+        '403':
+          description: '{"code": "UNK-ERR", "message": "Erro de Requisição", "detailedMessage": "The current Subject is not authenticated. Access
+            denied.", "details": []} — Chamada sem sessão válida: login não feito, cookie/token não reenviado ou token vencido (vale 4 horas).'
+        '404':
+          description: 'HTML do Jetty: "HTTP ERROR 404 Problem accessing <caminho>. Reason: Not Found" — Serviço do WTA que atende a rota não
+            está instalado ou ativo, ou a porta informada não é a do WTA.'
+  /api/stock-vtex/v1/available/{branchId}/{productId}:
+    get:
+      operationId: totvs-winthor__estoque__obter
+      summary: Retornar estoque API - ID (winthor-estoque-vtex)
+      description: 'Consulta o estoque disponível de um produto numa filial, informando filial e código do produto no caminho. A TDN diz que o
+        JSON de retorno é o mesmo da listagem. Quando usar: Para checar a disponibilidade de um item específico. Quando não usar: para vários
+        produtos ou filiais use estoque.listar.'
+      tags:
+      - Estoque
+      x-confianca: verificado
+      x-fonte-url: https://tdn.totvs.com/pages/releaseview.action?pageId=632097669
+      x-servico-wta: winthor-estoque-vtex
+      x-seguro-para-executar: true
+      parameters:
+      - name: branchId
+        in: path
+        required: true
+        schema:
+          type: string
+          description: Código da filial.
+      - name: productId
+        in: path
+        required: true
+        schema:
+          type: integer
+          description: Código do produto.
+      - name: callOrigin
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - W
+          - WSH
+          default: W
+          description: W aplica a restrição de e-commerce (só produtos marcados para enviar); WSH não aplica essa restrição (uso do PDVSYNC).
+            Para análise de estoque de todos os produtos, avalie WSH com o cliente.
+      - name: usesPackagingSales
+        in: query
+        required: false
+        schema:
+          type: boolean
+          default: false
+          description: Divide a quantidade disponível por embalagem.
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              example:
+                first: true
+                hasNext: false
+                items:
+                - productId: 7890000000017-1001
+                  quantity: 340
+                  warehouseBranchId: '1'
+                  unlimitedQuantity: false
+        '403':
+          description: '{"code": "UNK-ERR", "message": "Erro de Requisição", "detailedMessage": "The current Subject is not authenticated. Access
+            denied.", "details": []} — Chamada sem sessão válida: login não feito, cookie/token não reenviado ou token vencido (vale 4 horas).'
+        '404':
+          description: 'HTML do Jetty: "HTTP ERROR 404 Problem accessing <caminho>. Reason: Not Found" — Serviço do WTA que atende a rota não
+            está instalado ou ativo, ou a porta informada não é a do WTA.'
+  /api/branch/v1/:
+    get:
+      operationId: totvs-winthor__empresa__listar__filiais
+      summary: APIs Integrações - Filiais (winthor-filial)
+      description: 'Lista as filiais cadastradas na rotina 535 com razão social, nome fantasia, CNPJ, inscrições, endereço, município com código
+        IBGE, UF, telefone, opção pelo Simples e datas. Quando usar: Para dar nome e CNPJ às filiais que aparecem em pedidos, estoque e preços,
+        e para descobrir os códigos de filial exigidos por outras consultas. Quando não usar: para dados fiscais detalhados da filial (só o básico
+        vem aqui).'
+      tags:
+      - Empresa
+      x-confianca: verificado
+      x-fonte-url: https://tdn.totvs.com/pages/releaseview.action?pageId=683349868
+      x-servico-wta: winthor-filial (versão 202501.36 ou superior)
+      x-seguro-para-executar: true
+      parameters:
+      - name: id
+        in: query
+        required: false
+        schema:
+          type: string
+          description: Código da filial.
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 1
+          minimum: 1
+          description: Página.
+      - name: pageSize
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          description: Registros por página.
+      - name: lastChange
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+          description: Filiais alteradas a partir desta data/hora.
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              example:
+                first: true
+                hasNext: false
+                items:
+                - id: '1'
+                  corporateName: DISTRIBUIDORA EXEMPLO LTDA
+                  aliasName: EXEMPLO
+                  corporateIdentificationNumber: 00000000000191
+                  stateRegistration: '000000000'
+                  city: GOIANIA
+                  federativeUnit: GO
+                  codCityIbge: 5208707
+                  zipCode: '74000000'
+                  createdAt: '2022-04-25T09:12:04'
+                  lastChange: '2026-01-10T08:00:00'
+                  creditLimitPaymentMethod: false
+        '403':
+          description: '{"mensagem": "O Usuário não está autorizado a utilizar esse recurso", "erros": []} — Requisição sem autenticação ou usuário
+            sem permissão no recurso.'
+        '404':
+          description: 'HTML do Jetty: "HTTP ERROR 404 Problem accessing <caminho>. Reason: Not Found" — Serviço do WTA que atende a rota não
+            está instalado ou ativo, ou a porta informada não é a do WTA.'
+  /winthor/venda/v0/planos-pagamentos:
+    get:
+      operationId: totvs-winthor__tabela_auxiliar__listar__planos_pagamento
+      summary: APIs Integrações - Planos de Pagamentos (winthor-venda)
+      description: 'Lista os planos de pagamento (condições de venda, rotina 523) com prazos das parcelas, prazo médio, forma de parcelamento,
+        tipo de venda (à vista ou a prazo), acréscimo ou desconto, pedido mínimo, restrições e situação. Quando usar: Para traduzir o paymentPlanId
+        dos pedidos e clientes em descrição e prazo médio, e para análise de prazo concedido. Quando não usar: não traz títulos nem vencimentos
+        reais (contas a receber não tem API pública).'
+      tags:
+      - TabelaAuxiliar
+      x-confianca: verificado
+      x-fonte-url: https://tdn.totvs.com/pages/releaseview.action?pageId=699812479
+      x-servico-wta: winthor-venda
+      x-seguro-para-executar: true
+      parameters:
+      - name: pagina
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 1
+          minimum: 1
+          description: Número da página.
+      - name: tamanho
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          description: Quantidade por página.
+      - name: dataUltimaAlteracao
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+          description: Planos alterados a partir desta data/hora.
+      - name: codfilial
+        in: query
+        required: false
+        schema:
+          type: string
+          description: Filial ou filiais separadas por vírgula.
+      - name: codigoCobranca
+        in: query
+        required: false
+        schema:
+          type: string
+          description: Cobrança vinculada ao plano na rotina 522.
+      - name: codigoPlanoPagamento
+        in: query
+        required: false
+        schema:
+          type: integer
+          description: Código do plano.
+      - name: tiposPrazo
+        in: query
+        required: false
+        schema:
+          type: string
+          description: Tipos de prazo, separados por vírgula.
+      - name: tiposVenda
+        in: query
+        required: false
+        schema:
+          type: string
+          description: Tipos de venda (VV à vista, VP a prazo), separados por vírgula.
+      - name: formasParcelamento
+        in: query
+        required: false
+        schema:
+          type: string
+          description: Formas de parcelamento (C, M, F, T, V), separadas por vírgula.
+      - name: status
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - A
+          - I
+          description: A ativo, I inativo.
+      - name: usaPlPagAutoServico
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - S
+          - N
+          description: 'S ou N: plano usado no autosserviço.'
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              example:
+                first: true
+                hasNext: false
+                items:
+                - codigo: 12
+                  descricao: 28/42/56 DIAS
+                  numColunaPreco: 1
+                  formaParcelamento: C
+                  prazos:
+                  - 28
+                  - 42
+                  - 56
+                  codigoFilial: '99'
+                  tipoPrazo:
+                    sigla: N
+                    descricao: Normal
+                  percentualAcrescimo: 0
+                  prazoMedio: 42
+                  tipoVenda: VP
+                  valorMinimoPedido: 0
+                  ativo: true
+                  numeroParcelas: 3
+                  dataCriacao: '2024-03-01T10:00:00'
+                  dataUltimaAtualizacao: '2026-02-01T11:00:00'
+        '403':
+          description: '{"code": "UNK-ERR", "message": "Erro de Requisição", "detailedMessage": "The current Subject is not authenticated. Access
+            denied.", "details": []} — Chamada sem sessão válida: login não feito, cookie/token não reenviado ou token vencido (vale 4 horas).'
+        '404':
+          description: 'HTML do Jetty: "HTTP ERROR 404 Problem accessing <caminho>. Reason: Not Found" — Serviço do WTA que atende a rota não
+            está instalado ou ativo, ou a porta informada não é a do WTA.'
+  /winthor/precos/v1/politica-desconto:
+    get:
+      operationId: totvs-winthor__tabela_auxiliar__listar__politicas_desconto
+      summary: APIs Integrações - Política de desconto (winthor-integracao-preco)
+      description: 'Lista as políticas de desconto e acréscimo da rotina 561 com vigência, percentual (positivo desconto, negativo acréscimo),
+        alcance (filial, região, cliente, grupo, praça, ramo, fornecedor, produto, departamento, seção, categoria, marca) e situação. Quando usar:
+        Para auditar campanhas e descontos vigentes num período ou por fornecedor/produto. Quando não usar: o desconto efetivamente dado em cada
+        venda está nos itens de pedido.listar (discountPercentage).'
+      tags:
+      - TabelaAuxiliar
+      x-confianca: verificado
+      x-fonte-url: https://tdn.totvs.com/pages/releaseview.action?pageId=885390869
+      x-servico-wta: winthor-integracao-preco
+      x-seguro-para-executar: true
+      parameters:
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          description: Página.
+      - name: pageSize
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          description: Registros por página.
+      - name: lastChange
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+          description: Políticas alteradas a partir desta data/hora.
+      - name: startDate
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+          description: Início da vigência.
+      - name: endDate
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+          description: Fim da vigência.
+      - name: id
+        in: query
+        required: false
+        schema:
+          type: integer
+          description: Código da política (campanha).
+      - name: branchId
+        in: query
+        required: false
+        schema:
+          type: string
+          description: Filiais separadas por vírgula; nulo é tratado como 99.
+      - name: regionId
+        in: query
+        required: false
+        schema:
+          type: string
+          description: Regiões separadas por vírgula.
+      - name: productId
+        in: query
+        required: false
+        schema:
+          type: string
+          description: Produtos separados por vírgula.
+      - name: barCodeId
+        in: query
+        required: false
+        schema:
+          type: string
+          description: Código de barras.
+      - name: suppierId
+        in: query
+        required: false
+        schema:
+          type: integer
+          description: 'Código do fornecedor. Grafia publicada na TDN: suppierId (sem o ''l'').'
+      - name: active
+        in: query
+        required: false
+        schema:
+          type: boolean
+          description: Só políticas ativas.
+      - name: initialSync
+        in: query
+        required: false
+        schema:
+          type: boolean
+          default: false
+          description: Primeira carga para o WSH.
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              example:
+                first: true
+                hasNext: false
+                items:
+                - campaignId: 4901
+                  branchId: '1'
+                  productId: 1001
+                  skuId: 1001-1001
+                  allPackages: true
+                  orderOrigin: O
+                  startDate: '2026-08-01T00:00:00'
+                  endDate: '2026-08-31T23:59:59'
+                  feePercentage: 5
+                  percentageValue: 5
+                  type: 0
+                  active: true
+                  registrationDate: '2026-07-28T10:00:00'
+                  lastChangeDate: '2026-07-28T10:05:00'
+        '403':
+          description: '{"code": "UNK-ERR", "message": "Erro de Requisição", "detailedMessage": "The current Subject is not authenticated. Access
+            denied.", "details": []} — Chamada sem sessão válida: login não feito, cookie/token não reenviado ou token vencido (vale 4 horas).'
+        '404':
+          description: 'HTML do Jetty: "HTTP ERROR 404 Problem accessing <caminho>. Reason: Not Found" — Serviço do WTA que atende a rota não
+            está instalado ou ativo, ou a porta informada não é a do WTA.'
+  /logistica/apis/v1/nota/buscar:
+    get:
+      operationId: totvs-winthor__nota_fiscal__listar
+      summary: APIs Logística - Integração TRE - Notas Fiscais (winthor-logistica-apis)
+      description: 'Lista notas fiscais de saída com número, pedido(s) de origem, valor total, peso, nome do cliente, chave de acesso e situação
+        da NF-e. Foi publicada para a integração com o TOTVS Roteirização e Entrega (TRE). Quando usar: Para uma lista simples de NF de saída
+        (número, valor, cliente, chave). Use cancelada=true para ver só as canceladas. Quando não usar: para NF de um período específico, prefira
+        pedido.listar com viewDocument=true e daysOfSearch, porque esta rota não tem filtro de data documentado.'
+      tags:
+      - NotaFiscal
+      x-confianca: verificado
+      x-fonte-url: https://tdn.totvs.com/pages/releaseview.action?pageId=1011570009
+      x-servico-wta: winthor-logistica-apis
+      x-seguro-para-executar: true
+      parameters:
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 1
+          minimum: 1
+          description: Número da página.
+      - name: pageSize
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 10
+          minimum: 1
+          description: Tamanho da página.
+      - name: cancelada
+        in: query
+        required: false
+        schema:
+          type: boolean
+          default: false
+          description: true busca notas canceladas.
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              example:
+                first: true
+                hasNext: true
+                items:
+                - numero: 456789
+                  pedido:
+                  - 1234567
+                  valor: 1520.4
+                  peso: 61.2
+                  cliente: MERCADO EXEMPLO LTDA
+                  chave: <<CHAVE_NFE_44_DIGITOS>>
+                  situacao: 100
+        '403':
+          description: '{"code": "UNK-ERR", "message": "Erro de Requisição", "detailedMessage": "The current Subject is not authenticated. Access
+            denied.", "details": []} — Chamada sem sessão válida: login não feito, cookie/token não reenviado ou token vencido (vale 4 horas).'
+        '404':
+          description: 'HTML do Jetty: "HTTP ERROR 404 Problem accessing <caminho>. Reason: Not Found" — Serviço do WTA que atende a rota não
+            está instalado ou ativo, ou a porta informada não é a do WTA.'
+  /winthor/fiscal/v1/documentosfiscais/nfe/invoiceDocument:
+    get:
+      operationId: totvs-winthor__nota_fiscal__baixar_arquivo__xml
+      summary: APIs Integrações - Notas Fiscais - XML (winthor-fiscal)
+      description: 'Devolve o XML da NF-e de saída ligada a um pedido ou a uma transação de venda, em texto ou em Base64. Só funciona para notas
+        com status 100 ou 150. Quando usar: Para arquivar ou conferir o XML de NF de pedidos específicos (ex.: depois de listar pedidos com viewDocument=true).
+        Quando não usar: para listar notas use nota_fiscal.listar ou pedido.listar.'
+      tags:
+      - NotaFiscal
+      x-confianca: verificado
+      x-fonte-url: https://tdn.totvs.com/pages/releaseview.action?pageId=650007958
+      x-servico-wta: winthor-fiscal (versão 1.0.32.2 ou superior)
+      x-seguro-para-executar: true
+      parameters:
+      - name: orderId
+        in: query
+        required: false
+        schema:
+          type: integer
+          description: Número do pedido da NF. Informe este ou transactionId.
+      - name: transactionId
+        in: query
+        required: false
+        schema:
+          type: integer
+          description: Número da transação de venda (PCNFSAID.NUMTRANSVENDA). Informe este ou orderId. A TDN chama de parâmetro opcional de uso
+            interno.
+      - name: returnBase64
+        in: query
+        required: false
+        schema:
+          type: boolean
+          default: false
+          description: true devolve o XML codificado em Base64.
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              example:
+                invoiceXml: <nfeProc versao="4.00">...</nfeProc>
+        '406':
+          description: Error 406 Not Acceptable (página do Jetty) — Accept e Content-Type não enviados como application/json.
+        '403':
+          description: '{"code": "UNK-ERR", "message": "Erro de Requisição", "detailedMessage": "The current Subject is not authenticated. Access
+            denied.", "details": []} — Chamada sem sessão válida: login não feito, cookie/token não reenviado ou token vencido (vale 4 horas).'
+  /api/wholesale/v1/health:
+    get:
+      operationId: totvs-winthor__empresa__consultar_status__saude
+      summary: API de Saúde (Health) do winthor-pedido-venda
+      description: 'Verifica se o serviço winthor-pedido-venda está no ar no WTA do cliente. Não exige login. Outros serviços têm rotas equivalentes
+        (lista em endpoints_secundarios). Quando usar: Para testar a conexão com o WTA (IP, porta, rede) antes de pedir credenciais ou antes de
+        uma extração. Quando não usar: não confirma que usuário e senha estão certos (faça o login para isso).'
+      tags:
+      - Empresa
+      x-confianca: verificado
+      x-fonte-url: https://tdn.totvs.com/pages/releaseview.action?pageId=1036755549
+      x-servico-wta: winthor-pedido-venda
+      x-seguro-para-executar: true
+      security: []
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              example:
+                status: Aplicação ativa
+        '404':
+          description: 'HTML do Jetty: "HTTP ERROR 404 Problem accessing <caminho>. Reason: Not Found" — Serviço do WTA que atende a rota não
+            está instalado ou ativo, ou a porta informada não é a do WTA.'
+  /pedidovenda/liberacaopedido:
+    get:
+      operationId: totvs-winthor__pedido__autorizar__liberacao
+      summary: API - Liberação de Pedido (TPedidoVendaAPILiberacaoPedido)
+      description: 'Reavalia os motivos de bloqueio de um pedido já gravado e, se não restar bloqueio, muda a posição do pedido e dos itens para
+        liberado (L), registrando funcionário e data. Apesar de ser GET, grava no banco. Quando usar: Depois de importar um pedido que entrou
+        bloqueado, para tentar liberá-lo. Quando não usar: nunca como consulta; o assistente não executa porque a chamada altera o pedido.'
+      tags:
+      - Pedido
+      x-confianca: verificado
+      x-fonte-url: https://tdn.totvs.com/pages/releaseview.action?pageId=1062879116
+      x-servico-wta: winthor-pedido-venda
+      x-seguro-para-executar: false
+      parameters:
+      - name: numeropedido
+        in: query
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+          description: Número do pedido.
+      - name: codfuncliberacao
+        in: query
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+          description: Código do funcionário que libera.
+      - name: User-Agent
+        in: header
+        required: false
+        schema:
+          type: string
+          description: Gravado como origem da chamada no log de liberação.
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              example:
+                Status: BLOQUEADO
+                NumeroPedido: 1234567
+                CodigoFuncionarioLiberacao: 789
+                DataExecucao: '2026-08-03T11:00:00'
+                RequestId: <<GUID>>
+                PosicaoAtual: B
+                PossuiBloqueioAtivo: true
+                Mensagem: Pedido continua bloqueado.
+                MotivosBloqueio:
+                - Codigo: 1
+                  Descricao: Limite de crédito
+        '400':
+          description: Requisição inválida — Parâmetros ausentes.
+        '404':
+          description: Pedido ou recurso não encontrado — Pedido inexistente.
+        '422':
+          description: Número do pedido inválido ou não informado / Código do funcionário inválido ou não informado — Valor menor ou igual a zero.
+        '500':
+          description: Erro interno — Falha no processamento.
+  /api/wholesale/v1/customer/deliveryAddress:
+    post:
+      operationId: totvs-winthor__endereco__criar__entrega
+      summary: Cadastrar Endereço de entrega (winthor-pedido-venda)
+      description: 'Inclui um endereço de entrega alternativo para um cliente (rotina 3324, PCCLIENTENTEND), com recebedor, CEP, cidade, bairro,
+        coordenadas e região de tributação. Quando usar: Quando o canal de venda envia endereço de entrega diferente do cadastro do cliente. Quando
+        não usar: o assistente não executa.'
+      tags:
+      - Endereco
+      x-confianca: verificado
+      x-fonte-url: https://tdn.totvs.com/pages/releaseview.action?pageId=728640605
+      x-servico-wta: winthor-pedido-venda
+      x-seguro-para-executar: false
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                customerId:
+                  type: integer
+                  description: Código do cliente.
+                zipCode:
+                  type: string
+                  description: CEP de entrega.
+                address:
+                  type: string
+                  description: Logradouro.
+                district:
+                  type: string
+                  description: Bairro (pode vir do ViaCEP se o parâmetro 4672 estiver ativo).
+                city:
+                  type: string
+                  description: Cidade (idem).
+                state:
+                  type: string
+                  description: UF (idem).
+                cityId:
+                  type: integer
+                  description: Código da cidade; se ausente, busca pelo IBGE ou por nome.
+                customerOrigin:
+                  type: string
+                  enum:
+                  - VT
+                  - WB
+                  - WTN
+                  - WTW
+                  - N
+                  description: Origem.
+                number:
+                  type: string
+                  description: Número.
+                receiverName:
+                  type: string
+                  description: Nome do recebedor.
+              required:
+              - customerId
+              - zipCode
+              - address
+              - district
+              - city
+              - state
+              - cityId
+              - customerOrigin
+            example:
+              customerId: 3021
+              zipCode: '74000000'
+              address: RUA EXEMPLO
+              district: CENTRO
+              city: GOIANIA
+              state: GO
+              cityId: 1
+              number: '100'
+              customerOrigin: VT
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              example:
+                Id: 2
+        '403':
+          description: '{"code": "UNK-ERR", "message": "Erro de Requisição", "detailedMessage": "The current Subject is not authenticated. Access
+            denied.", "details": []} — Chamada sem sessão válida: login não feito, cookie/token não reenviado ou token vencido (vale 4 horas).'

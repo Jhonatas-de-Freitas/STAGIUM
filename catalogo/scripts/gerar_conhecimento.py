@@ -55,6 +55,42 @@ CONSULTAS_DO_SITE = {
         "mercado-livre.empresa.obter",
         "mercado-livre.anuncio.listar.visitas_diarias",
     },
+    # WinThor: listas que viram planilha. Ficam de fora as buscas por id, a contagem, a saúde
+    # do serviço, o XML da NF-e e a lista de notas da roteirização (sem filtro de data).
+    "totvs-winthor": {
+        "totvs-winthor.pedido.listar",
+        "totvs-winthor.cliente.listar",
+        "totvs-winthor.produto.listar",
+        "totvs-winthor.produto.listar.precos",
+        "totvs-winthor.estoque.listar",
+        "totvs-winthor.empresa.listar.filiais",
+        "totvs-winthor.tabela_auxiliar.listar.planos_pagamento",
+    },
+    # Protheus: financeiro (títulos, baixas, banco), cadastros, pedidos, notas e estoque pela
+    # genericQuery. Ficam de fora a consulta genérica (tabela e where livres), a estrutura de
+    # tabela, a filial atual e as listas duplicadas da API customerVendor.
+    "totvs-protheus": {
+        "totvs-protheus.conta_receber.listar",
+        "totvs-protheus.conta_pagar.listar",
+        "totvs-protheus.pagamento.listar.baixas",
+        "totvs-protheus.transacao.listar.movimentos_bancarios",
+        "totvs-protheus.transacao.listar.extrato_bancario",
+        "totvs-protheus.transacao.listar.saldos_bancarios",
+        "totvs-protheus.tabela_auxiliar.listar.bancos",
+        "totvs-protheus.plano_contas.listar.naturezas",
+        "totvs-protheus.cliente.listar",
+        "totvs-protheus.fornecedor.listar",
+        "totvs-protheus.produto.listar",
+        "totvs-protheus.estoque.listar.saldos",
+        "totvs-protheus.pedido.listar.venda",
+        "totvs-protheus.pedido.listar.venda_itens",
+        "totvs-protheus.pedido.listar.compra",
+        "totvs-protheus.nota_fiscal.listar.saida",
+        "totvs-protheus.nota_fiscal.listar.saida_itens",
+        "totvs-protheus.nota_fiscal.listar.entrada",
+        "totvs-protheus.nota_fiscal.listar.entrada_itens",
+        "totvs-protheus.centro_custo.listar",
+    },
 }
 
 # Receitas usadas por outra consulta (segunda etapa), que o site não oferece sozinhas.
@@ -83,6 +119,38 @@ OPCOES_DE_QUERY = {
         "nome": "tipo_caso", "rotulo": "Tipo",
         "valores": {"Mediações": "mediations", "Devoluções": "return",
                     "Cancelamentos": "cancel_purchase", "Trocas": "change"}},
+    # WinThor: sem saleOrigin a API traz só pedidos web (W); o cliente escolhe a origem
+    ("totvs-winthor.pedido.listar", "saleOrigin"): {
+        "nome": "origem", "rotulo": "Origem do pedido", "obrigatorio": True, "padrao": "Venda web",
+        "valores": {"Venda web": "W", "Balcão": "B", "Balcão reserva": "R", "Call center": "C",
+                    "Força de vendas": "F", "Telemarketing": "T", "Venda broker": "K",
+                    "Autosserviço (varejo)": "A"}},
+    # sem callOrigin=WSH, o estoque traz só produtos marcados "Enviar para E-commerce"
+    ("totvs-winthor.estoque.listar", "callOrigin"): {
+        "nome": "produtos", "rotulo": "Produtos", "obrigatorio": True, "padrao": "Todos",
+        "valores": {"Todos": "WSH", "Só os enviados ao e-commerce": "W"}},
+    ("totvs-winthor.cliente.listar", "personalType"): {
+        "nome": "tipo_pessoa", "rotulo": "Tipo de pessoa",
+        "valores": {"Jurídica": "J", "Física": "F"}},
+    ("totvs-winthor.cliente.listar", "finalCostumer"): {
+        "nome": "consumidor_final", "rotulo": "Consumidor final",
+        "valores": {"Sim": "S", "Não": "N"}},
+    ("totvs-winthor.tabela_auxiliar.listar.planos_pagamento", "status"): {
+        "nome": "situacao", "rotulo": "Situação",
+        "valores": {"Ativos": "A", "Inativos": "I"}},
+}
+
+# Parâmetros nomeados de filial em cada sistema (o formulário pergunta como "Filial").
+NOMES_DE_FILIAL = {"filial", "branchid", "codfilial"}
+
+# Campos que o formulário pergunta além dos que a análise dos parâmetros encontra.
+CAMPOS_EXTRAS = {
+    # WinThor: a lista de pedidos não tem período; filtra pelos últimos N dias de alteração
+    "totvs-winthor.pedido.listar": [
+        {"nome": "daysOfSearch", "rotulo": "Alterados nos últimos (dias)", "tipo": "texto",
+         "papel": "numero", "obrigatorio": False, "padrao": "30",
+         "dica": "Conta pela data da última alteração do pedido. Sem valor, o WinThor traz 15 dias."},
+    ],
 }
 
 # Ajustes de paginação e parâmetros fixos que o site precisa e o catálogo descreve em texto.
@@ -91,6 +159,8 @@ AJUSTES_DO_SITE = {
     "mercado-livre.anuncio.listar": {"paginacao": {"origem_proximo": "raiz_da_resposta", "fim": "lista_vazia"},
                                      "fixos": {"limit": 100}},
     "mercado-livre.mensagem.listar.perguntas": {"fixos": {"sort_types": "DESC"}},
+    # WinThor: o grupo "document" traz número, série, chave e data da NF de cada pedido
+    "totvs-winthor.pedido.listar": {"fixos": {"viewDocument": "true"}},
 }
 
 
@@ -153,6 +223,33 @@ TITULOS_DO_SITE = {
     "mercado-livre.contestacao.listar": "Reclamações e devoluções",
     "mercado-livre.empresa.obter": "Reputação da conta",
     "mercado-livre.anuncio.listar.visitas_diarias": "Visitas por dia",
+    "totvs-winthor.pedido.listar": "Pedidos de venda",
+    "totvs-winthor.cliente.listar": "Clientes",
+    "totvs-winthor.produto.listar": "Produtos",
+    "totvs-winthor.produto.listar.precos": "Preços de venda",
+    "totvs-winthor.estoque.listar": "Estoque disponível",
+    "totvs-winthor.empresa.listar.filiais": "Filiais",
+    "totvs-winthor.tabela_auxiliar.listar.planos_pagamento": "Planos de pagamento",
+    "totvs-protheus.conta_receber.listar": "Contas a receber",
+    "totvs-protheus.conta_pagar.listar": "Contas a pagar",
+    "totvs-protheus.pagamento.listar.baixas": "Baixas (recebimentos e pagamentos)",
+    "totvs-protheus.transacao.listar.movimentos_bancarios": "Movimentos bancários",
+    "totvs-protheus.transacao.listar.extrato_bancario": "Extrato bancário importado",
+    "totvs-protheus.transacao.listar.saldos_bancarios": "Saldos bancários",
+    "totvs-protheus.tabela_auxiliar.listar.bancos": "Bancos e contas",
+    "totvs-protheus.plano_contas.listar.naturezas": "Naturezas financeiras",
+    "totvs-protheus.cliente.listar": "Clientes",
+    "totvs-protheus.fornecedor.listar": "Fornecedores",
+    "totvs-protheus.produto.listar": "Produtos",
+    "totvs-protheus.estoque.listar.saldos": "Saldos de estoque",
+    "totvs-protheus.pedido.listar.venda": "Pedidos de venda",
+    "totvs-protheus.pedido.listar.venda_itens": "Itens dos pedidos de venda",
+    "totvs-protheus.pedido.listar.compra": "Pedidos de compra",
+    "totvs-protheus.nota_fiscal.listar.saida": "Notas fiscais de saída",
+    "totvs-protheus.nota_fiscal.listar.saida_itens": "Itens das notas de saída",
+    "totvs-protheus.nota_fiscal.listar.entrada": "Notas fiscais de entrada",
+    "totvs-protheus.nota_fiscal.listar.entrada_itens": "Itens das notas de entrada",
+    "totvs-protheus.centro_custo.listar": "Centros de custo",
 }
 
 # Filtros que vão no corpo JSON e que o formulário oferece como escolha. É decisão de
@@ -325,22 +422,28 @@ def planejar_query_composta(endpoint):
     (obrigatório: sem recorte a extração varre a base inteira), por qual data filtrar, a empresa,
     as condições fixas que começam com "Só" e um filtro adicional livre.
     """
-    filtros = [f for f in ((endpoint.get("execucao") or {}).get("filtros_recomendados") or [])
-               if f.get("expressao")]
+    import re
+    ex = endpoint.get("execucao") or {}
+    filtros = [f for f in (ex.get("filtros_recomendados") or []) if f.get("expressao")]
     if not filtros:
         return [], None
     parametro = filtros[0].get("parametro") or "query"
+    # Protheus: where em SQL, condições com " AND " e sem filtro livre (ver composicao_where)
+    composicao = ex.get("composicao_where") or {}
     periodos = {}
     for f in filtros:
-        if f.get("papel") == "periodo" and "{data_inicial}" in f["expressao"]:
+        if f.get("papel") == "periodo" and re.search(r"\{data_inicial(_aaaammdd)?\}", f["expressao"]):
             campo = f.get("campo") or f["expressao"].split(">=")[0]
             rotulo = curto(str(f.get("descricao") or campo).split(":")[0].replace("Recorte por ", ""), 40)
             periodos[rotulo[:1].upper() + rotulo[1:]] = f["expressao"]
     filial = next((f["expressao"] for f in filtros
                    if f.get("papel") == "filial" and "{id_empresa}" in f["expressao"]), None)
+    conta_bancaria = next((f["expressao"] for f in filtros if f.get("papel") == "conta_bancaria"), None)
     condicoes = {}
     for i, f in enumerate(filtros):
-        if f.get("papel") == "opcao" and "<" not in f["expressao"].replace("<=", "")                 and str(f.get("descricao") or "").startswith("Só "):
+        # fora: expressões com marcador a preencher, como idPessoa==<id> (Nomus)
+        if f.get("papel") == "opcao" and not re.search(r"<[a-z_]+>", f["expressao"]) \
+                and str(f.get("descricao") or "").startswith("Só "):
             condicoes[f"condicao_{i}"] = {"rotulo": rotulo_condicao(f.get("descricao")), "expressao": f["expressao"]}
 
     campos = []
@@ -357,14 +460,24 @@ def planejar_query_composta(endpoint):
         campos.append({"nome": "id_empresa", "rotulo": "Empresa (id)", "tipo": "texto", "papel": "filial",
                        "obrigatorio": False, "padrao": "",
                        "dica": "Id da empresa no ERP (consulta Empresas). Vazio traz todas."})
+    if conta_bancaria:
+        for nome, rotulo in (("banco", "Banco"), ("agencia", "Agência"), ("conta", "Conta")):
+            campos.append({"nome": nome, "rotulo": rotulo, "tipo": "texto", "papel": "conta_bancaria",
+                           "obrigatorio": False, "padrao": "",
+                           "dica": "Código como no cadastro de bancos do sistema. Preencha os três ou nenhum."})
     for nome, cond in condicoes.items():
         campos.append({"nome": nome, "rotulo": cond["rotulo"], "tipo": "condicao", "papel": "condicao",
                        "obrigatorio": False})
-    campos.append({"nome": "filtro_adicional", "rotulo": "Filtro adicional (opcional)", "tipo": "texto",
-                   "papel": "avancado", "obrigatorio": False, "padrao": "",
-                   "dica": "Na sintaxe do sistema, ex.: idPessoa==123. Junta-se aos filtros acima."})
+    filtro_livre = not composicao
+    if filtro_livre:
+        campos.append({"nome": "filtro_adicional", "rotulo": "Filtro adicional (opcional)", "tipo": "texto",
+                       "papel": "avancado", "obrigatorio": False, "padrao": "",
+                       "dica": "Na sintaxe do sistema, ex.: idPessoa==123. Junta-se aos filtros acima."})
     receita = {"parametro": parametro, "periodos": periodos, "filial": filial,
                "condicoes": {n: c["expressao"] for n, c in condicoes.items()}}
+    if composicao:
+        receita.update({"separador": composicao.get("separador") or ";", "filtro_livre": False,
+                        "conta_bancaria": conta_bancaria})
     return campos, receita
 
 
@@ -378,7 +491,7 @@ def planejar_filtros(endpoint, paginacao):
       (ex.: ecommerce=true em produtos).
     """
     params_pag = {paginacao.get("param_pagina"), paginacao.get("param_tamanho"), paginacao.get("param_cursor")}
-    campos, fixos, offset_base = [], {}, 0
+    campos, fixos, offset_base, escolhas = [], {}, 0, {}
 
     for p in endpoint.get("parametros", []):
         nome, local = p.get("nome", ""), p.get("local")
@@ -402,7 +515,14 @@ def planejar_filtros(endpoint, paginacao):
         obrigatorio = bool(p.get("obrigatorio"))
         padrao = p.get("default")
 
-        if p.get("tipo") == "date" and any(t in baixo for t in ("inicial", "inicio")):
+        if (endpoint["id"], nome) in OPCOES_DE_QUERY:
+            # opção com rótulo em português; o executor troca o rótulo pelo valor da API
+            o = OPCOES_DE_QUERY[(endpoint["id"], nome)]
+            campos.append({"nome": o["nome"], "rotulo": o["rotulo"], "tipo": "opcao", "papel": "opcao",
+                           "obrigatorio": o.get("obrigatorio", False), "opcoes": list(o["valores"]),
+                           "padrao": o.get("padrao", "")})
+            escolhas[o["nome"]] = {"parametro": nome, "valores": o["valores"]}
+        elif p.get("tipo") == "date" and any(t in baixo for t in ("inicial", "inicio")):
             campos.append({"nome": nome, "rotulo": "Data inicial", "tipo": "data", "papel": "periodo_inicio",
                            "obrigatorio": obrigatorio})
         elif p.get("tipo") == "date" and any(t in baixo for t in ("final", "fim")):
@@ -414,7 +534,7 @@ def planejar_filtros(endpoint, paginacao):
             if "dd/mm" in str(p.get("formato") or ""):
                 campo["formato"] = "dd/mm/aaaa"
             campos.append(campo)
-        elif baixo == "filial":
+        elif baixo in NOMES_DE_FILIAL:
             campos.append({"nome": nome, "rotulo": "Filial", "tipo": "texto", "papel": "filial",
                            "obrigatorio": obrigatorio, "padrao": padrao if padrao not in (None, "") else "",
                            "dica": curto(p.get("descricao"), 90)})
@@ -427,7 +547,11 @@ def planejar_filtros(endpoint, paginacao):
         elif obrigatorio and padrao not in (None, ""):
             fixos[nome] = padrao
 
-    return campos, fixos, offset_base
+    campos += [dict(c) for c in CAMPOS_EXTRAS.get(endpoint["id"], [])]
+    # parâmetros que o catálogo fixa na receita (ex.: Protheus genericQuery: tables e fields)
+    fixos.update((endpoint.get("execucao") or {}).get("parametros_fixos") or {})
+    fixos.update(AJUSTES_DO_SITE.get(endpoint["id"], {}).get("fixos", {}))
+    return campos, fixos, offset_base, escolhas
 
 
 def main():
@@ -500,12 +624,12 @@ def main():
                 # receita completa para o executor do servidor
                 paginacao = {**(ex.get("paginacao") or {}),
                              **AJUSTES_DO_SITE.get(e["id"], {}).get("paginacao", {})}
-                recomendacao = None
+                recomendacao, escolhas_query = None, {}
                 if s["slug"] in FILTROS_POR_RECOMENDACAO:
                     campos_filtro, padroes_fixos, recomendacao = planejar_por_recomendacao(e)
                     offset_base = 0
                 else:
-                    campos_filtro, padroes_fixos, offset_base = planejar_filtros(e, paginacao)
+                    campos_filtro, padroes_fixos, offset_base, escolhas_query = planejar_filtros(e, paginacao)
                 if offset_base:
                     paginacao = {**paginacao, "offset_base": offset_base}
                 campos_corpo, corpo = planejar_corpo(e)
@@ -527,6 +651,7 @@ def main():
                     **({"headers_fixos": ex["headers_fixos"]} if ex.get("headers_fixos") else {}),
                     **({"headers_fixos": ex["headers"]} if ex.get("headers") else {}),
                     **({"recomendacao": recomendacao} if recomendacao else {}),
+                    **({"escolhas_query": escolhas_query} if escolhas_query else {}),
                     **({"segunda_etapa": {"endpoint": ex["segunda_etapa"]["endpoint"],
                                           "lote": ex["segunda_etapa"].get("lote", 20),
                                           "parametro": "ids"}}

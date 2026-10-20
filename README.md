@@ -1,6 +1,6 @@
-# Stagium — assistente de dados (Sagi/SyGeCom, Nomus, Qive e Mercado Livre)
+# Stagium — assistente de dados (Sagi/SyGeCom, Nomus, Qive, Mercado Livre, WinThor e Protheus)
 
-Chat em que o cliente escolhe o sistema da empresa (hoje **Sagi (SyGeCom)**, **Nomus**, **Qive (Arquivei)** ou **Mercado Livre**) e pede, em português, a informação que precisa.
+Chat em que o cliente escolhe o sistema da empresa (hoje **Sagi (SyGeCom)**, **Nomus**, **Qive (Arquivei)**, **Mercado Livre**, **WinThor** ou **Protheus**) e pede, em português, a informação que precisa.
 O assistente encontra a consulta certa no catálogo, pede aprovação, solicita as credenciais
 do usuário de integração, consulta a API e devolve a planilha (.xlsx).
 
@@ -9,7 +9,9 @@ do usuário de integração, consulta a API e devolve a planilha (.xlsx).
 1. O cliente pergunta ("produtos cadastrados", "movimentos de estoque da matriz").
 2. A IA responde usando o catálogo e indica a consulta, com método, caminho e colunas.
 3. O cliente clica em **Executar esta consulta**.
-4. Aparece um **formulário** com os filtros e as credenciais do sistema (Sagi: e-mail, senha e endereço; Nomus: chave de integração e endereço; Qive: API ID, API KEY e, opcionalmente, o endereço de testes; Mercado Livre: botão **Conectar Mercado Livre**, sem chaves digitadas).
+4. Aparece um **formulário** com os filtros e as credenciais do sistema (Sagi: e-mail, senha e endereço; Nomus: chave de integração e endereço; Qive: API ID, API KEY e, opcionalmente, o endereço de testes; Mercado Livre: botão **Conectar Mercado Livre**, sem chaves digitadas; WinThor: usuário, senha do WinThor Anywhere e endereço; Protheus: usuário, senha, endereço do REST e empresa/filial).
+   WinThor e Protheus rodam no servidor de cada cliente: o endereço precisa ter nome de domínio (o servidor do site não chama IP).
+   No WinThor o servidor converte a senha no MD5 que o login exige; no Protheus o filtro `where` é montado só pelo executor (datas AAAAMMDD, sem filtro livre).
 5. O servidor autentica, pagina a consulta e devolve as linhas; a planilha é montada no navegador.
    Sistemas com limite de requisições (Nomus: 1 a cada 20 s) são consultados uma página por chamada:
    o navegador espera o intervalo, mostra o progresso e permite parar e gerar com o que já veio.
@@ -63,13 +65,13 @@ Nunca coloque a chave em arquivo do repositório: ele sincroniza com o GitHub.
 | Consultas salvas e período relativo | `src/lib/consultas-salvas.ts` |
 | Catálogo completo das APIs | `catalogo/` |
 
-Para regerar o conhecimento (hoje Sagi, Nomus, Qive e Mercado Livre):
+Para regerar o conhecimento (hoje Sagi, Nomus, Qive, Mercado Livre, WinThor e Protheus):
 
 ```sh
-cd catalogo && .venv/Scripts/python scripts/gerar_conhecimento.py --sistemas sygecom,nomus,arquivei,mercado-livre
+cd catalogo && .venv/Scripts/python scripts/gerar_conhecimento.py --sistemas sygecom,nomus,arquivei,mercado-livre,totvs-winthor,totvs-protheus
 ```
 
-Sem `--sistemas`, entram todos os 11 sistemas documentados (o chat só oferece os que têm receita de execução).
+Sem `--sistemas`, entram todos os 15 sistemas documentados (o chat só oferece os que têm receita de execução).
 
 ## Build with Lovable
 

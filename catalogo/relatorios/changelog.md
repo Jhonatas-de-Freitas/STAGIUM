@@ -1,5 +1,14 @@
 # Changelog do catálogo
 
+## 2026-10-19 — WinThor e Protheus documentados e liberados no chat (lote P4)
+
+- **totvs-winthor documentado** (índice 31), a pedido do usuário (ERP de cliente novo do escritório do proprietário): 23 endpoints detalhados (15 leituras executáveis) e 104 catalogados, 18 perguntas de FAQ. API no WinThor Anywhere de cada cliente; login com senha em MD5 e sessão em cookie. **Não tem API de financeiro**: conciliação bancária não sai por ela. Relatório em `relatorios/winthor.md`.
+- **totvs-protheus documentado** (índice 37): 27 endpoints detalhados (25 leituras executáveis) e 568 catalogados, 23 perguntas de FAQ. Financeiro, banco, fiscal e estoque pela genericQuery (SE1, SE2, SE5, SIG, SE8, SA1, SA2, SB1, SB2, SC5/SC6, SC7, SF1/SD1, SF2/SD2). Basic usuário:senha + `tenantId`. Relatório em `relatorios/protheus.md`.
+- **Executores (site e CLI):** marcador `{credencial|md5_maiusculo}` no login, `repassar_cookies`, tipo `basic` com `basic_campos` e `headers_credenciais`, fim de página `hasNext_false`, `where` composto com `" AND "` e datas AAAAMMDD (`composicao_where`), banco/agência/conta validados, parâmetros fixos da receita (`parametros_fixos`), opções com rótulo em português (`escolhas_query`) e parada quando a página se repete. O site recusa endereço por IP (a Cloudflare não chama IP direto) e mostra datas `2015-3-3` como `2015-03-03`.
+- **Site:** chat passa a oferecer 6 sistemas (Sagi, Nomus, Qive, Mercado Livre, WinThor e Protheus). Conhecimento das 4 anteriores conferido idêntico ao publicado.
+- `ESPECIFICACAO.md` (seções 6.1 e 7.1) e `validar.py` aceitam as transformações de login e o fim `hasNext_false`.
+- Manifest: lote P4 criado e concluído; totvs-protheus sai do lote 6; totvs-winthor entra fora da lista.
+
 ## 2026-10-14 — Mercado Livre e Qive (Arquivei) documentados (lote P3)
 
 - **mercado-livre documentado** (índice 64), a pedido do usuário: 36 endpoints detalhados (33 leituras executáveis) e 108 catalogados, 17 perguntas de FAQ. OAuth 2.0 com refresh token de uso único (access 6 h, refresh 6 meses); pedidos, envios, anúncios, estoque/Full, perguntas, reclamações, faturamento e visitas. Relatório em `relatorios/mercado-livre.md`.

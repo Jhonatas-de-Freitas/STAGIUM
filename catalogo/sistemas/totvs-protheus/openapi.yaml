@@ -1,0 +1,4065 @@
+openapi: 3.1.0
+info:
+  title: TOTVS Protheus — API REST (reconstruída pelo catálogo)
+  version: 12.1.x
+  description: 'Reconstrução das leituras de negócio do Protheus a partir do TDN e do TOTVS Developers. Não existe
+    host público: cada cliente expõe o REST do próprio servidor. Operações com o mesmo caminho real (genericQuery)
+    aparecem com um sufixo ''#<ALIAS>'' no caminho e o caminho real em x-url-real.'
+  x-fonte-url: https://tdn.totvs.com/display/public/framework/GenericQuery
+  x-data-consulta: '2026-10-19'
+servers:
+- url: https://{servidor}:{porta}/rest
+  description: Produção — servidor REST do Protheus do cliente
+  variables:
+    servidor:
+      default: protheus.cliente.example.com
+    porta:
+      default: '8080'
+- url: https://{servidor}:{porta}/rest
+  description: Homologação — ambiente de testes do próprio cliente, quando existir (não há sandbox da TOTVS)
+  variables:
+    servidor:
+      default: protheus-homologacao.cliente.example.com
+    porta:
+      default: '8080'
+security:
+- basicAuth: []
+- bearerAuth: []
+components:
+  securitySchemes:
+    basicAuth:
+      type: http
+      scheme: basic
+      description: 'Usuário e senha do Protheus em Base64 (usuario:senha). Fonte: https://tdn.totvs.com/pages/viewpage.action?pageId=185748452'
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: 'Token de POST /api/oauth2/v1/token (1 h). Fonte: https://tdn.totvs.com/pages/viewpage.action?pageId=465383509'
+paths:
+  /api/oauth2/v1/token:
+    post:
+      operationId: totvs-protheus__autenticacao__autenticar
+      summary: API de token de acesso às APIs REST do Protheus (/api/oauth2/v1/token, grant_type=password)
+      description: 'Troca usuário e senha do Protheus por um access_token JWT (Bearer, 1 hora) e um refresh_token
+        (24 horas). Disponível a partir da LIB 20190705; versão mínima 12.1.23 na especificação TOTVS Developers.
+
+
+        Quando usar: Quando o cliente preferir Bearer a Basic (recomendação da TOTVS: a senha só trafega no login).
+        Quando não usar: não é uma consulta para planilha; com Basic Auth habilitado não é obrigatório.'
+      tags:
+      - Autenticacao
+      parameters:
+      - name: grant_type
+        in: query
+        required: true
+        description: 'Tipo de concessão: password para login com usuário e senha.'
+        schema:
+          type: string
+          enum:
+          - password
+          - refresh_token
+          default: password
+      - name: username
+        in: header
+        required: true
+        description: Usuário do Protheus.
+        schema:
+          type: string
+      - name: password
+        in: header
+        required: true
+        description: Senha do usuário do Protheus.
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  access_token:
+                    type: string
+                  refresh_token:
+                    type: string
+                  scope:
+                    type: string
+                  token_type:
+                    type: string
+                  expires_in:
+                    type: integer
+                  hasMFA:
+                    type: boolean
+              example:
+                access_token: <<JWT_DE_ACESSO>>
+                refresh_token: <<REFRESH_TOKEN>>
+                scope: default
+                token_type: Bearer
+                expires_in: 3600
+                hasMFA: false
+        '401':
+          description: 'Não autorizado — Nas chamadas seguintes: access_token vencido (1 hora) — a API responde
+            401 como se não houvesse token.'
+        '409':
+          description: 'Conflito (ErrorModel TOTVS: code, message, detailedMessage) — Resposta de erro prevista
+            na especificação oficial da API Token.'
+      x-confianca: verificado
+      x-fonte-url: https://tdn.totvs.com/pages/viewpage.action?pageId=465383509
+      x-data-consulta: '2026-10-19'
+      x-entidade-canonica: Autenticacao
+      x-acao-canonica: autenticar
+      security: []
+  /api/oauth2/v1/token#refresh_token:
+    post:
+      operationId: totvs-protheus__autenticacao__autenticar__refresh_token
+      summary: Renovação do token (/api/oauth2/v1/token, grant_type=refresh_token)
+      description: 'Troca um refresh_token válido por um novo par access_token/refresh_token, renovando os dois
+        prazos (1 hora e 24 horas) sem reenviar a senha.
+
+
+        Quando usar: Antes de o access_token vencer (ou ao receber 401 por expiração), enquanto o refresh_token
+        tiver menos de 24 horas. Quando não usar: com refresh vencido, refaça o login com usuário e senha.'
+      tags:
+      - Autenticacao
+      parameters:
+      - name: grant_type
+        in: query
+        required: true
+        description: 'Fixo: refresh_token.'
+        schema:
+          type: string
+          enum:
+          - refresh_token
+          - password
+          default: refresh_token
+      - name: refresh_token
+        in: query
+        required: true
+        description: Refresh token recebido no login anterior.
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  access_token:
+                    type: string
+                  refresh_token:
+                    type: string
+                  scope:
+                    type: string
+                  token_type:
+                    type: string
+                  expires_in:
+                    type: integer
+                  hasMFA:
+                    type: boolean
+              example:
+                access_token: <<JWT_DE_ACESSO>>
+                refresh_token: <<REFRESH_TOKEN>>
+                scope: default
+                token_type: Bearer
+                expires_in: 3600
+                hasMFA: false
+        '401':
+          description: 'Não autorizado — Nas chamadas seguintes: access_token vencido (1 hora) — a API responde
+            401 como se não houvesse token.'
+        '409':
+          description: 'Conflito (ErrorModel TOTVS: code, message, detailedMessage) — Resposta de erro prevista
+            na especificação oficial da API Token.'
+      x-confianca: verificado
+      x-fonte-url: https://tdn.totvs.com/pages/viewpage.action?pageId=465383509
+      x-data-consulta: '2026-10-19'
+      x-entidade-canonica: Autenticacao
+      x-acao-canonica: autenticar
+      security: []
+      x-url-real: /api/oauth2/v1/token
+  /api/framework/v1/basicProtheusServices/xfilial:
+    get:
+      operationId: totvs-protheus__empresa__obter__filial_atual
+      summary: BasicProtheusServices — xfilial (filial de cada tabela)
+      description: 'Devolve, para cada alias informado, o código de filial que o Protheus usa naquela tabela com
+        o tenantId da requisição (tabelas compartilhadas voltam com a filial em branco ou parcial).
+
+
+        Quando usar: Como teste de conexão barato (valida endereço, usuário, senha e tenantId numa chamada só) e
+        para entender se as tabelas são compartilhadas entre filiais antes de extrair dados. Quando não usar: não
+        traz dados de negócio.'
+      tags:
+      - Empresa
+      parameters:
+      - name: alias
+        in: query
+        required: true
+        description: 'Aliases separados por vírgula (ex.: SA1,SE1,SE5).'
+        schema:
+          type: string
+          default: SA1,SA2,SB1,SE1,SE2,SE5
+      - name: tenantId
+        in: header
+        required: false
+        description: 'Grupo de empresas e filial em que a consulta roda, no formato <grupo>,<filial> (ex.: T1,D
+          MG 01). Pode ir só o grupo.'
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  SA1:
+                    type: string
+                  SA2:
+                    type: string
+                  SB1:
+                    type: string
+                  SE1:
+                    type: string
+                  SE2:
+                    type: string
+                  SE5:
+                    type: string
+              example:
+                SA1: 'D MG '
+                SA2: 'D MG '
+                SB1: '    '
+                SE1: 'D MG 01 '
+                SE2: 'D MG 01 '
+                SE5: 'D MG 01 '
+        '401':
+          description: Não autorizado — Usuário ou senha inválidos, token vencido, ou tenantId com uma filial à
+            qual o usuário não tem acesso.
+        '404':
+          description: Not Found (no REST 2.0 a página vem em HTML) — Endereço errado (falta /rest, barra duplicada)
+            ou serviço inexistente na LIB do cliente.
+        '503':
+          description: Serviço indisponível — REST com consumo de licença por demanda (Stateless=1) e nenhuma licença
+            livre no License Server.
+      x-confianca: verificado
+      x-fonte-url: https://tdn.totvs.com/display/public/framework/BasicProtheusServices
+      x-data-consulta: '2026-10-19'
+      x-entidade-canonica: Empresa
+      x-acao-canonica: obter
+  /api/framework/v1/basicProtheusServices/fwformstructview:
+    get:
+      operationId: totvs-protheus__tabela_auxiliar__obter__campos_tabela
+      summary: BasicProtheusServices — fwformstructview (campos e títulos de uma tabela)
+      description: 'Devolve a estrutura de tela de um alias: para cada campo, nome físico, título, descrição, tipo,
+        tamanho, decimais, opções de combo, se é virtual, se é dado protegido e se é campo de usuário (customização
+        do cliente), além das pastas da tela.
+
+
+        Quando usar: Para descobrir quais campos existem na instalação do cliente (inclusive os customizados, com
+        userField = true) e o título que o usuário vê na tela, antes de montar fields e where da genericQuery. Quando
+        não usar: não traz registros.'
+      tags:
+      - TabelaAuxiliar
+      parameters:
+      - name: alias
+        in: query
+        required: true
+        description: Alias da tabela (pode receber mais de um, separados por vírgula).
+        schema:
+          type: string
+          default: SE1
+      - name: tenantId
+        in: header
+        required: false
+        description: 'Grupo de empresas e filial em que a consulta roda, no formato <grupo>,<filial> (ex.: T1,D
+          MG 01). Pode ir só o grupo.'
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  SE1:
+                    type: object
+                    properties:
+                      fields:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            group:
+                              type: string
+                            order:
+                              type: string
+                            folder:
+                              type: string
+                            field:
+                              type: string
+                            title:
+                              type: string
+                            type:
+                              type: string
+                            combobox:
+                              type: array
+                              items: {}
+                            size:
+                              type: integer
+                            virtual:
+                              type: boolean
+                            protectedData:
+                              type: boolean
+                            userField:
+                              type: boolean
+                            picture:
+                              type: string
+                            canChange:
+                              type: boolean
+                            decimal:
+                              type: integer
+                            description:
+                              type: string
+                      groups:
+                        type: array
+                        items: {}
+                      folders:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            title:
+                              type: string
+                            id:
+                              type: string
+              example:
+                SE1:
+                  fields:
+                  - group: ''
+                    order: '02'
+                    folder: '1'
+                    field: E1_NUM
+                    title: No. Titulo
+                    type: C
+                    combobox: []
+                    size: 9
+                    virtual: false
+                    protectedData: false
+                    userField: false
+                    picture: '@!'
+                    canChange: true
+                    decimal: 0
+                    description: Numero do titulo
+                  groups: []
+                  folders:
+                  - title: Cadastrais
+                    id: '1'
+        '401':
+          description: Não autorizado — Usuário ou senha inválidos, token vencido, ou tenantId com uma filial à
+            qual o usuário não tem acesso.
+        '404':
+          description: Not Found (no REST 2.0 a página vem em HTML) — Endereço errado (falta /rest, barra duplicada)
+            ou serviço inexistente na LIB do cliente.
+        '503':
+          description: Serviço indisponível — REST com consumo de licença por demanda (Stateless=1) e nenhuma licença
+            livre no License Server.
+      x-confianca: verificado
+      x-fonte-url: https://tdn.totvs.com/display/public/framework/BasicProtheusServices
+      x-data-consulta: '2026-10-19'
+      x-entidade-canonica: TabelaAuxiliar
+      x-acao-canonica: obter
+  /api/framework/v1/genericQuery#SE1:
+    get:
+      operationId: totvs-protheus__conta_receber__listar
+      summary: Títulos a receber — tabela SE1 (Contas a Receber) pela API genericQuery
+      description: 'Lista os títulos do contas a receber (SE1) com prefixo, número, parcela, tipo, cliente e loja,
+        natureza, emissão, vencimento original e real, valor, saldo, data da baixa, portador e histórico.
+
+
+        Quando usar: Para aging de recebíveis, inadimplência, previsão de entradas e posição de carteira por vencimento
+        real (E1_VENCREA). Combine com ''Só títulos em aberto'' para a carteira e com o período de baixa para o
+        que foi liquidado. Quando não usar: Não use para saber quanto entrou no banco e em que dia: os recebimentos
+        efetivos, com juros, descontos e data de crédito, estão nas baixas da SE5 (totvs-protheus.pagamento.listar.baixas).'
+      tags:
+      - ContaReceber
+      parameters:
+      - name: tables
+        in: query
+        required: true
+        description: 'Alias da tabela a consultar. Nesta receita é fixo: SE1 (Contas a Receber).'
+        schema:
+          type: string
+          default: SE1
+      - name: fields
+        in: query
+        required: false
+        description: Campos a devolver, separados por vírgula, com o nome físico do campo (minúsculo, como nos exemplos
+          oficiais). Sem fields a API devolve todos os campos que o usuário pode ver.
+        schema:
+          type: string
+          default: e1_filial,e1_prefixo,e1_num,e1_parcela,e1_tipo,e1_cliente,e1_loja,e1_naturez,e1_emissao,e1_vencto,e1_vencrea,e1_valor,e1_saldo,e1_baixa,e1_portado,e1_situaca,e1_vend1,e1_hist
+      - name: where
+        in: query
+        required: false
+        description: Filtro SQL acrescentado à consulta. Datas são texto AAAAMMDD entre aspas simples; valores de
+          texto também entre aspas simples. Combine condições com AND.
+        schema:
+          type: string
+      - name: page
+        in: query
+        required: false
+        description: Número da página, começando em 1.
+        schema:
+          type: integer
+          default: 1
+      - name: pagesize
+        in: query
+        required: false
+        description: Registros por página. Teto não publicado; use 100.
+        schema:
+          type: integer
+          default: 100
+      - name: filialFilter
+        in: query
+        required: false
+        description: Filtra pela filial ([ALIAS]_FILIAL) correspondente ao tenantId. Padrão true.
+        schema:
+          type: boolean
+          default: true
+      - name: deletedFilter
+        in: query
+        required: false
+        description: Filtra registros excluídos logicamente (D_E_L_E_T_). Padrão true; não desligue em relatórios.
+        schema:
+          type: boolean
+          default: true
+      - name: order
+        in: query
+        required: false
+        description: 'Ordenação: lista de campos separada por vírgula; ''-'' antes do campo inverte. Nome do parâmetro
+          conforme o guia de APIs TOTVS e a classe FWAdapterBaseV2, base da genericQuery.'
+        schema:
+          type: string
+      - name: tenantId
+        in: header
+        required: false
+        description: 'Grupo de empresas e filial em que a consulta roda, no formato <grupo>,<filial> (ex.: T1,D
+          MG 01). Pode ir só o grupo.'
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        e1_filial:
+                          type: string
+                        e1_prefixo:
+                          type: string
+                        e1_num:
+                          type: string
+                        e1_parcela:
+                          type: string
+                        e1_tipo:
+                          type: string
+                        e1_cliente:
+                          type: string
+                        e1_loja:
+                          type: string
+                        e1_naturez:
+                          type: string
+                        e1_emissao:
+                          type: string
+                        e1_vencto:
+                          type: string
+                        e1_vencrea:
+                          type: string
+                        e1_valor:
+                          type: number
+                        e1_saldo:
+                          type: number
+                        e1_baixa:
+                          type: string
+                        e1_portado:
+                          type: string
+                        e1_situaca:
+                          type: string
+                        e1_vend1:
+                          type: string
+                        e1_hist:
+                          type: string
+                  hasNext:
+                    type: boolean
+                  remainingRecords:
+                    type: integer
+                  protectedDataFields:
+                    type: array
+                    items: {}
+                  nivelFields:
+                    type: array
+                    items: {}
+              example:
+                items:
+                - e1_filial: '01'
+                  e1_prefixo: NF
+                  e1_num: '000123456'
+                  e1_parcela: A
+                  e1_tipo: NF
+                  e1_cliente: '000001'
+                  e1_loja: '01'
+                  e1_naturez: '1010001'
+                  e1_emissao: '2026-08-05'
+                  e1_vencto: '2026-09-04'
+                  e1_vencrea: '2026-09-04'
+                  e1_valor: 1500.0
+                  e1_saldo: 1500.0
+                  e1_baixa: ''
+                  e1_portado: '341'
+                  e1_situaca: '1'
+                  e1_vend1: '000010'
+                  e1_hist: VENDA PEDIDO 004512
+                hasNext: true
+                remainingRecords: 1240
+                protectedDataFields: []
+                nivelFields: []
+        '401':
+          description: Não autorizado — Usuário ou senha inválidos, token vencido, ou tenantId com uma filial à
+            qual o usuário não tem acesso.
+        '404':
+          description: Not Found (no REST 2.0 a página vem em HTML) — Endereço errado (falta /rest, barra duplicada)
+            ou serviço inexistente na LIB do cliente.
+        '503':
+          description: Serviço indisponível — REST com consumo de licença por demanda (Stateless=1) e nenhuma licença
+            livre no License Server.
+      x-confianca: verificado
+      x-fonte-url: https://tdn.totvs.com/display/public/framework/GenericQuery
+      x-data-consulta: '2026-10-19'
+      x-entidade-canonica: ContaReceber
+      x-acao-canonica: listar
+      x-parametros-fixos:
+        tables: SE1
+        fields: e1_filial,e1_prefixo,e1_num,e1_parcela,e1_tipo,e1_cliente,e1_loja,e1_naturez,e1_emissao,e1_vencto,e1_vencrea,e1_valor,e1_saldo,e1_baixa,e1_portado,e1_situaca,e1_vend1,e1_hist
+      x-url-real: /api/framework/v1/genericQuery
+  /api/framework/v1/genericQuery#SE2:
+    get:
+      operationId: totvs-protheus__conta_pagar__listar
+      summary: Títulos a pagar — tabela SE2 (Contas a Pagar) pela API genericQuery
+      description: 'Lista os títulos do contas a pagar (SE2) com prefixo, número, parcela, tipo, fornecedor e loja,
+        natureza, emissão, vencimentos, valor, saldo, data da baixa, centro de custo e histórico.
+
+
+        Quando usar: Para programação de pagamentos, fluxo de caixa de saídas, contas vencidas e gasto por natureza
+        ou centro de custo. Recorte por E2_VENCREA e use ''Só títulos em aberto'' para o que ainda vai sair do caixa.
+        Quando não usar: Não use para conferir o que saiu do banco num dia: os pagamentos efetivos estão nas baixas
+        da SE5 (totvs-protheus.pagamento.listar.baixas) e nos movimentos bancários.'
+      tags:
+      - ContaPagar
+      parameters:
+      - name: tables
+        in: query
+        required: true
+        description: 'Alias da tabela a consultar. Nesta receita é fixo: SE2 (Contas a Pagar).'
+        schema:
+          type: string
+          default: SE2
+      - name: fields
+        in: query
+        required: false
+        description: Campos a devolver, separados por vírgula, com o nome físico do campo (minúsculo, como nos exemplos
+          oficiais). Sem fields a API devolve todos os campos que o usuário pode ver.
+        schema:
+          type: string
+          default: e2_filial,e2_prefixo,e2_num,e2_parcela,e2_tipo,e2_fornece,e2_loja,e2_naturez,e2_emissao,e2_vencto,e2_vencrea,e2_valor,e2_saldo,e2_baixa,e2_ccusto,e2_hist
+      - name: where
+        in: query
+        required: false
+        description: Filtro SQL acrescentado à consulta. Datas são texto AAAAMMDD entre aspas simples; valores de
+          texto também entre aspas simples. Combine condições com AND.
+        schema:
+          type: string
+      - name: page
+        in: query
+        required: false
+        description: Número da página, começando em 1.
+        schema:
+          type: integer
+          default: 1
+      - name: pagesize
+        in: query
+        required: false
+        description: Registros por página. Teto não publicado; use 100.
+        schema:
+          type: integer
+          default: 100
+      - name: filialFilter
+        in: query
+        required: false
+        description: Filtra pela filial ([ALIAS]_FILIAL) correspondente ao tenantId. Padrão true.
+        schema:
+          type: boolean
+          default: true
+      - name: deletedFilter
+        in: query
+        required: false
+        description: Filtra registros excluídos logicamente (D_E_L_E_T_). Padrão true; não desligue em relatórios.
+        schema:
+          type: boolean
+          default: true
+      - name: order
+        in: query
+        required: false
+        description: 'Ordenação: lista de campos separada por vírgula; ''-'' antes do campo inverte. Nome do parâmetro
+          conforme o guia de APIs TOTVS e a classe FWAdapterBaseV2, base da genericQuery.'
+        schema:
+          type: string
+      - name: tenantId
+        in: header
+        required: false
+        description: 'Grupo de empresas e filial em que a consulta roda, no formato <grupo>,<filial> (ex.: T1,D
+          MG 01). Pode ir só o grupo.'
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        e2_filial:
+                          type: string
+                        e2_prefixo:
+                          type: string
+                        e2_num:
+                          type: string
+                        e2_parcela:
+                          type: string
+                        e2_tipo:
+                          type: string
+                        e2_fornece:
+                          type: string
+                        e2_loja:
+                          type: string
+                        e2_naturez:
+                          type: string
+                        e2_emissao:
+                          type: string
+                        e2_vencto:
+                          type: string
+                        e2_vencrea:
+                          type: string
+                        e2_valor:
+                          type: number
+                        e2_saldo:
+                          type: number
+                        e2_baixa:
+                          type: string
+                        e2_ccusto:
+                          type: string
+                        e2_hist:
+                          type: string
+                  hasNext:
+                    type: boolean
+                  remainingRecords:
+                    type: integer
+                  protectedDataFields:
+                    type: array
+                    items: {}
+                  nivelFields:
+                    type: array
+                    items: {}
+              example:
+                items:
+                - e2_filial: '01'
+                  e2_prefixo: CMP
+                  e2_num: '000004521'
+                  e2_parcela: '1'
+                  e2_tipo: NF
+                  e2_fornece: '000245'
+                  e2_loja: '01'
+                  e2_naturez: '2010003'
+                  e2_emissao: '2026-08-02'
+                  e2_vencto: '2026-08-30'
+                  e2_vencrea: '2026-08-31'
+                  e2_valor: 8740.35
+                  e2_saldo: 8740.35
+                  e2_baixa: ''
+                  e2_ccusto: '1101'
+                  e2_hist: COMPRA MATERIA-PRIMA
+                hasNext: true
+                remainingRecords: 1240
+                protectedDataFields: []
+                nivelFields: []
+        '401':
+          description: Não autorizado — Usuário ou senha inválidos, token vencido, ou tenantId com uma filial à
+            qual o usuário não tem acesso.
+        '404':
+          description: Not Found (no REST 2.0 a página vem em HTML) — Endereço errado (falta /rest, barra duplicada)
+            ou serviço inexistente na LIB do cliente.
+        '503':
+          description: Serviço indisponível — REST com consumo de licença por demanda (Stateless=1) e nenhuma licença
+            livre no License Server.
+      x-confianca: verificado
+      x-fonte-url: https://tdn.totvs.com/display/public/framework/GenericQuery
+      x-data-consulta: '2026-10-19'
+      x-entidade-canonica: ContaPagar
+      x-acao-canonica: listar
+      x-parametros-fixos:
+        tables: SE2
+        fields: e2_filial,e2_prefixo,e2_num,e2_parcela,e2_tipo,e2_fornece,e2_loja,e2_naturez,e2_emissao,e2_vencto,e2_vencrea,e2_valor,e2_saldo,e2_baixa,e2_ccusto,e2_hist
+      x-url-real: /api/framework/v1/genericQuery
+  /api/framework/v1/genericQuery#SE5:
+    get:
+      operationId: totvs-protheus__pagamento__listar__baixas
+      summary: Baixas de títulos (recebimentos e pagamentos) — tabela SE5 pela API genericQuery
+      description: 'Lista os movimentos da SE5 que liquidam títulos: data do pagamento ou recebimento, data de crédito,
+        carteira (R/P), chave do título (prefixo, número, parcela, tipo, cliente/fornecedor e loja), valor, juros,
+        desconto, motivo da baixa, banco, agência, conta e natureza.
+
+
+        Quando usar: Para saber o que foi efetivamente recebido ou pago num período, com juros e descontos, prazo
+        médio de recebimento/pagamento e conferência do caixa realizado. A chave E5_PREFIXO + E5_NUMERO + E5_PARCELA
+        + E5_TIPO + E5_CLIFOR + E5_LOJA liga a baixa ao título da SE1 ou da SE2. Quando não usar: Não use para a
+        carteira em aberto (use contas a receber/pagar com ''Só títulos em aberto'') nem para conciliação de extrato,
+        que precisa de todos os movimentos bancários e da marca de conciliação (totvs-protheus.transacao.listar.movimentos_bancarios).'
+      tags:
+      - Pagamento
+      parameters:
+      - name: tables
+        in: query
+        required: true
+        description: 'Alias da tabela a consultar. Nesta receita é fixo: SE5 (Movimentação Bancária).'
+        schema:
+          type: string
+          default: SE5
+      - name: fields
+        in: query
+        required: false
+        description: Campos a devolver, separados por vírgula, com o nome físico do campo (minúsculo, como nos exemplos
+          oficiais). Sem fields a API devolve todos os campos que o usuário pode ver.
+        schema:
+          type: string
+          default: e5_filial,e5_data,e5_dtdispo,e5_recpag,e5_prefixo,e5_numero,e5_parcela,e5_tipo,e5_clifor,e5_loja,e5_valor,e5_vljuros,e5_vldesco,e5_motbx,e5_tipodoc,e5_seq,e5_banco,e5_agencia,e5_conta,e5_naturez,e5_histor
+      - name: where
+        in: query
+        required: false
+        description: Filtro SQL acrescentado à consulta. Datas são texto AAAAMMDD entre aspas simples; valores de
+          texto também entre aspas simples. Combine condições com AND.
+        schema:
+          type: string
+      - name: page
+        in: query
+        required: false
+        description: Número da página, começando em 1.
+        schema:
+          type: integer
+          default: 1
+      - name: pagesize
+        in: query
+        required: false
+        description: Registros por página. Teto não publicado; use 100.
+        schema:
+          type: integer
+          default: 100
+      - name: filialFilter
+        in: query
+        required: false
+        description: Filtra pela filial ([ALIAS]_FILIAL) correspondente ao tenantId. Padrão true.
+        schema:
+          type: boolean
+          default: true
+      - name: deletedFilter
+        in: query
+        required: false
+        description: Filtra registros excluídos logicamente (D_E_L_E_T_). Padrão true; não desligue em relatórios.
+        schema:
+          type: boolean
+          default: true
+      - name: order
+        in: query
+        required: false
+        description: 'Ordenação: lista de campos separada por vírgula; ''-'' antes do campo inverte. Nome do parâmetro
+          conforme o guia de APIs TOTVS e a classe FWAdapterBaseV2, base da genericQuery.'
+        schema:
+          type: string
+      - name: tenantId
+        in: header
+        required: false
+        description: 'Grupo de empresas e filial em que a consulta roda, no formato <grupo>,<filial> (ex.: T1,D
+          MG 01). Pode ir só o grupo.'
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        e5_filial:
+                          type: string
+                        e5_data:
+                          type: string
+                        e5_dtdispo:
+                          type: string
+                        e5_recpag:
+                          type: string
+                        e5_prefixo:
+                          type: string
+                        e5_numero:
+                          type: string
+                        e5_parcela:
+                          type: string
+                        e5_tipo:
+                          type: string
+                        e5_clifor:
+                          type: string
+                        e5_loja:
+                          type: string
+                        e5_valor:
+                          type: number
+                        e5_vljuros:
+                          type: number
+                        e5_vldesco:
+                          type: number
+                        e5_motbx:
+                          type: string
+                        e5_tipodoc:
+                          type: string
+                        e5_seq:
+                          type: string
+                        e5_banco:
+                          type: string
+                        e5_agencia:
+                          type: string
+                        e5_conta:
+                          type: string
+                        e5_naturez:
+                          type: string
+                        e5_histor:
+                          type: string
+                  hasNext:
+                    type: boolean
+                  remainingRecords:
+                    type: integer
+                  protectedDataFields:
+                    type: array
+                    items: {}
+                  nivelFields:
+                    type: array
+                    items: {}
+              example:
+                items:
+                - e5_filial: '01'
+                  e5_data: '2026-08-12'
+                  e5_dtdispo: '2026-08-13'
+                  e5_recpag: R
+                  e5_prefixo: NF
+                  e5_numero: '000123450'
+                  e5_parcela: A
+                  e5_tipo: NF
+                  e5_clifor: '000001'
+                  e5_loja: '01'
+                  e5_valor: 1512.4
+                  e5_vljuros: 12.4
+                  e5_vldesco: 0.0
+                  e5_motbx: NOR
+                  e5_tipodoc: VL
+                  e5_seq: '01'
+                  e5_banco: '341'
+                  e5_agencia: '0001'
+                  e5_conta: '12345'
+                  e5_naturez: '1010001'
+                  e5_histor: VALOR RECEBIDO S/ TITULO
+                hasNext: true
+                remainingRecords: 1240
+                protectedDataFields: []
+                nivelFields: []
+        '401':
+          description: Não autorizado — Usuário ou senha inválidos, token vencido, ou tenantId com uma filial à
+            qual o usuário não tem acesso.
+        '404':
+          description: Not Found (no REST 2.0 a página vem em HTML) — Endereço errado (falta /rest, barra duplicada)
+            ou serviço inexistente na LIB do cliente.
+        '503':
+          description: Serviço indisponível — REST com consumo de licença por demanda (Stateless=1) e nenhuma licença
+            livre no License Server.
+      x-confianca: verificado
+      x-fonte-url: https://tdn.totvs.com/display/public/framework/GenericQuery
+      x-data-consulta: '2026-10-19'
+      x-entidade-canonica: Pagamento
+      x-acao-canonica: listar
+      x-parametros-fixos:
+        tables: SE5
+        fields: e5_filial,e5_data,e5_dtdispo,e5_recpag,e5_prefixo,e5_numero,e5_parcela,e5_tipo,e5_clifor,e5_loja,e5_valor,e5_vljuros,e5_vldesco,e5_motbx,e5_tipodoc,e5_seq,e5_banco,e5_agencia,e5_conta,e5_naturez,e5_histor
+      x-url-real: /api/framework/v1/genericQuery
+  /api/framework/v1/genericQuery#SE5-movimentos_bancarios:
+    get:
+      operationId: totvs-protheus__transacao__listar__movimentos_bancarios
+      summary: Movimentos bancários com marca de conciliação — tabela SE5 pela API genericQuery
+      description: 'Lista os movimentos bancários da SE5 por conta, com data de disponibilidade, carteira, valor,
+        documento, histórico, beneficiário e o campo E5_RECONC, que o Conciliador BackOffice preenche ao conciliar
+        e limpa ao desfazer a conciliação.
+
+
+        Quando usar: Para conciliação bancária: puxar os movimentos de uma conta num período e separar conciliados
+        e não conciliados, para comparar com o extrato importado (totvs-protheus.transacao.listar.extrato_bancario)
+        e com o saldo (totvs-protheus.transacao.listar.saldos_bancarios). Quando não usar: Não use para a posição
+        de um título específico (use contas a receber/pagar) nem para o detalhe de juros e descontos de uma baixa
+        (use totvs-protheus.pagamento.listar.baixas).'
+      tags:
+      - Transacao
+      parameters:
+      - name: tables
+        in: query
+        required: true
+        description: 'Alias da tabela a consultar. Nesta receita é fixo: SE5 (Movimentação Bancária).'
+        schema:
+          type: string
+          default: SE5
+      - name: fields
+        in: query
+        required: false
+        description: Campos a devolver, separados por vírgula, com o nome físico do campo (minúsculo, como nos exemplos
+          oficiais). Sem fields a API devolve todos os campos que o usuário pode ver.
+        schema:
+          type: string
+          default: e5_filial,e5_dtdispo,e5_data,e5_banco,e5_agencia,e5_conta,e5_recpag,e5_valor,e5_moeda,e5_naturez,e5_documen,e5_histor,e5_benef,e5_tipodoc,e5_reconc,e5_numero,e5_clifor
+      - name: where
+        in: query
+        required: false
+        description: Filtro SQL acrescentado à consulta. Datas são texto AAAAMMDD entre aspas simples; valores de
+          texto também entre aspas simples. Combine condições com AND.
+        schema:
+          type: string
+      - name: page
+        in: query
+        required: false
+        description: Número da página, começando em 1.
+        schema:
+          type: integer
+          default: 1
+      - name: pagesize
+        in: query
+        required: false
+        description: Registros por página. Teto não publicado; use 100.
+        schema:
+          type: integer
+          default: 100
+      - name: filialFilter
+        in: query
+        required: false
+        description: Filtra pela filial ([ALIAS]_FILIAL) correspondente ao tenantId. Padrão true.
+        schema:
+          type: boolean
+          default: true
+      - name: deletedFilter
+        in: query
+        required: false
+        description: Filtra registros excluídos logicamente (D_E_L_E_T_). Padrão true; não desligue em relatórios.
+        schema:
+          type: boolean
+          default: true
+      - name: order
+        in: query
+        required: false
+        description: 'Ordenação: lista de campos separada por vírgula; ''-'' antes do campo inverte. Nome do parâmetro
+          conforme o guia de APIs TOTVS e a classe FWAdapterBaseV2, base da genericQuery.'
+        schema:
+          type: string
+      - name: tenantId
+        in: header
+        required: false
+        description: 'Grupo de empresas e filial em que a consulta roda, no formato <grupo>,<filial> (ex.: T1,D
+          MG 01). Pode ir só o grupo.'
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        e5_filial:
+                          type: string
+                        e5_dtdispo:
+                          type: string
+                        e5_data:
+                          type: string
+                        e5_banco:
+                          type: string
+                        e5_agencia:
+                          type: string
+                        e5_conta:
+                          type: string
+                        e5_recpag:
+                          type: string
+                        e5_valor:
+                          type: number
+                        e5_moeda:
+                          type: string
+                        e5_naturez:
+                          type: string
+                        e5_documen:
+                          type: string
+                        e5_histor:
+                          type: string
+                        e5_tipodoc:
+                          type: string
+                        e5_reconc:
+                          type: string
+                        e5_numero:
+                          type: string
+                        e5_clifor:
+                          type: string
+                  hasNext:
+                    type: boolean
+                  remainingRecords:
+                    type: integer
+                  protectedDataFields:
+                    type: array
+                    items: {}
+                  nivelFields:
+                    type: array
+                    items: {}
+              example:
+                items:
+                - e5_filial: '01'
+                  e5_dtdispo: '2026-08-13'
+                  e5_data: '2026-08-12'
+                  e5_banco: '341'
+                  e5_agencia: '0001'
+                  e5_conta: '12345'
+                  e5_recpag: R
+                  e5_valor: 1512.4
+                  e5_moeda: M1
+                  e5_naturez: '1010001'
+                  e5_documen: DOC 778899
+                  e5_histor: RECEBIMENTO CLIENTE
+                  e5_tipodoc: VL
+                  e5_reconc: ''
+                  e5_numero: '000123450'
+                  e5_clifor: '000001'
+                hasNext: true
+                remainingRecords: 1240
+                protectedDataFields: []
+                nivelFields: []
+        '401':
+          description: Não autorizado — Usuário ou senha inválidos, token vencido, ou tenantId com uma filial à
+            qual o usuário não tem acesso.
+        '404':
+          description: Not Found (no REST 2.0 a página vem em HTML) — Endereço errado (falta /rest, barra duplicada)
+            ou serviço inexistente na LIB do cliente.
+        '503':
+          description: Serviço indisponível — REST com consumo de licença por demanda (Stateless=1) e nenhuma licença
+            livre no License Server.
+      x-confianca: verificado
+      x-fonte-url: https://tdn.totvs.com/display/public/framework/GenericQuery
+      x-data-consulta: '2026-10-19'
+      x-entidade-canonica: Transacao
+      x-acao-canonica: listar
+      x-parametros-fixos:
+        tables: SE5
+        fields: e5_filial,e5_dtdispo,e5_data,e5_banco,e5_agencia,e5_conta,e5_recpag,e5_valor,e5_moeda,e5_naturez,e5_documen,e5_histor,e5_benef,e5_tipodoc,e5_reconc,e5_numero,e5_clifor
+      x-url-real: /api/framework/v1/genericQuery
+  /api/framework/v1/genericQuery#SIG:
+    get:
+      operationId: totvs-protheus__transacao__listar__extrato_bancario
+      summary: Linhas do extrato bancário importado — tabela SIG pela API genericQuery
+      description: 'Lista as linhas de extrato bancário já importadas para o Protheus (por arquivo, layout MILE,
+        job de retorno automático FINA475 ou API de extrato do banco): banco, agência, conta, data, código do movimento,
+        documento, valor e histórico.
+
+
+        Quando usar: Para a outra ponta da conciliação: comparar o que o banco informou (SIG) com os movimentos
+        do ERP (SE5) no mesmo período e conta, e achar lançamentos que existem num lado e não no outro. Quando não
+        usar: Não use se o cliente não importa extratos no Protheus: a tabela fica vazia. Também não serve para
+        saldo bancário (use totvs-protheus.transacao.listar.saldos_bancarios).'
+      tags:
+      - Transacao
+      parameters:
+      - name: tables
+        in: query
+        required: true
+        description: 'Alias da tabela a consultar. Nesta receita é fixo: SIG (Registros do Extrato Bancário).'
+        schema:
+          type: string
+          default: SIG
+      - name: fields
+        in: query
+        required: false
+        description: Campos a devolver, separados por vírgula, com o nome físico do campo (minúsculo, como nos exemplos
+          oficiais). Sem fields a API devolve todos os campos que o usuário pode ver.
+        schema:
+          type: string
+          default: ig_bcoext,ig_ageext,ig_conext,ig_dtextr,ig_tipext,ig_docext,ig_vlrext,ig_histext
+      - name: where
+        in: query
+        required: false
+        description: Filtro SQL acrescentado à consulta. Datas são texto AAAAMMDD entre aspas simples; valores de
+          texto também entre aspas simples. Combine condições com AND.
+        schema:
+          type: string
+      - name: page
+        in: query
+        required: false
+        description: Número da página, começando em 1.
+        schema:
+          type: integer
+          default: 1
+      - name: pagesize
+        in: query
+        required: false
+        description: Registros por página. Teto não publicado; use 100.
+        schema:
+          type: integer
+          default: 100
+      - name: filialFilter
+        in: query
+        required: false
+        description: Filtra pela filial ([ALIAS]_FILIAL) correspondente ao tenantId. Padrão true.
+        schema:
+          type: boolean
+          default: true
+      - name: deletedFilter
+        in: query
+        required: false
+        description: Filtra registros excluídos logicamente (D_E_L_E_T_). Padrão true; não desligue em relatórios.
+        schema:
+          type: boolean
+          default: true
+      - name: order
+        in: query
+        required: false
+        description: 'Ordenação: lista de campos separada por vírgula; ''-'' antes do campo inverte. Nome do parâmetro
+          conforme o guia de APIs TOTVS e a classe FWAdapterBaseV2, base da genericQuery.'
+        schema:
+          type: string
+      - name: tenantId
+        in: header
+        required: false
+        description: 'Grupo de empresas e filial em que a consulta roda, no formato <grupo>,<filial> (ex.: T1,D
+          MG 01). Pode ir só o grupo.'
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        ig_bcoext:
+                          type: string
+                        ig_ageext:
+                          type: string
+                        ig_conext:
+                          type: string
+                        ig_dtextr:
+                          type: string
+                        ig_tipext:
+                          type: string
+                        ig_docext:
+                          type: string
+                        ig_vlrext:
+                          type: number
+                        ig_histext:
+                          type: string
+                  hasNext:
+                    type: boolean
+                  remainingRecords:
+                    type: integer
+                  protectedDataFields:
+                    type: array
+                    items: {}
+                  nivelFields:
+                    type: array
+                    items: {}
+              example:
+                items:
+                - ig_bcoext: '341'
+                  ig_ageext: '0001'
+                  ig_conext: '12345'
+                  ig_dtextr: '2026-08-13'
+                  ig_tipext: C01
+                  ig_docext: '778899'
+                  ig_vlrext: 1512.4
+                  ig_histext: PIX RECEBIDO
+                hasNext: true
+                remainingRecords: 1240
+                protectedDataFields: []
+                nivelFields: []
+        '401':
+          description: Não autorizado — Usuário ou senha inválidos, token vencido, ou tenantId com uma filial à
+            qual o usuário não tem acesso.
+        '404':
+          description: Not Found (no REST 2.0 a página vem em HTML) — Endereço errado (falta /rest, barra duplicada)
+            ou serviço inexistente na LIB do cliente.
+        '503':
+          description: Serviço indisponível — REST com consumo de licença por demanda (Stateless=1) e nenhuma licença
+            livre no License Server.
+      x-confianca: verificado
+      x-fonte-url: https://tdn.totvs.com/display/public/framework/GenericQuery
+      x-data-consulta: '2026-10-19'
+      x-entidade-canonica: Transacao
+      x-acao-canonica: listar
+      x-parametros-fixos:
+        tables: SIG
+        fields: ig_bcoext,ig_ageext,ig_conext,ig_dtextr,ig_tipext,ig_docext,ig_vlrext,ig_histext
+      x-url-real: /api/framework/v1/genericQuery
+  /api/framework/v1/genericQuery#SE8:
+    get:
+      operationId: totvs-protheus__transacao__listar__saldos_bancarios
+      summary: Saldos bancários por data — tabela SE8 pela API genericQuery
+      description: 'Lista os saldos bancários gravados por banco, agência, conta e data (SE8), com moeda.
+
+
+        Quando usar: Para fechar a conciliação com o saldo do sistema numa data e montar a posição de caixa por
+        conta. O BI da TOTVS usa, para cada conta, o registro com a maior E8_DTSALAT que não passe da data desejada.
+        Quando não usar: Não use para o saldo atual em tempo real de uma conta sem recálculo: os saldos dependem
+        do processamento de saldos bancários (FINA210) estar em dia.'
+      tags:
+      - Transacao
+      parameters:
+      - name: tables
+        in: query
+        required: true
+        description: 'Alias da tabela a consultar. Nesta receita é fixo: SE8 (Saldos Bancários).'
+        schema:
+          type: string
+          default: SE8
+      - name: fields
+        in: query
+        required: false
+        description: Campos a devolver, separados por vírgula, com o nome físico do campo (minúsculo, como nos exemplos
+          oficiais). Sem fields a API devolve todos os campos que o usuário pode ver.
+        schema:
+          type: string
+          default: e8_banco,e8_agencia,e8_conta,e8_dtsalat,e8_salatua,e8_moeda
+      - name: where
+        in: query
+        required: false
+        description: Filtro SQL acrescentado à consulta. Datas são texto AAAAMMDD entre aspas simples; valores de
+          texto também entre aspas simples. Combine condições com AND.
+        schema:
+          type: string
+      - name: page
+        in: query
+        required: false
+        description: Número da página, começando em 1.
+        schema:
+          type: integer
+          default: 1
+      - name: pagesize
+        in: query
+        required: false
+        description: Registros por página. Teto não publicado; use 100.
+        schema:
+          type: integer
+          default: 100
+      - name: filialFilter
+        in: query
+        required: false
+        description: Filtra pela filial ([ALIAS]_FILIAL) correspondente ao tenantId. Padrão true.
+        schema:
+          type: boolean
+          default: true
+      - name: deletedFilter
+        in: query
+        required: false
+        description: Filtra registros excluídos logicamente (D_E_L_E_T_). Padrão true; não desligue em relatórios.
+        schema:
+          type: boolean
+          default: true
+      - name: order
+        in: query
+        required: false
+        description: 'Ordenação: lista de campos separada por vírgula; ''-'' antes do campo inverte. Nome do parâmetro
+          conforme o guia de APIs TOTVS e a classe FWAdapterBaseV2, base da genericQuery.'
+        schema:
+          type: string
+      - name: tenantId
+        in: header
+        required: false
+        description: 'Grupo de empresas e filial em que a consulta roda, no formato <grupo>,<filial> (ex.: T1,D
+          MG 01). Pode ir só o grupo.'
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        e8_banco:
+                          type: string
+                        e8_agencia:
+                          type: string
+                        e8_conta:
+                          type: string
+                        e8_dtsalat:
+                          type: string
+                        e8_salatua:
+                          type: number
+                        e8_moeda:
+                          type: string
+                  hasNext:
+                    type: boolean
+                  remainingRecords:
+                    type: integer
+                  protectedDataFields:
+                    type: array
+                    items: {}
+                  nivelFields:
+                    type: array
+                    items: {}
+              example:
+                items:
+                - e8_banco: '341'
+                  e8_agencia: '0001'
+                  e8_conta: '12345'
+                  e8_dtsalat: '2026-08-31'
+                  e8_salatua: 254300.18
+                  e8_moeda: '1'
+                hasNext: true
+                remainingRecords: 1240
+                protectedDataFields: []
+                nivelFields: []
+        '401':
+          description: Não autorizado — Usuário ou senha inválidos, token vencido, ou tenantId com uma filial à
+            qual o usuário não tem acesso.
+        '404':
+          description: Not Found (no REST 2.0 a página vem em HTML) — Endereço errado (falta /rest, barra duplicada)
+            ou serviço inexistente na LIB do cliente.
+        '503':
+          description: Serviço indisponível — REST com consumo de licença por demanda (Stateless=1) e nenhuma licença
+            livre no License Server.
+      x-confianca: verificado
+      x-fonte-url: https://tdn.totvs.com/display/public/framework/GenericQuery
+      x-data-consulta: '2026-10-19'
+      x-entidade-canonica: Transacao
+      x-acao-canonica: listar
+      x-parametros-fixos:
+        tables: SE8
+        fields: e8_banco,e8_agencia,e8_conta,e8_dtsalat,e8_salatua,e8_moeda
+      x-url-real: /api/framework/v1/genericQuery
+  /api/framework/v1/genericQuery#SA6:
+    get:
+      operationId: totvs-protheus__tabela_auxiliar__listar__bancos
+      summary: Contas bancárias cadastradas — tabela SA6 (Bancos) pela API genericQuery
+      description: 'Lista as contas bancárias (e caixas) cadastradas no Protheus: código do banco, agência, número
+        da conta, nome, saldo atual, conta contábil e bloqueio.
+
+
+        Quando usar: Para descobrir os códigos de banco, agência e conta usados nos filtros de movimentos, extrato
+        e saldos, e para uma visão rápida do saldo atual por conta. Quando não usar: Não use como histórico de saldo
+        por data (use totvs-protheus.transacao.listar.saldos_bancarios).'
+      tags:
+      - TabelaAuxiliar
+      parameters:
+      - name: tables
+        in: query
+        required: true
+        description: 'Alias da tabela a consultar. Nesta receita é fixo: SA6 (Bancos).'
+        schema:
+          type: string
+          default: SA6
+      - name: fields
+        in: query
+        required: false
+        description: Campos a devolver, separados por vírgula, com o nome físico do campo (minúsculo, como nos exemplos
+          oficiais). Sem fields a API devolve todos os campos que o usuário pode ver.
+        schema:
+          type: string
+          default: a6_filial,a6_cod,a6_agencia,a6_numcon,a6_nome,a6_salatu,a6_conta,a6_msblql
+      - name: where
+        in: query
+        required: false
+        description: Filtro SQL acrescentado à consulta. Datas são texto AAAAMMDD entre aspas simples; valores de
+          texto também entre aspas simples. Combine condições com AND.
+        schema:
+          type: string
+      - name: page
+        in: query
+        required: false
+        description: Número da página, começando em 1.
+        schema:
+          type: integer
+          default: 1
+      - name: pagesize
+        in: query
+        required: false
+        description: Registros por página. Teto não publicado; use 100.
+        schema:
+          type: integer
+          default: 100
+      - name: filialFilter
+        in: query
+        required: false
+        description: Filtra pela filial ([ALIAS]_FILIAL) correspondente ao tenantId. Padrão true.
+        schema:
+          type: boolean
+          default: true
+      - name: deletedFilter
+        in: query
+        required: false
+        description: Filtra registros excluídos logicamente (D_E_L_E_T_). Padrão true; não desligue em relatórios.
+        schema:
+          type: boolean
+          default: true
+      - name: order
+        in: query
+        required: false
+        description: 'Ordenação: lista de campos separada por vírgula; ''-'' antes do campo inverte. Nome do parâmetro
+          conforme o guia de APIs TOTVS e a classe FWAdapterBaseV2, base da genericQuery.'
+        schema:
+          type: string
+      - name: tenantId
+        in: header
+        required: false
+        description: 'Grupo de empresas e filial em que a consulta roda, no formato <grupo>,<filial> (ex.: T1,D
+          MG 01). Pode ir só o grupo.'
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        a6_filial:
+                          type: string
+                        a6_cod:
+                          type: string
+                        a6_agencia:
+                          type: string
+                        a6_numcon:
+                          type: string
+                        a6_nome:
+                          type: string
+                        a6_salatu:
+                          type: number
+                        a6_conta:
+                          type: string
+                        a6_msblql:
+                          type: string
+                  hasNext:
+                    type: boolean
+                  remainingRecords:
+                    type: integer
+                  protectedDataFields:
+                    type: array
+                    items: {}
+                  nivelFields:
+                    type: array
+                    items: {}
+              example:
+                items:
+                - a6_filial: '01'
+                  a6_cod: '341'
+                  a6_agencia: '0001'
+                  a6_numcon: '12345'
+                  a6_nome: BANCO EXEMPLO C/C
+                  a6_salatu: 254300.18
+                  a6_conta: '11102001'
+                  a6_msblql: '2'
+                hasNext: true
+                remainingRecords: 1240
+                protectedDataFields: []
+                nivelFields: []
+        '401':
+          description: Não autorizado — Usuário ou senha inválidos, token vencido, ou tenantId com uma filial à
+            qual o usuário não tem acesso.
+        '404':
+          description: Not Found (no REST 2.0 a página vem em HTML) — Endereço errado (falta /rest, barra duplicada)
+            ou serviço inexistente na LIB do cliente.
+        '503':
+          description: Serviço indisponível — REST com consumo de licença por demanda (Stateless=1) e nenhuma licença
+            livre no License Server.
+      x-confianca: verificado
+      x-fonte-url: https://tdn.totvs.com/display/public/framework/GenericQuery
+      x-data-consulta: '2026-10-19'
+      x-entidade-canonica: TabelaAuxiliar
+      x-acao-canonica: listar
+      x-parametros-fixos:
+        tables: SA6
+        fields: a6_filial,a6_cod,a6_agencia,a6_numcon,a6_nome,a6_salatu,a6_conta,a6_msblql
+      x-url-real: /api/framework/v1/genericQuery
+  /api/framework/v1/genericQuery#SED:
+    get:
+      operationId: totvs-protheus__plano_contas__listar__naturezas
+      summary: Naturezas financeiras — tabela SED pela API genericQuery
+      description: 'Lista as naturezas financeiras (categorias de receita e despesa) com código, descrição, natureza
+        superior e tipo.
+
+
+        Quando usar: Para dar nome às naturezas que aparecem nos títulos (E1_NATUREZ, E2_NATUREZ) e nos movimentos
+        (E5_NATUREZ) e montar DRE de caixa ou relatórios por categoria. Quando não usar: Não use para o plano de
+        contas contábil (outra tabela, fora deste recorte).'
+      tags:
+      - PlanoContas
+      parameters:
+      - name: tables
+        in: query
+        required: true
+        description: 'Alias da tabela a consultar. Nesta receita é fixo: SED (Naturezas).'
+        schema:
+          type: string
+          default: SED
+      - name: fields
+        in: query
+        required: false
+        description: Campos a devolver, separados por vírgula, com o nome físico do campo (minúsculo, como nos exemplos
+          oficiais). Sem fields a API devolve todos os campos que o usuário pode ver.
+        schema:
+          type: string
+          default: ed_filial,ed_codigo,ed_descric,ed_pai,ed_tipo
+      - name: where
+        in: query
+        required: false
+        description: Filtro SQL acrescentado à consulta. Datas são texto AAAAMMDD entre aspas simples; valores de
+          texto também entre aspas simples. Combine condições com AND.
+        schema:
+          type: string
+      - name: page
+        in: query
+        required: false
+        description: Número da página, começando em 1.
+        schema:
+          type: integer
+          default: 1
+      - name: pagesize
+        in: query
+        required: false
+        description: Registros por página. Teto não publicado; use 100.
+        schema:
+          type: integer
+          default: 100
+      - name: filialFilter
+        in: query
+        required: false
+        description: Filtra pela filial ([ALIAS]_FILIAL) correspondente ao tenantId. Padrão true.
+        schema:
+          type: boolean
+          default: true
+      - name: deletedFilter
+        in: query
+        required: false
+        description: Filtra registros excluídos logicamente (D_E_L_E_T_). Padrão true; não desligue em relatórios.
+        schema:
+          type: boolean
+          default: true
+      - name: order
+        in: query
+        required: false
+        description: 'Ordenação: lista de campos separada por vírgula; ''-'' antes do campo inverte. Nome do parâmetro
+          conforme o guia de APIs TOTVS e a classe FWAdapterBaseV2, base da genericQuery.'
+        schema:
+          type: string
+      - name: tenantId
+        in: header
+        required: false
+        description: 'Grupo de empresas e filial em que a consulta roda, no formato <grupo>,<filial> (ex.: T1,D
+          MG 01). Pode ir só o grupo.'
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        ed_filial:
+                          type: string
+                        ed_codigo:
+                          type: string
+                        ed_descric:
+                          type: string
+                        ed_pai:
+                          type: string
+                        ed_tipo:
+                          type: string
+                  hasNext:
+                    type: boolean
+                  remainingRecords:
+                    type: integer
+                  protectedDataFields:
+                    type: array
+                    items: {}
+                  nivelFields:
+                    type: array
+                    items: {}
+              example:
+                items:
+                - ed_filial: '  '
+                  ed_codigo: '1010001'
+                  ed_descric: VENDA DE MERCADORIAS
+                  ed_pai: '1010000'
+                  ed_tipo: '2'
+                hasNext: true
+                remainingRecords: 1240
+                protectedDataFields: []
+                nivelFields: []
+        '401':
+          description: Não autorizado — Usuário ou senha inválidos, token vencido, ou tenantId com uma filial à
+            qual o usuário não tem acesso.
+        '404':
+          description: Not Found (no REST 2.0 a página vem em HTML) — Endereço errado (falta /rest, barra duplicada)
+            ou serviço inexistente na LIB do cliente.
+        '503':
+          description: Serviço indisponível — REST com consumo de licença por demanda (Stateless=1) e nenhuma licença
+            livre no License Server.
+      x-confianca: verificado
+      x-fonte-url: https://tdn.totvs.com/display/public/framework/GenericQuery
+      x-data-consulta: '2026-10-19'
+      x-entidade-canonica: PlanoContas
+      x-acao-canonica: listar
+      x-parametros-fixos:
+        tables: SED
+        fields: ed_filial,ed_codigo,ed_descric,ed_pai,ed_tipo
+      x-url-real: /api/framework/v1/genericQuery
+  /api/framework/v1/genericQuery#SA1:
+    get:
+      operationId: totvs-protheus__cliente__listar
+      summary: Clientes — tabela SA1 pela API genericQuery
+      description: 'Lista o cadastro de clientes (SA1): código e loja, razão social, fantasia, pessoa física ou
+        jurídica, CNPJ/CPF, tipo, endereço, UF, inscrição estadual, e-mail, telefone, limite de crédito, risco,
+        bloqueio, data de cadastro e condição de pagamento.
+
+
+        Quando usar: Para dar nome e documento aos códigos que aparecem em títulos, pedidos e notas (chave código
+        + loja), para carteira de clientes e para análise de crédito. Quando não usar: Não use se precisar do cadastro
+        no formato padrão TOTVS com endereço estruturado: use totvs-protheus.cliente.listar.customer_vendor (API
+        padrão, se estiver ativa no cliente).'
+      tags:
+      - Cliente
+      parameters:
+      - name: tables
+        in: query
+        required: true
+        description: 'Alias da tabela a consultar. Nesta receita é fixo: SA1 (Clientes).'
+        schema:
+          type: string
+          default: SA1
+      - name: fields
+        in: query
+        required: false
+        description: Campos a devolver, separados por vírgula, com o nome físico do campo (minúsculo, como nos exemplos
+          oficiais). Sem fields a API devolve todos os campos que o usuário pode ver.
+        schema:
+          type: string
+          default: a1_filial,a1_cod,a1_loja,a1_nome,a1_nreduz,a1_pessoa,a1_cgc,a1_tipo,a1_end,a1_bairro,a1_cep,a1_cod_mun,a1_est,a1_inscr,a1_email,a1_tel,a1_lc,a1_risco,a1_msblql,a1_dtcad,a1_cond
+      - name: where
+        in: query
+        required: false
+        description: Filtro SQL acrescentado à consulta. Datas são texto AAAAMMDD entre aspas simples; valores de
+          texto também entre aspas simples. Combine condições com AND.
+        schema:
+          type: string
+      - name: page
+        in: query
+        required: false
+        description: Número da página, começando em 1.
+        schema:
+          type: integer
+          default: 1
+      - name: pagesize
+        in: query
+        required: false
+        description: Registros por página. Teto não publicado; use 100.
+        schema:
+          type: integer
+          default: 100
+      - name: filialFilter
+        in: query
+        required: false
+        description: Filtra pela filial ([ALIAS]_FILIAL) correspondente ao tenantId. Padrão true.
+        schema:
+          type: boolean
+          default: true
+      - name: deletedFilter
+        in: query
+        required: false
+        description: Filtra registros excluídos logicamente (D_E_L_E_T_). Padrão true; não desligue em relatórios.
+        schema:
+          type: boolean
+          default: true
+      - name: order
+        in: query
+        required: false
+        description: 'Ordenação: lista de campos separada por vírgula; ''-'' antes do campo inverte. Nome do parâmetro
+          conforme o guia de APIs TOTVS e a classe FWAdapterBaseV2, base da genericQuery.'
+        schema:
+          type: string
+      - name: tenantId
+        in: header
+        required: false
+        description: 'Grupo de empresas e filial em que a consulta roda, no formato <grupo>,<filial> (ex.: T1,D
+          MG 01). Pode ir só o grupo.'
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        a1_filial:
+                          type: string
+                        a1_cod:
+                          type: string
+                        a1_loja:
+                          type: string
+                        a1_nome:
+                          type: string
+                        a1_nreduz:
+                          type: string
+                        a1_pessoa:
+                          type: string
+                        a1_cgc:
+                          type: string
+                        a1_tipo:
+                          type: string
+                        a1_end:
+                          type: string
+                        a1_bairro:
+                          type: string
+                        a1_cep:
+                          type: string
+                        a1_cod_mun:
+                          type: string
+                        a1_est:
+                          type: string
+                        a1_inscr:
+                          type: string
+                        a1_email:
+                          type: string
+                        a1_tel:
+                          type: string
+                        a1_lc:
+                          type: number
+                        a1_risco:
+                          type: string
+                        a1_msblql:
+                          type: string
+                        a1_dtcad:
+                          type: string
+                        a1_cond:
+                          type: string
+                  hasNext:
+                    type: boolean
+                  remainingRecords:
+                    type: integer
+                  protectedDataFields:
+                    type: array
+                    items: {}
+                  nivelFields:
+                    type: array
+                    items: {}
+              example:
+                items:
+                - a1_filial: '  '
+                  a1_cod: '000001'
+                  a1_loja: '01'
+                  a1_nome: CLIENTE EXEMPLO LTDA
+                  a1_nreduz: CLIENTE EXEMPLO
+                  a1_pessoa: J
+                  a1_cgc: 00000000000191
+                  a1_tipo: R
+                  a1_end: RUA EXEMPLO, 100
+                  a1_bairro: CENTRO
+                  a1_cep: '01001000'
+                  a1_cod_mun: '50308'
+                  a1_est: SP
+                  a1_inscr: ISENTO
+                  a1_email: financeiro@example.com
+                  a1_tel: '1130000000'
+                  a1_lc: 50000.0
+                  a1_risco: B
+                  a1_msblql: '2'
+                  a1_dtcad: '2024-03-10'
+                  a1_cond: '001'
+                hasNext: true
+                remainingRecords: 1240
+                protectedDataFields: []
+                nivelFields: []
+        '401':
+          description: Não autorizado — Usuário ou senha inválidos, token vencido, ou tenantId com uma filial à
+            qual o usuário não tem acesso.
+        '404':
+          description: Not Found (no REST 2.0 a página vem em HTML) — Endereço errado (falta /rest, barra duplicada)
+            ou serviço inexistente na LIB do cliente.
+        '503':
+          description: Serviço indisponível — REST com consumo de licença por demanda (Stateless=1) e nenhuma licença
+            livre no License Server.
+      x-confianca: verificado
+      x-fonte-url: https://tdn.totvs.com/display/public/framework/GenericQuery
+      x-data-consulta: '2026-10-19'
+      x-entidade-canonica: Cliente
+      x-acao-canonica: listar
+      x-parametros-fixos:
+        tables: SA1
+        fields: a1_filial,a1_cod,a1_loja,a1_nome,a1_nreduz,a1_pessoa,a1_cgc,a1_tipo,a1_end,a1_bairro,a1_cep,a1_cod_mun,a1_est,a1_inscr,a1_email,a1_tel,a1_lc,a1_risco,a1_msblql,a1_dtcad,a1_cond
+      x-url-real: /api/framework/v1/genericQuery
+  /api/framework/v1/genericQuery#SA2:
+    get:
+      operationId: totvs-protheus__fornecedor__listar
+      summary: Fornecedores — tabela SA2 pela API genericQuery
+      description: 'Lista o cadastro de fornecedores (SA2): código e loja, razão social, fantasia, CNPJ/CPF, tipo,
+        endereço, município, UF, grupo, condição de pagamento e bloqueio.
+
+
+        Quando usar: Para dar nome e documento aos códigos de fornecedor dos títulos a pagar, pedidos de compra
+        e notas de entrada. Quando não usar: Não use se precisar do formato padrão TOTVS com endereço estruturado:
+        use totvs-protheus.fornecedor.listar.customer_vendor.'
+      tags:
+      - Fornecedor
+      parameters:
+      - name: tables
+        in: query
+        required: true
+        description: 'Alias da tabela a consultar. Nesta receita é fixo: SA2 (Fornecedores).'
+        schema:
+          type: string
+          default: SA2
+      - name: fields
+        in: query
+        required: false
+        description: Campos a devolver, separados por vírgula, com o nome físico do campo (minúsculo, como nos exemplos
+          oficiais). Sem fields a API devolve todos os campos que o usuário pode ver.
+        schema:
+          type: string
+          default: a2_filial,a2_cod,a2_loja,a2_nome,a2_nreduz,a2_cgc,a2_tipo,a2_end,a2_bairro,a2_mun,a2_est,a2_grupo,a2_cond,a2_msblql
+      - name: where
+        in: query
+        required: false
+        description: Filtro SQL acrescentado à consulta. Datas são texto AAAAMMDD entre aspas simples; valores de
+          texto também entre aspas simples. Combine condições com AND.
+        schema:
+          type: string
+      - name: page
+        in: query
+        required: false
+        description: Número da página, começando em 1.
+        schema:
+          type: integer
+          default: 1
+      - name: pagesize
+        in: query
+        required: false
+        description: Registros por página. Teto não publicado; use 100.
+        schema:
+          type: integer
+          default: 100
+      - name: filialFilter
+        in: query
+        required: false
+        description: Filtra pela filial ([ALIAS]_FILIAL) correspondente ao tenantId. Padrão true.
+        schema:
+          type: boolean
+          default: true
+      - name: deletedFilter
+        in: query
+        required: false
+        description: Filtra registros excluídos logicamente (D_E_L_E_T_). Padrão true; não desligue em relatórios.
+        schema:
+          type: boolean
+          default: true
+      - name: order
+        in: query
+        required: false
+        description: 'Ordenação: lista de campos separada por vírgula; ''-'' antes do campo inverte. Nome do parâmetro
+          conforme o guia de APIs TOTVS e a classe FWAdapterBaseV2, base da genericQuery.'
+        schema:
+          type: string
+      - name: tenantId
+        in: header
+        required: false
+        description: 'Grupo de empresas e filial em que a consulta roda, no formato <grupo>,<filial> (ex.: T1,D
+          MG 01). Pode ir só o grupo.'
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        a2_filial:
+                          type: string
+                        a2_cod:
+                          type: string
+                        a2_loja:
+                          type: string
+                        a2_nome:
+                          type: string
+                        a2_nreduz:
+                          type: string
+                        a2_cgc:
+                          type: string
+                        a2_tipo:
+                          type: string
+                        a2_end:
+                          type: string
+                        a2_bairro:
+                          type: string
+                        a2_mun:
+                          type: string
+                        a2_est:
+                          type: string
+                        a2_grupo:
+                          type: string
+                        a2_cond:
+                          type: string
+                        a2_msblql:
+                          type: string
+                  hasNext:
+                    type: boolean
+                  remainingRecords:
+                    type: integer
+                  protectedDataFields:
+                    type: array
+                    items: {}
+                  nivelFields:
+                    type: array
+                    items: {}
+              example:
+                items:
+                - a2_filial: '  '
+                  a2_cod: '000245'
+                  a2_loja: '01'
+                  a2_nome: FORNECEDOR EXEMPLO LTDA
+                  a2_nreduz: FORNEC EXEMPLO
+                  a2_cgc: 00000000000191
+                  a2_tipo: J
+                  a2_end: AV EXEMPLO, 500
+                  a2_bairro: DISTRITO INDUSTRIAL
+                  a2_mun: CAMPINAS
+                  a2_est: SP
+                  a2_grupo: '0001'
+                  a2_cond: '030'
+                  a2_msblql: '2'
+                hasNext: true
+                remainingRecords: 1240
+                protectedDataFields: []
+                nivelFields: []
+        '401':
+          description: Não autorizado — Usuário ou senha inválidos, token vencido, ou tenantId com uma filial à
+            qual o usuário não tem acesso.
+        '404':
+          description: Not Found (no REST 2.0 a página vem em HTML) — Endereço errado (falta /rest, barra duplicada)
+            ou serviço inexistente na LIB do cliente.
+        '503':
+          description: Serviço indisponível — REST com consumo de licença por demanda (Stateless=1) e nenhuma licença
+            livre no License Server.
+      x-confianca: verificado
+      x-fonte-url: https://tdn.totvs.com/display/public/framework/GenericQuery
+      x-data-consulta: '2026-10-19'
+      x-entidade-canonica: Fornecedor
+      x-acao-canonica: listar
+      x-parametros-fixos:
+        tables: SA2
+        fields: a2_filial,a2_cod,a2_loja,a2_nome,a2_nreduz,a2_cgc,a2_tipo,a2_end,a2_bairro,a2_mun,a2_est,a2_grupo,a2_cond,a2_msblql
+      x-url-real: /api/framework/v1/genericQuery
+  /api/framework/v1/genericQuery#SB1:
+    get:
+      operationId: totvs-protheus__produto__listar
+      summary: Produtos — tabela SB1 pela API genericQuery
+      description: 'Lista o cadastro de produtos (SB1): código, descrição, tipo, unidade, grupo, NCM, código de
+        barras, pesos, custo standard e bloqueio.
+
+
+        Quando usar: Para dar descrição, NCM e grupo aos códigos de produto de estoque, pedidos e notas, e para
+        auditoria fiscal do cadastro. Quando não usar: Não use para saldo ou custo médio em estoque (use totvs-protheus.estoque.listar.saldos).'
+      tags:
+      - Produto
+      parameters:
+      - name: tables
+        in: query
+        required: true
+        description: 'Alias da tabela a consultar. Nesta receita é fixo: SB1 (Descrição Genérica do Produto).'
+        schema:
+          type: string
+          default: SB1
+      - name: fields
+        in: query
+        required: false
+        description: Campos a devolver, separados por vírgula, com o nome físico do campo (minúsculo, como nos exemplos
+          oficiais). Sem fields a API devolve todos os campos que o usuário pode ver.
+        schema:
+          type: string
+          default: b1_filial,b1_cod,b1_desc,b1_tipo,b1_um,b1_grupo,b1_posipi,b1_codbar,b1_peso,b1_pesbru,b1_custd,b1_msblql,b1_ativo
+      - name: where
+        in: query
+        required: false
+        description: Filtro SQL acrescentado à consulta. Datas são texto AAAAMMDD entre aspas simples; valores de
+          texto também entre aspas simples. Combine condições com AND.
+        schema:
+          type: string
+      - name: page
+        in: query
+        required: false
+        description: Número da página, começando em 1.
+        schema:
+          type: integer
+          default: 1
+      - name: pagesize
+        in: query
+        required: false
+        description: Registros por página. Teto não publicado; use 100.
+        schema:
+          type: integer
+          default: 100
+      - name: filialFilter
+        in: query
+        required: false
+        description: Filtra pela filial ([ALIAS]_FILIAL) correspondente ao tenantId. Padrão true.
+        schema:
+          type: boolean
+          default: true
+      - name: deletedFilter
+        in: query
+        required: false
+        description: Filtra registros excluídos logicamente (D_E_L_E_T_). Padrão true; não desligue em relatórios.
+        schema:
+          type: boolean
+          default: true
+      - name: order
+        in: query
+        required: false
+        description: 'Ordenação: lista de campos separada por vírgula; ''-'' antes do campo inverte. Nome do parâmetro
+          conforme o guia de APIs TOTVS e a classe FWAdapterBaseV2, base da genericQuery.'
+        schema:
+          type: string
+      - name: tenantId
+        in: header
+        required: false
+        description: 'Grupo de empresas e filial em que a consulta roda, no formato <grupo>,<filial> (ex.: T1,D
+          MG 01). Pode ir só o grupo.'
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        b1_filial:
+                          type: string
+                        b1_cod:
+                          type: string
+                        b1_desc:
+                          type: string
+                        b1_tipo:
+                          type: string
+                        b1_um:
+                          type: string
+                        b1_grupo:
+                          type: string
+                        b1_posipi:
+                          type: string
+                        b1_codbar:
+                          type: string
+                        b1_peso:
+                          type: number
+                        b1_pesbru:
+                          type: number
+                        b1_custd:
+                          type: number
+                        b1_msblql:
+                          type: string
+                        b1_ativo:
+                          type: string
+                  hasNext:
+                    type: boolean
+                  remainingRecords:
+                    type: integer
+                  protectedDataFields:
+                    type: array
+                    items: {}
+                  nivelFields:
+                    type: array
+                    items: {}
+              example:
+                items:
+                - b1_filial: '  '
+                  b1_cod: PA0001
+                  b1_desc: PRODUTO ACABADO EXEMPLO
+                  b1_tipo: PA
+                  b1_um: UN
+                  b1_grupo: '0010'
+                  b1_posipi: '84713012'
+                  b1_codbar: '7890000000000'
+                  b1_peso: 1.25
+                  b1_pesbru: 1.4
+                  b1_custd: 87.5
+                  b1_msblql: '2'
+                  b1_ativo: S
+                hasNext: true
+                remainingRecords: 1240
+                protectedDataFields: []
+                nivelFields: []
+        '401':
+          description: Não autorizado — Usuário ou senha inválidos, token vencido, ou tenantId com uma filial à
+            qual o usuário não tem acesso.
+        '404':
+          description: Not Found (no REST 2.0 a página vem em HTML) — Endereço errado (falta /rest, barra duplicada)
+            ou serviço inexistente na LIB do cliente.
+        '503':
+          description: Serviço indisponível — REST com consumo de licença por demanda (Stateless=1) e nenhuma licença
+            livre no License Server.
+      x-confianca: verificado
+      x-fonte-url: https://tdn.totvs.com/display/public/framework/GenericQuery
+      x-data-consulta: '2026-10-19'
+      x-entidade-canonica: Produto
+      x-acao-canonica: listar
+      x-parametros-fixos:
+        tables: SB1
+        fields: b1_filial,b1_cod,b1_desc,b1_tipo,b1_um,b1_grupo,b1_posipi,b1_codbar,b1_peso,b1_pesbru,b1_custd,b1_msblql,b1_ativo
+      x-url-real: /api/framework/v1/genericQuery
+  /api/framework/v1/genericQuery#SB2:
+    get:
+      operationId: totvs-protheus__estoque__listar__saldos
+      summary: Saldos em estoque por produto e armazém — tabela SB2 pela API genericQuery
+      description: 'Lista os saldos de estoque por produto e armazém (SB2): quantidade atual, empenhada, reservada,
+        em pedidos de venda e na segunda unidade de medida.
+
+
+        Quando usar: Para posição de estoque por filial e armazém, ruptura e disponibilidade para venda. A integração
+        oficial TOTVS CRM SFA calcula o disponível como B2_QATU - (B2_QEMP + B2_RESERVA + B2_QPEDVEN). Quando não
+        usar: Não use para movimentações de entrada e saída (use as notas de entrada e saída) nem para o cadastro
+        do produto.'
+      tags:
+      - Estoque
+      parameters:
+      - name: tables
+        in: query
+        required: true
+        description: 'Alias da tabela a consultar. Nesta receita é fixo: SB2 (Saldos Físico e Financeiro).'
+        schema:
+          type: string
+          default: SB2
+      - name: fields
+        in: query
+        required: false
+        description: Campos a devolver, separados por vírgula, com o nome físico do campo (minúsculo, como nos exemplos
+          oficiais). Sem fields a API devolve todos os campos que o usuário pode ver.
+        schema:
+          type: string
+          default: b2_filial,b2_cod,b2_local,b2_qatu,b2_qemp,b2_reserva,b2_qpedven,b2_qtsegum
+      - name: where
+        in: query
+        required: false
+        description: Filtro SQL acrescentado à consulta. Datas são texto AAAAMMDD entre aspas simples; valores de
+          texto também entre aspas simples. Combine condições com AND.
+        schema:
+          type: string
+      - name: page
+        in: query
+        required: false
+        description: Número da página, começando em 1.
+        schema:
+          type: integer
+          default: 1
+      - name: pagesize
+        in: query
+        required: false
+        description: Registros por página. Teto não publicado; use 100.
+        schema:
+          type: integer
+          default: 100
+      - name: filialFilter
+        in: query
+        required: false
+        description: Filtra pela filial ([ALIAS]_FILIAL) correspondente ao tenantId. Padrão true.
+        schema:
+          type: boolean
+          default: true
+      - name: deletedFilter
+        in: query
+        required: false
+        description: Filtra registros excluídos logicamente (D_E_L_E_T_). Padrão true; não desligue em relatórios.
+        schema:
+          type: boolean
+          default: true
+      - name: order
+        in: query
+        required: false
+        description: 'Ordenação: lista de campos separada por vírgula; ''-'' antes do campo inverte. Nome do parâmetro
+          conforme o guia de APIs TOTVS e a classe FWAdapterBaseV2, base da genericQuery.'
+        schema:
+          type: string
+      - name: tenantId
+        in: header
+        required: false
+        description: 'Grupo de empresas e filial em que a consulta roda, no formato <grupo>,<filial> (ex.: T1,D
+          MG 01). Pode ir só o grupo.'
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        b2_filial:
+                          type: string
+                        b2_cod:
+                          type: string
+                        b2_local:
+                          type: string
+                        b2_qatu:
+                          type: number
+                        b2_qemp:
+                          type: number
+                        b2_reserva:
+                          type: number
+                        b2_qpedven:
+                          type: number
+                        b2_qtsegum:
+                          type: number
+                  hasNext:
+                    type: boolean
+                  remainingRecords:
+                    type: integer
+                  protectedDataFields:
+                    type: array
+                    items: {}
+                  nivelFields:
+                    type: array
+                    items: {}
+              example:
+                items:
+                - b2_filial: '01'
+                  b2_cod: PA0001
+                  b2_local: '01'
+                  b2_qatu: 340.0
+                  b2_qemp: 20.0
+                  b2_reserva: 15.0
+                  b2_qpedven: 40.0
+                  b2_qtsegum: 0.0
+                hasNext: true
+                remainingRecords: 1240
+                protectedDataFields: []
+                nivelFields: []
+        '401':
+          description: Não autorizado — Usuário ou senha inválidos, token vencido, ou tenantId com uma filial à
+            qual o usuário não tem acesso.
+        '404':
+          description: Not Found (no REST 2.0 a página vem em HTML) — Endereço errado (falta /rest, barra duplicada)
+            ou serviço inexistente na LIB do cliente.
+        '503':
+          description: Serviço indisponível — REST com consumo de licença por demanda (Stateless=1) e nenhuma licença
+            livre no License Server.
+      x-confianca: verificado
+      x-fonte-url: https://tdn.totvs.com/display/public/framework/GenericQuery
+      x-data-consulta: '2026-10-19'
+      x-entidade-canonica: Estoque
+      x-acao-canonica: listar
+      x-parametros-fixos:
+        tables: SB2
+        fields: b2_filial,b2_cod,b2_local,b2_qatu,b2_qemp,b2_reserva,b2_qpedven,b2_qtsegum
+      x-url-real: /api/framework/v1/genericQuery
+  /api/framework/v1/genericQuery#SC5:
+    get:
+      operationId: totvs-protheus__pedido__listar__venda
+      summary: Pedidos de venda (cabeçalho) — tabela SC5 pela API genericQuery
+      description: 'Lista os cabeçalhos de pedido de venda (SC5): número, cliente e loja, emissão, condição de pagamento,
+        tabela de preço, vendedor, nota e série geradas, liberação e bloqueio.
+
+
+        Quando usar: Para carteira de pedidos por período, pedidos sem faturamento, pedidos bloqueados e vendas
+        por vendedor. Quando não usar: Não use para quantidades e valores por produto: estão nos itens (totvs-protheus.pedido.listar.venda_itens).'
+      tags:
+      - Pedido
+      parameters:
+      - name: tables
+        in: query
+        required: true
+        description: 'Alias da tabela a consultar. Nesta receita é fixo: SC5 (Pedidos de Venda).'
+        schema:
+          type: string
+          default: SC5
+      - name: fields
+        in: query
+        required: false
+        description: Campos a devolver, separados por vírgula, com o nome físico do campo (minúsculo, como nos exemplos
+          oficiais). Sem fields a API devolve todos os campos que o usuário pode ver.
+        schema:
+          type: string
+          default: c5_filial,c5_num,c5_cliente,c5_lojacli,c5_emissao,c5_condpag,c5_tabela,c5_vend1,c5_nota,c5_serie,c5_liberok,c5_blq
+      - name: where
+        in: query
+        required: false
+        description: Filtro SQL acrescentado à consulta. Datas são texto AAAAMMDD entre aspas simples; valores de
+          texto também entre aspas simples. Combine condições com AND.
+        schema:
+          type: string
+      - name: page
+        in: query
+        required: false
+        description: Número da página, começando em 1.
+        schema:
+          type: integer
+          default: 1
+      - name: pagesize
+        in: query
+        required: false
+        description: Registros por página. Teto não publicado; use 100.
+        schema:
+          type: integer
+          default: 100
+      - name: filialFilter
+        in: query
+        required: false
+        description: Filtra pela filial ([ALIAS]_FILIAL) correspondente ao tenantId. Padrão true.
+        schema:
+          type: boolean
+          default: true
+      - name: deletedFilter
+        in: query
+        required: false
+        description: Filtra registros excluídos logicamente (D_E_L_E_T_). Padrão true; não desligue em relatórios.
+        schema:
+          type: boolean
+          default: true
+      - name: order
+        in: query
+        required: false
+        description: 'Ordenação: lista de campos separada por vírgula; ''-'' antes do campo inverte. Nome do parâmetro
+          conforme o guia de APIs TOTVS e a classe FWAdapterBaseV2, base da genericQuery.'
+        schema:
+          type: string
+      - name: tenantId
+        in: header
+        required: false
+        description: 'Grupo de empresas e filial em que a consulta roda, no formato <grupo>,<filial> (ex.: T1,D
+          MG 01). Pode ir só o grupo.'
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        c5_filial:
+                          type: string
+                        c5_num:
+                          type: string
+                        c5_cliente:
+                          type: string
+                        c5_lojacli:
+                          type: string
+                        c5_emissao:
+                          type: string
+                        c5_condpag:
+                          type: string
+                        c5_tabela:
+                          type: string
+                        c5_vend1:
+                          type: string
+                        c5_nota:
+                          type: string
+                        c5_serie:
+                          type: string
+                        c5_liberok:
+                          type: string
+                        c5_blq:
+                          type: string
+                  hasNext:
+                    type: boolean
+                  remainingRecords:
+                    type: integer
+                  protectedDataFields:
+                    type: array
+                    items: {}
+                  nivelFields:
+                    type: array
+                    items: {}
+              example:
+                items:
+                - c5_filial: '01'
+                  c5_num: '004512'
+                  c5_cliente: '000001'
+                  c5_lojacli: '01'
+                  c5_emissao: '2026-08-04'
+                  c5_condpag: '001'
+                  c5_tabela: '001'
+                  c5_vend1: '000010'
+                  c5_nota: ''
+                  c5_serie: ''
+                  c5_liberok: S
+                  c5_blq: ''
+                hasNext: true
+                remainingRecords: 1240
+                protectedDataFields: []
+                nivelFields: []
+        '401':
+          description: Não autorizado — Usuário ou senha inválidos, token vencido, ou tenantId com uma filial à
+            qual o usuário não tem acesso.
+        '404':
+          description: Not Found (no REST 2.0 a página vem em HTML) — Endereço errado (falta /rest, barra duplicada)
+            ou serviço inexistente na LIB do cliente.
+        '503':
+          description: Serviço indisponível — REST com consumo de licença por demanda (Stateless=1) e nenhuma licença
+            livre no License Server.
+      x-confianca: verificado
+      x-fonte-url: https://tdn.totvs.com/display/public/framework/GenericQuery
+      x-data-consulta: '2026-10-19'
+      x-entidade-canonica: Pedido
+      x-acao-canonica: listar
+      x-parametros-fixos:
+        tables: SC5
+        fields: c5_filial,c5_num,c5_cliente,c5_lojacli,c5_emissao,c5_condpag,c5_tabela,c5_vend1,c5_nota,c5_serie,c5_liberok,c5_blq
+      x-url-real: /api/framework/v1/genericQuery
+  /api/framework/v1/genericQuery#SC6:
+    get:
+      operationId: totvs-protheus__pedido__listar__venda_itens
+      summary: Itens de pedidos de venda — tabela SC6 pela API genericQuery
+      description: 'Lista os itens de pedido de venda (SC6): pedido, item, produto, quantidades vendida e entregue,
+        preços, valor, data de entrega, armazém, nota gerada e bloqueio.
+
+
+        Quando usar: Para carteira a faturar por produto, backlog de entregas e vendas por produto. Junte com o
+        cabeçalho pelo par C6_FILIAL + C6_NUM = C5_FILIAL + C5_NUM. Quando não usar: Não use para dados de cliente
+        ou condição de pagamento do pedido (estão no cabeçalho SC5).'
+      tags:
+      - Pedido
+      parameters:
+      - name: tables
+        in: query
+        required: true
+        description: 'Alias da tabela a consultar. Nesta receita é fixo: SC6 (Itens dos Pedidos de Venda).'
+        schema:
+          type: string
+          default: SC6
+      - name: fields
+        in: query
+        required: false
+        description: Campos a devolver, separados por vírgula, com o nome físico do campo (minúsculo, como nos exemplos
+          oficiais). Sem fields a API devolve todos os campos que o usuário pode ver.
+        schema:
+          type: string
+          default: c6_filial,c6_num,c6_item,c6_produto,c6_qtdven,c6_qtdent,c6_prcven,c6_prunit,c6_valor,c6_entreg,c6_local,c6_nota,c6_blq,c6_cli
+      - name: where
+        in: query
+        required: false
+        description: Filtro SQL acrescentado à consulta. Datas são texto AAAAMMDD entre aspas simples; valores de
+          texto também entre aspas simples. Combine condições com AND.
+        schema:
+          type: string
+      - name: page
+        in: query
+        required: false
+        description: Número da página, começando em 1.
+        schema:
+          type: integer
+          default: 1
+      - name: pagesize
+        in: query
+        required: false
+        description: Registros por página. Teto não publicado; use 100.
+        schema:
+          type: integer
+          default: 100
+      - name: filialFilter
+        in: query
+        required: false
+        description: Filtra pela filial ([ALIAS]_FILIAL) correspondente ao tenantId. Padrão true.
+        schema:
+          type: boolean
+          default: true
+      - name: deletedFilter
+        in: query
+        required: false
+        description: Filtra registros excluídos logicamente (D_E_L_E_T_). Padrão true; não desligue em relatórios.
+        schema:
+          type: boolean
+          default: true
+      - name: order
+        in: query
+        required: false
+        description: 'Ordenação: lista de campos separada por vírgula; ''-'' antes do campo inverte. Nome do parâmetro
+          conforme o guia de APIs TOTVS e a classe FWAdapterBaseV2, base da genericQuery.'
+        schema:
+          type: string
+      - name: tenantId
+        in: header
+        required: false
+        description: 'Grupo de empresas e filial em que a consulta roda, no formato <grupo>,<filial> (ex.: T1,D
+          MG 01). Pode ir só o grupo.'
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        c6_filial:
+                          type: string
+                        c6_num:
+                          type: string
+                        c6_item:
+                          type: string
+                        c6_produto:
+                          type: string
+                        c6_qtdven:
+                          type: number
+                        c6_qtdent:
+                          type: number
+                        c6_prcven:
+                          type: number
+                        c6_prunit:
+                          type: number
+                        c6_valor:
+                          type: number
+                        c6_entreg:
+                          type: string
+                        c6_local:
+                          type: string
+                        c6_nota:
+                          type: string
+                        c6_blq:
+                          type: string
+                        c6_cli:
+                          type: string
+                  hasNext:
+                    type: boolean
+                  remainingRecords:
+                    type: integer
+                  protectedDataFields:
+                    type: array
+                    items: {}
+                  nivelFields:
+                    type: array
+                    items: {}
+              example:
+                items:
+                - c6_filial: '01'
+                  c6_num: '004512'
+                  c6_item: '01'
+                  c6_produto: PA0001
+                  c6_qtdven: 10.0
+                  c6_qtdent: 0.0
+                  c6_prcven: 150.0
+                  c6_prunit: 155.0
+                  c6_valor: 1500.0
+                  c6_entreg: '2026-08-20'
+                  c6_local: '01'
+                  c6_nota: ''
+                  c6_blq: ''
+                  c6_cli: '000001'
+                hasNext: true
+                remainingRecords: 1240
+                protectedDataFields: []
+                nivelFields: []
+        '401':
+          description: Não autorizado — Usuário ou senha inválidos, token vencido, ou tenantId com uma filial à
+            qual o usuário não tem acesso.
+        '404':
+          description: Not Found (no REST 2.0 a página vem em HTML) — Endereço errado (falta /rest, barra duplicada)
+            ou serviço inexistente na LIB do cliente.
+        '503':
+          description: Serviço indisponível — REST com consumo de licença por demanda (Stateless=1) e nenhuma licença
+            livre no License Server.
+      x-confianca: verificado
+      x-fonte-url: https://tdn.totvs.com/display/public/framework/GenericQuery
+      x-data-consulta: '2026-10-19'
+      x-entidade-canonica: Pedido
+      x-acao-canonica: listar
+      x-parametros-fixos:
+        tables: SC6
+        fields: c6_filial,c6_num,c6_item,c6_produto,c6_qtdven,c6_qtdent,c6_prcven,c6_prunit,c6_valor,c6_entreg,c6_local,c6_nota,c6_blq,c6_cli
+      x-url-real: /api/framework/v1/genericQuery
+  /api/framework/v1/genericQuery#SC7:
+    get:
+      operationId: totvs-protheus__pedido__listar__compra
+      summary: Pedidos de compra (por item) — tabela SC7 pela API genericQuery
+      description: 'Lista os pedidos de compra item a item (SC7): número, item, produto, quantidade, preço, total,
+        quantidade já entregue, emissão, fornecedor e loja, condição, solicitação de origem, moeda, desconto e frete.
+
+
+        Quando usar: Para compras do período por fornecedor e produto, pedidos pendentes de entrega e comparação
+        de preço de compra. Quando não usar: Não use para o que já entrou fisicamente com nota (use totvs-protheus.nota_fiscal.listar.entrada_itens).'
+      tags:
+      - Pedido
+      parameters:
+      - name: tables
+        in: query
+        required: true
+        description: 'Alias da tabela a consultar. Nesta receita é fixo: SC7 (Pedidos de Compra).'
+        schema:
+          type: string
+          default: SC7
+      - name: fields
+        in: query
+        required: false
+        description: Campos a devolver, separados por vírgula, com o nome físico do campo (minúsculo, como nos exemplos
+          oficiais). Sem fields a API devolve todos os campos que o usuário pode ver.
+        schema:
+          type: string
+          default: c7_filial,c7_num,c7_item,c7_produto,c7_quant,c7_preco,c7_total,c7_quje,c7_emissao,c7_fornece,c7_loja,c7_cond,c7_numsc,c7_moeda,c7_vldesc,c7_valfre
+      - name: where
+        in: query
+        required: false
+        description: Filtro SQL acrescentado à consulta. Datas são texto AAAAMMDD entre aspas simples; valores de
+          texto também entre aspas simples. Combine condições com AND.
+        schema:
+          type: string
+      - name: page
+        in: query
+        required: false
+        description: Número da página, começando em 1.
+        schema:
+          type: integer
+          default: 1
+      - name: pagesize
+        in: query
+        required: false
+        description: Registros por página. Teto não publicado; use 100.
+        schema:
+          type: integer
+          default: 100
+      - name: filialFilter
+        in: query
+        required: false
+        description: Filtra pela filial ([ALIAS]_FILIAL) correspondente ao tenantId. Padrão true.
+        schema:
+          type: boolean
+          default: true
+      - name: deletedFilter
+        in: query
+        required: false
+        description: Filtra registros excluídos logicamente (D_E_L_E_T_). Padrão true; não desligue em relatórios.
+        schema:
+          type: boolean
+          default: true
+      - name: order
+        in: query
+        required: false
+        description: 'Ordenação: lista de campos separada por vírgula; ''-'' antes do campo inverte. Nome do parâmetro
+          conforme o guia de APIs TOTVS e a classe FWAdapterBaseV2, base da genericQuery.'
+        schema:
+          type: string
+      - name: tenantId
+        in: header
+        required: false
+        description: 'Grupo de empresas e filial em que a consulta roda, no formato <grupo>,<filial> (ex.: T1,D
+          MG 01). Pode ir só o grupo.'
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        c7_filial:
+                          type: string
+                        c7_num:
+                          type: string
+                        c7_item:
+                          type: string
+                        c7_produto:
+                          type: string
+                        c7_quant:
+                          type: number
+                        c7_preco:
+                          type: number
+                        c7_total:
+                          type: number
+                        c7_quje:
+                          type: number
+                        c7_emissao:
+                          type: string
+                        c7_fornece:
+                          type: string
+                        c7_loja:
+                          type: string
+                        c7_cond:
+                          type: string
+                        c7_numsc:
+                          type: string
+                        c7_moeda:
+                          type: integer
+                        c7_vldesc:
+                          type: number
+                        c7_valfre:
+                          type: number
+                  hasNext:
+                    type: boolean
+                  remainingRecords:
+                    type: integer
+                  protectedDataFields:
+                    type: array
+                    items: {}
+                  nivelFields:
+                    type: array
+                    items: {}
+              example:
+                items:
+                - c7_filial: '01'
+                  c7_num: 000781
+                  c7_item: '0001'
+                  c7_produto: MP0005
+                  c7_quant: 500.0
+                  c7_preco: 12.3
+                  c7_total: 6150.0
+                  c7_quje: 200.0
+                  c7_emissao: '2026-08-01'
+                  c7_fornece: '000245'
+                  c7_loja: '01'
+                  c7_cond: '030'
+                  c7_numsc: '000455'
+                  c7_moeda: 1
+                  c7_vldesc: 0.0
+                  c7_valfre: 150.0
+                hasNext: true
+                remainingRecords: 1240
+                protectedDataFields: []
+                nivelFields: []
+        '401':
+          description: Não autorizado — Usuário ou senha inválidos, token vencido, ou tenantId com uma filial à
+            qual o usuário não tem acesso.
+        '404':
+          description: Not Found (no REST 2.0 a página vem em HTML) — Endereço errado (falta /rest, barra duplicada)
+            ou serviço inexistente na LIB do cliente.
+        '503':
+          description: Serviço indisponível — REST com consumo de licença por demanda (Stateless=1) e nenhuma licença
+            livre no License Server.
+      x-confianca: verificado
+      x-fonte-url: https://tdn.totvs.com/display/public/framework/GenericQuery
+      x-data-consulta: '2026-10-19'
+      x-entidade-canonica: Pedido
+      x-acao-canonica: listar
+      x-parametros-fixos:
+        tables: SC7
+        fields: c7_filial,c7_num,c7_item,c7_produto,c7_quant,c7_preco,c7_total,c7_quje,c7_emissao,c7_fornece,c7_loja,c7_cond,c7_numsc,c7_moeda,c7_vldesc,c7_valfre
+      x-url-real: /api/framework/v1/genericQuery
+  /api/framework/v1/genericQuery#SF2:
+    get:
+      operationId: totvs-protheus__nota_fiscal__listar__saida
+      summary: Notas fiscais de saída (cabeçalho) — tabela SF2 pela API genericQuery
+      description: 'Lista as notas fiscais de saída (SF2): número, série, cliente e loja, emissão, valor bruto,
+        tipo, condição de pagamento, vendedor, frete, seguro e transportadora.
+
+
+        Quando usar: Para faturamento por período, cliente e vendedor, e para conferir o faturado contra o contas
+        a receber. Quando não usar: Não use para itens, CFOP e produtos (use totvs-protheus.nota_fiscal.listar.saida_itens)
+        nem para o XML ou a situação na SEFAZ (fora deste recorte).'
+      tags:
+      - NotaFiscal
+      parameters:
+      - name: tables
+        in: query
+        required: true
+        description: 'Alias da tabela a consultar. Nesta receita é fixo: SF2 (Cabeçalho das NF de Saída).'
+        schema:
+          type: string
+          default: SF2
+      - name: fields
+        in: query
+        required: false
+        description: Campos a devolver, separados por vírgula, com o nome físico do campo (minúsculo, como nos exemplos
+          oficiais). Sem fields a API devolve todos os campos que o usuário pode ver.
+        schema:
+          type: string
+          default: f2_filial,f2_doc,f2_serie,f2_cliente,f2_loja,f2_emissao,f2_valbrut,f2_tipo,f2_cond,f2_vend1,f2_frete,f2_seguro,f2_transp
+      - name: where
+        in: query
+        required: false
+        description: Filtro SQL acrescentado à consulta. Datas são texto AAAAMMDD entre aspas simples; valores de
+          texto também entre aspas simples. Combine condições com AND.
+        schema:
+          type: string
+      - name: page
+        in: query
+        required: false
+        description: Número da página, começando em 1.
+        schema:
+          type: integer
+          default: 1
+      - name: pagesize
+        in: query
+        required: false
+        description: Registros por página. Teto não publicado; use 100.
+        schema:
+          type: integer
+          default: 100
+      - name: filialFilter
+        in: query
+        required: false
+        description: Filtra pela filial ([ALIAS]_FILIAL) correspondente ao tenantId. Padrão true.
+        schema:
+          type: boolean
+          default: true
+      - name: deletedFilter
+        in: query
+        required: false
+        description: Filtra registros excluídos logicamente (D_E_L_E_T_). Padrão true; não desligue em relatórios.
+        schema:
+          type: boolean
+          default: true
+      - name: order
+        in: query
+        required: false
+        description: 'Ordenação: lista de campos separada por vírgula; ''-'' antes do campo inverte. Nome do parâmetro
+          conforme o guia de APIs TOTVS e a classe FWAdapterBaseV2, base da genericQuery.'
+        schema:
+          type: string
+      - name: tenantId
+        in: header
+        required: false
+        description: 'Grupo de empresas e filial em que a consulta roda, no formato <grupo>,<filial> (ex.: T1,D
+          MG 01). Pode ir só o grupo.'
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        f2_filial:
+                          type: string
+                        f2_doc:
+                          type: string
+                        f2_serie:
+                          type: string
+                        f2_cliente:
+                          type: string
+                        f2_loja:
+                          type: string
+                        f2_emissao:
+                          type: string
+                        f2_valbrut:
+                          type: number
+                        f2_tipo:
+                          type: string
+                        f2_cond:
+                          type: string
+                        f2_vend1:
+                          type: string
+                        f2_frete:
+                          type: number
+                        f2_seguro:
+                          type: number
+                        f2_transp:
+                          type: string
+                  hasNext:
+                    type: boolean
+                  remainingRecords:
+                    type: integer
+                  protectedDataFields:
+                    type: array
+                    items: {}
+                  nivelFields:
+                    type: array
+                    items: {}
+              example:
+                items:
+                - f2_filial: '01'
+                  f2_doc: '000123456'
+                  f2_serie: '1'
+                  f2_cliente: '000001'
+                  f2_loja: '01'
+                  f2_emissao: '2026-08-05'
+                  f2_valbrut: 1500.0
+                  f2_tipo: N
+                  f2_cond: '001'
+                  f2_vend1: '000010'
+                  f2_frete: 0.0
+                  f2_seguro: 0.0
+                  f2_transp: '000003'
+                hasNext: true
+                remainingRecords: 1240
+                protectedDataFields: []
+                nivelFields: []
+        '401':
+          description: Não autorizado — Usuário ou senha inválidos, token vencido, ou tenantId com uma filial à
+            qual o usuário não tem acesso.
+        '404':
+          description: Not Found (no REST 2.0 a página vem em HTML) — Endereço errado (falta /rest, barra duplicada)
+            ou serviço inexistente na LIB do cliente.
+        '503':
+          description: Serviço indisponível — REST com consumo de licença por demanda (Stateless=1) e nenhuma licença
+            livre no License Server.
+      x-confianca: verificado
+      x-fonte-url: https://tdn.totvs.com/display/public/framework/GenericQuery
+      x-data-consulta: '2026-10-19'
+      x-entidade-canonica: NotaFiscal
+      x-acao-canonica: listar
+      x-parametros-fixos:
+        tables: SF2
+        fields: f2_filial,f2_doc,f2_serie,f2_cliente,f2_loja,f2_emissao,f2_valbrut,f2_tipo,f2_cond,f2_vend1,f2_frete,f2_seguro,f2_transp
+      x-url-real: /api/framework/v1/genericQuery
+  /api/framework/v1/genericQuery#SD2:
+    get:
+      operationId: totvs-protheus__nota_fiscal__listar__saida_itens
+      summary: Itens das notas fiscais de saída — tabela SD2 pela API genericQuery
+      description: 'Lista os itens das notas fiscais de saída (SD2): nota, série, cliente, emissão, produto, quantidade,
+        preço, totais líquido e bruto, CFOP, TES e pedido de origem.
+
+
+        Quando usar: Para faturamento por produto, CFOP e TES, curva ABC, margem por item e ligação nota-pedido.
+        Quando não usar: Não use para totais de nota com frete e seguro (estão no cabeçalho SF2).'
+      tags:
+      - NotaFiscal
+      parameters:
+      - name: tables
+        in: query
+        required: true
+        description: 'Alias da tabela a consultar. Nesta receita é fixo: SD2 (Itens de Venda da NF).'
+        schema:
+          type: string
+          default: SD2
+      - name: fields
+        in: query
+        required: false
+        description: Campos a devolver, separados por vírgula, com o nome físico do campo (minúsculo, como nos exemplos
+          oficiais). Sem fields a API devolve todos os campos que o usuário pode ver.
+        schema:
+          type: string
+          default: d2_filial,d2_doc,d2_serie,d2_cliente,d2_loja,d2_emissao,d2_item,d2_cod,d2_quant,d2_prcven,d2_total,d2_valbrut,d2_cf,d2_tes,d2_pedido
+      - name: where
+        in: query
+        required: false
+        description: Filtro SQL acrescentado à consulta. Datas são texto AAAAMMDD entre aspas simples; valores de
+          texto também entre aspas simples. Combine condições com AND.
+        schema:
+          type: string
+      - name: page
+        in: query
+        required: false
+        description: Número da página, começando em 1.
+        schema:
+          type: integer
+          default: 1
+      - name: pagesize
+        in: query
+        required: false
+        description: Registros por página. Teto não publicado; use 100.
+        schema:
+          type: integer
+          default: 100
+      - name: filialFilter
+        in: query
+        required: false
+        description: Filtra pela filial ([ALIAS]_FILIAL) correspondente ao tenantId. Padrão true.
+        schema:
+          type: boolean
+          default: true
+      - name: deletedFilter
+        in: query
+        required: false
+        description: Filtra registros excluídos logicamente (D_E_L_E_T_). Padrão true; não desligue em relatórios.
+        schema:
+          type: boolean
+          default: true
+      - name: order
+        in: query
+        required: false
+        description: 'Ordenação: lista de campos separada por vírgula; ''-'' antes do campo inverte. Nome do parâmetro
+          conforme o guia de APIs TOTVS e a classe FWAdapterBaseV2, base da genericQuery.'
+        schema:
+          type: string
+      - name: tenantId
+        in: header
+        required: false
+        description: 'Grupo de empresas e filial em que a consulta roda, no formato <grupo>,<filial> (ex.: T1,D
+          MG 01). Pode ir só o grupo.'
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        d2_filial:
+                          type: string
+                        d2_doc:
+                          type: string
+                        d2_serie:
+                          type: string
+                        d2_cliente:
+                          type: string
+                        d2_loja:
+                          type: string
+                        d2_emissao:
+                          type: string
+                        d2_item:
+                          type: string
+                        d2_cod:
+                          type: string
+                        d2_quant:
+                          type: number
+                        d2_prcven:
+                          type: number
+                        d2_total:
+                          type: number
+                        d2_valbrut:
+                          type: number
+                        d2_cf:
+                          type: string
+                        d2_tes:
+                          type: string
+                        d2_pedido:
+                          type: string
+                  hasNext:
+                    type: boolean
+                  remainingRecords:
+                    type: integer
+                  protectedDataFields:
+                    type: array
+                    items: {}
+                  nivelFields:
+                    type: array
+                    items: {}
+              example:
+                items:
+                - d2_filial: '01'
+                  d2_doc: '000123456'
+                  d2_serie: '1'
+                  d2_cliente: '000001'
+                  d2_loja: '01'
+                  d2_emissao: '2026-08-05'
+                  d2_item: '01'
+                  d2_cod: PA0001
+                  d2_quant: 10.0
+                  d2_prcven: 150.0
+                  d2_total: 1500.0
+                  d2_valbrut: 1500.0
+                  d2_cf: '5101'
+                  d2_tes: '501'
+                  d2_pedido: '004512'
+                hasNext: true
+                remainingRecords: 1240
+                protectedDataFields: []
+                nivelFields: []
+        '401':
+          description: Não autorizado — Usuário ou senha inválidos, token vencido, ou tenantId com uma filial à
+            qual o usuário não tem acesso.
+        '404':
+          description: Not Found (no REST 2.0 a página vem em HTML) — Endereço errado (falta /rest, barra duplicada)
+            ou serviço inexistente na LIB do cliente.
+        '503':
+          description: Serviço indisponível — REST com consumo de licença por demanda (Stateless=1) e nenhuma licença
+            livre no License Server.
+      x-confianca: verificado
+      x-fonte-url: https://tdn.totvs.com/display/public/framework/GenericQuery
+      x-data-consulta: '2026-10-19'
+      x-entidade-canonica: NotaFiscal
+      x-acao-canonica: listar
+      x-parametros-fixos:
+        tables: SD2
+        fields: d2_filial,d2_doc,d2_serie,d2_cliente,d2_loja,d2_emissao,d2_item,d2_cod,d2_quant,d2_prcven,d2_total,d2_valbrut,d2_cf,d2_tes,d2_pedido
+      x-url-real: /api/framework/v1/genericQuery
+  /api/framework/v1/genericQuery#SF1:
+    get:
+      operationId: totvs-protheus__nota_fiscal__listar__entrada
+      summary: Notas fiscais de entrada (cabeçalho) — tabela SF1 pela API genericQuery
+      description: 'Lista as notas fiscais de entrada (SF1): número, série, fornecedor e loja, emissão, data de
+        digitação, tipo, valor das mercadorias, condição, frete, seguro e transportadora.
+
+
+        Quando usar: Para compras efetivamente recebidas por período e fornecedor e para conferir entradas contra
+        o contas a pagar. Quando não usar: Não use para itens e CFOP (use totvs-protheus.nota_fiscal.listar.entrada_itens).'
+      tags:
+      - NotaFiscal
+      parameters:
+      - name: tables
+        in: query
+        required: true
+        description: 'Alias da tabela a consultar. Nesta receita é fixo: SF1 (Cabeçalho das NF de Entrada).'
+        schema:
+          type: string
+          default: SF1
+      - name: fields
+        in: query
+        required: false
+        description: Campos a devolver, separados por vírgula, com o nome físico do campo (minúsculo, como nos exemplos
+          oficiais). Sem fields a API devolve todos os campos que o usuário pode ver.
+        schema:
+          type: string
+          default: f1_filial,f1_doc,f1_serie,f1_fornece,f1_loja,f1_emissao,f1_dtdigit,f1_tipo,f1_valmerc,f1_cond,f1_frete,f1_seguro,f1_transp
+      - name: where
+        in: query
+        required: false
+        description: Filtro SQL acrescentado à consulta. Datas são texto AAAAMMDD entre aspas simples; valores de
+          texto também entre aspas simples. Combine condições com AND.
+        schema:
+          type: string
+      - name: page
+        in: query
+        required: false
+        description: Número da página, começando em 1.
+        schema:
+          type: integer
+          default: 1
+      - name: pagesize
+        in: query
+        required: false
+        description: Registros por página. Teto não publicado; use 100.
+        schema:
+          type: integer
+          default: 100
+      - name: filialFilter
+        in: query
+        required: false
+        description: Filtra pela filial ([ALIAS]_FILIAL) correspondente ao tenantId. Padrão true.
+        schema:
+          type: boolean
+          default: true
+      - name: deletedFilter
+        in: query
+        required: false
+        description: Filtra registros excluídos logicamente (D_E_L_E_T_). Padrão true; não desligue em relatórios.
+        schema:
+          type: boolean
+          default: true
+      - name: order
+        in: query
+        required: false
+        description: 'Ordenação: lista de campos separada por vírgula; ''-'' antes do campo inverte. Nome do parâmetro
+          conforme o guia de APIs TOTVS e a classe FWAdapterBaseV2, base da genericQuery.'
+        schema:
+          type: string
+      - name: tenantId
+        in: header
+        required: false
+        description: 'Grupo de empresas e filial em que a consulta roda, no formato <grupo>,<filial> (ex.: T1,D
+          MG 01). Pode ir só o grupo.'
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        f1_filial:
+                          type: string
+                        f1_doc:
+                          type: string
+                        f1_serie:
+                          type: string
+                        f1_fornece:
+                          type: string
+                        f1_loja:
+                          type: string
+                        f1_emissao:
+                          type: string
+                        f1_dtdigit:
+                          type: string
+                        f1_tipo:
+                          type: string
+                        f1_valmerc:
+                          type: number
+                        f1_cond:
+                          type: string
+                        f1_frete:
+                          type: number
+                        f1_seguro:
+                          type: number
+                        f1_transp:
+                          type: string
+                  hasNext:
+                    type: boolean
+                  remainingRecords:
+                    type: integer
+                  protectedDataFields:
+                    type: array
+                    items: {}
+                  nivelFields:
+                    type: array
+                    items: {}
+              example:
+                items:
+                - f1_filial: '01'
+                  f1_doc: '000045210'
+                  f1_serie: '1'
+                  f1_fornece: '000245'
+                  f1_loja: '01'
+                  f1_emissao: '2026-08-01'
+                  f1_dtdigit: '2026-08-02'
+                  f1_tipo: N
+                  f1_valmerc: 8740.35
+                  f1_cond: '030'
+                  f1_frete: 0.0
+                  f1_seguro: 0.0
+                  f1_transp: ''
+                hasNext: true
+                remainingRecords: 1240
+                protectedDataFields: []
+                nivelFields: []
+        '401':
+          description: Não autorizado — Usuário ou senha inválidos, token vencido, ou tenantId com uma filial à
+            qual o usuário não tem acesso.
+        '404':
+          description: Not Found (no REST 2.0 a página vem em HTML) — Endereço errado (falta /rest, barra duplicada)
+            ou serviço inexistente na LIB do cliente.
+        '503':
+          description: Serviço indisponível — REST com consumo de licença por demanda (Stateless=1) e nenhuma licença
+            livre no License Server.
+      x-confianca: verificado
+      x-fonte-url: https://tdn.totvs.com/display/public/framework/GenericQuery
+      x-data-consulta: '2026-10-19'
+      x-entidade-canonica: NotaFiscal
+      x-acao-canonica: listar
+      x-parametros-fixos:
+        tables: SF1
+        fields: f1_filial,f1_doc,f1_serie,f1_fornece,f1_loja,f1_emissao,f1_dtdigit,f1_tipo,f1_valmerc,f1_cond,f1_frete,f1_seguro,f1_transp
+      x-url-real: /api/framework/v1/genericQuery
+  /api/framework/v1/genericQuery#SD1:
+    get:
+      operationId: totvs-protheus__nota_fiscal__listar__entrada_itens
+      summary: Itens das notas fiscais de entrada — tabela SD1 pela API genericQuery
+      description: 'Lista os itens das notas fiscais de entrada (SD1): nota, série, fornecedor, datas, produto,
+        quantidade, valor unitário, total, CFOP, TES, pedido de compra, tipo e nota de origem (devoluções).
+
+
+        Quando usar: Para compras por produto e fornecedor, custo de aquisição, devoluções de venda e conferência
+        pedido x nota. Quando não usar: Não use para impostos detalhados da nota (fora deste recorte).'
+      tags:
+      - NotaFiscal
+      parameters:
+      - name: tables
+        in: query
+        required: true
+        description: 'Alias da tabela a consultar. Nesta receita é fixo: SD1 (Itens das NF de Entrada).'
+        schema:
+          type: string
+          default: SD1
+      - name: fields
+        in: query
+        required: false
+        description: Campos a devolver, separados por vírgula, com o nome físico do campo (minúsculo, como nos exemplos
+          oficiais). Sem fields a API devolve todos os campos que o usuário pode ver.
+        schema:
+          type: string
+          default: d1_filial,d1_doc,d1_serie,d1_fornece,d1_emissao,d1_dtdigit,d1_item,d1_cod,d1_quant,d1_vunit,d1_total,d1_cf,d1_tes,d1_pedido,d1_tipo,d1_nfori,d1_seriori
+      - name: where
+        in: query
+        required: false
+        description: Filtro SQL acrescentado à consulta. Datas são texto AAAAMMDD entre aspas simples; valores de
+          texto também entre aspas simples. Combine condições com AND.
+        schema:
+          type: string
+      - name: page
+        in: query
+        required: false
+        description: Número da página, começando em 1.
+        schema:
+          type: integer
+          default: 1
+      - name: pagesize
+        in: query
+        required: false
+        description: Registros por página. Teto não publicado; use 100.
+        schema:
+          type: integer
+          default: 100
+      - name: filialFilter
+        in: query
+        required: false
+        description: Filtra pela filial ([ALIAS]_FILIAL) correspondente ao tenantId. Padrão true.
+        schema:
+          type: boolean
+          default: true
+      - name: deletedFilter
+        in: query
+        required: false
+        description: Filtra registros excluídos logicamente (D_E_L_E_T_). Padrão true; não desligue em relatórios.
+        schema:
+          type: boolean
+          default: true
+      - name: order
+        in: query
+        required: false
+        description: 'Ordenação: lista de campos separada por vírgula; ''-'' antes do campo inverte. Nome do parâmetro
+          conforme o guia de APIs TOTVS e a classe FWAdapterBaseV2, base da genericQuery.'
+        schema:
+          type: string
+      - name: tenantId
+        in: header
+        required: false
+        description: 'Grupo de empresas e filial em que a consulta roda, no formato <grupo>,<filial> (ex.: T1,D
+          MG 01). Pode ir só o grupo.'
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        d1_filial:
+                          type: string
+                        d1_doc:
+                          type: string
+                        d1_serie:
+                          type: string
+                        d1_fornece:
+                          type: string
+                        d1_emissao:
+                          type: string
+                        d1_dtdigit:
+                          type: string
+                        d1_item:
+                          type: string
+                        d1_cod:
+                          type: string
+                        d1_quant:
+                          type: number
+                        d1_vunit:
+                          type: number
+                        d1_total:
+                          type: number
+                        d1_cf:
+                          type: string
+                        d1_tes:
+                          type: string
+                        d1_pedido:
+                          type: string
+                        d1_tipo:
+                          type: string
+                        d1_nfori:
+                          type: string
+                        d1_seriori:
+                          type: string
+                  hasNext:
+                    type: boolean
+                  remainingRecords:
+                    type: integer
+                  protectedDataFields:
+                    type: array
+                    items: {}
+                  nivelFields:
+                    type: array
+                    items: {}
+              example:
+                items:
+                - d1_filial: '01'
+                  d1_doc: '000045210'
+                  d1_serie: '1'
+                  d1_fornece: '000245'
+                  d1_emissao: '2026-08-01'
+                  d1_dtdigit: '2026-08-02'
+                  d1_item: '0001'
+                  d1_cod: MP0005
+                  d1_quant: 200.0
+                  d1_vunit: 12.3
+                  d1_total: 2460.0
+                  d1_cf: '1101'
+                  d1_tes: '001'
+                  d1_pedido: 000781
+                  d1_tipo: N
+                  d1_nfori: ''
+                  d1_seriori: ''
+                hasNext: true
+                remainingRecords: 1240
+                protectedDataFields: []
+                nivelFields: []
+        '401':
+          description: Não autorizado — Usuário ou senha inválidos, token vencido, ou tenantId com uma filial à
+            qual o usuário não tem acesso.
+        '404':
+          description: Not Found (no REST 2.0 a página vem em HTML) — Endereço errado (falta /rest, barra duplicada)
+            ou serviço inexistente na LIB do cliente.
+        '503':
+          description: Serviço indisponível — REST com consumo de licença por demanda (Stateless=1) e nenhuma licença
+            livre no License Server.
+      x-confianca: verificado
+      x-fonte-url: https://tdn.totvs.com/display/public/framework/GenericQuery
+      x-data-consulta: '2026-10-19'
+      x-entidade-canonica: NotaFiscal
+      x-acao-canonica: listar
+      x-parametros-fixos:
+        tables: SD1
+        fields: d1_filial,d1_doc,d1_serie,d1_fornece,d1_emissao,d1_dtdigit,d1_item,d1_cod,d1_quant,d1_vunit,d1_total,d1_cf,d1_tes,d1_pedido,d1_tipo,d1_nfori,d1_seriori
+      x-url-real: /api/framework/v1/genericQuery
+  /api/crm/v1/customerVendor/1:
+    get:
+      operationId: totvs-protheus__cliente__listar__customer_vendor
+      summary: API padrão TOTVS Cliente/Fornecedor (customerVendor) — clientes (tipo 1)
+      description: 'Lista clientes no formato padrão de mensagens TOTVS (T-Talk): código, loja, nome, nome reduzido,
+        filial, pessoa, situação, endereço estruturado (logradouro, bairro, município, UF, CEP), condição de pagamento
+        e dados fiscais e bancários aninhados. O último trecho do caminho é 1 para clientes e 2 para fornecedores.
+
+
+        Quando usar: Quando o cliente já usa as APIs padrão TOTVS e quer clientes com endereço estruturado, sem
+        escrever SQL. Quando não usar: se a API não estiver ativa no Protheus (404) ou se precisar de campos específicos
+        da tabela; aí use totvs-protheus.cliente.listar (genericQuery).'
+      tags:
+      - Cliente
+      parameters:
+      - name: page
+        in: query
+        required: false
+        description: Página da coleção, começando em 1.
+        schema:
+          type: integer
+          default: 1
+      - name: pageSize
+        in: query
+        required: false
+        description: Itens por página (padrão 10).
+        schema:
+          type: integer
+          default: 10
+      - name: order
+        in: query
+        required: false
+        description: Ordenação da coleção (campos separados por vírgula; '-' inverte).
+        schema:
+          type: string
+      - name: fields
+        in: query
+        required: false
+        description: Propriedades JSON a devolver, separadas por vírgula.
+        schema:
+          type: string
+      - name: tenantId
+        in: header
+        required: false
+        description: 'Grupo de empresas e filial em que a consulta roda, no formato <grupo>,<filial> (ex.: T1,D
+          MG 01). Pode ir só o grupo.'
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  hasNext:
+                    type: boolean
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        branchId:
+                          type: string
+                        code:
+                          type: string
+                        storeId:
+                          type: string
+                        name:
+                          type: string
+                        shortName:
+                          type: string
+                        type:
+                          type: string
+                        entityType:
+                          type: string
+                        registerdate:
+                          type: string
+                        registerSituation:
+                          type: string
+                        address:
+                          type: object
+                          properties:
+                            address:
+                              type: string
+                            number:
+                              type: string
+                            district:
+                              type: string
+                            city:
+                              type: object
+                              properties:
+                                cityCode:
+                                  type: string
+                                cityDescription:
+                                  type: string
+                            state:
+                              type: object
+                              properties:
+                                stateId:
+                                  type: string
+                            zipCode:
+                              type: string
+                        paymentConditionCode:
+                          type: string
+              example:
+                hasNext: false
+                items:
+                - branchId: '01'
+                  code: '000001'
+                  storeId: '01'
+                  name: CLIENTE EXEMPLO LTDA
+                  shortName: CLIENTE EXEMPLO
+                  type: '1'
+                  entityType: 1-Company
+                  registerdate: '2024-03-10T09:34:30Z'
+                  registerSituation: '2'
+                  address:
+                    address: RUA EXEMPLO, 100
+                    number: '100'
+                    district: CENTRO
+                    city:
+                      cityCode: '50308'
+                      cityDescription: SAO PAULO
+                    state:
+                      stateId: SP
+                    zipCode: '01001000'
+                  paymentConditionCode: '001'
+        '401':
+          description: Não autorizado — Credenciais inválidas ou sem acesso à filial do tenantId.
+        '404':
+          description: 'ErrorModel TOTVS: code, message, detailedMessage — Registro não localizado ou API não publicada/ativa
+            no Protheus do cliente.'
+        '503':
+          description: Serviço indisponível — REST com consumo de licença por demanda (Stateless=1) e nenhuma licença
+            livre no License Server.
+      x-confianca: verificado
+      x-fonte-url: https://tdn.totvs.com/pages/viewpage.action?pageId=894394585
+      x-data-consulta: '2026-10-19'
+      x-entidade-canonica: Cliente
+      x-acao-canonica: listar
+  /api/crm/v1/customerVendor/2:
+    get:
+      operationId: totvs-protheus__fornecedor__listar__customer_vendor
+      summary: API padrão TOTVS Cliente/Fornecedor (customerVendor) — fornecedores (tipo 2)
+      description: 'Lista fornecedores no formato padrão de mensagens TOTVS (T-Talk): código, loja, nome, nome reduzido,
+        filial, pessoa, situação, endereço estruturado (logradouro, bairro, município, UF, CEP), condição de pagamento
+        e dados fiscais e bancários aninhados. O último trecho do caminho é 1 para clientes e 2 para fornecedores.
+
+
+        Quando usar: Quando o cliente já usa as APIs padrão TOTVS e quer fornecedores com endereço estruturado,
+        sem escrever SQL. Quando não usar: se a API não estiver ativa no Protheus (404) ou se precisar de campos
+        específicos da tabela; aí use totvs-protheus.fornecedor.listar (genericQuery).'
+      tags:
+      - Fornecedor
+      parameters:
+      - name: page
+        in: query
+        required: false
+        description: Página da coleção, começando em 1.
+        schema:
+          type: integer
+          default: 1
+      - name: pageSize
+        in: query
+        required: false
+        description: Itens por página (padrão 10).
+        schema:
+          type: integer
+          default: 10
+      - name: order
+        in: query
+        required: false
+        description: Ordenação da coleção (campos separados por vírgula; '-' inverte).
+        schema:
+          type: string
+      - name: fields
+        in: query
+        required: false
+        description: Propriedades JSON a devolver, separadas por vírgula.
+        schema:
+          type: string
+      - name: tenantId
+        in: header
+        required: false
+        description: 'Grupo de empresas e filial em que a consulta roda, no formato <grupo>,<filial> (ex.: T1,D
+          MG 01). Pode ir só o grupo.'
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  hasNext:
+                    type: boolean
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        branchId:
+                          type: string
+                        code:
+                          type: string
+                        storeId:
+                          type: string
+                        name:
+                          type: string
+                        shortName:
+                          type: string
+                        type:
+                          type: string
+                        entityType:
+                          type: string
+                        registerdate:
+                          type: string
+                        registerSituation:
+                          type: string
+                        address:
+                          type: object
+                          properties:
+                            address:
+                              type: string
+                            number:
+                              type: string
+                            district:
+                              type: string
+                            city:
+                              type: object
+                              properties:
+                                cityCode:
+                                  type: string
+                                cityDescription:
+                                  type: string
+                            state:
+                              type: object
+                              properties:
+                                stateId:
+                                  type: string
+                            zipCode:
+                              type: string
+                        paymentConditionCode:
+                          type: string
+              example:
+                hasNext: false
+                items:
+                - branchId: '01'
+                  code: '000001'
+                  storeId: '01'
+                  name: CLIENTE EXEMPLO LTDA
+                  shortName: CLIENTE EXEMPLO
+                  type: '1'
+                  entityType: 1-Company
+                  registerdate: '2024-03-10T09:34:30Z'
+                  registerSituation: '2'
+                  address:
+                    address: RUA EXEMPLO, 100
+                    number: '100'
+                    district: CENTRO
+                    city:
+                      cityCode: '50308'
+                      cityDescription: SAO PAULO
+                    state:
+                      stateId: SP
+                    zipCode: '01001000'
+                  paymentConditionCode: '001'
+        '401':
+          description: Não autorizado — Credenciais inválidas ou sem acesso à filial do tenantId.
+        '404':
+          description: 'ErrorModel TOTVS: code, message, detailedMessage — Registro não localizado ou API não publicada/ativa
+            no Protheus do cliente.'
+        '503':
+          description: Serviço indisponível — REST com consumo de licença por demanda (Stateless=1) e nenhuma licença
+            livre no License Server.
+      x-confianca: verificado
+      x-fonte-url: https://tdn.totvs.com/pages/viewpage.action?pageId=894394585
+      x-data-consulta: '2026-10-19'
+      x-entidade-canonica: Fornecedor
+      x-acao-canonica: listar
+  /api/ctb/v1/costcenters:
+    get:
+      operationId: totvs-protheus__centro_custo__listar
+      summary: API padrão TOTVS Centro de Custo (costcenters)
+      description: 'Lista os centros de custo (tabela CTT) no formato padrão TOTVS: filial, código, descrição, classe
+        (analítico/sintético), centro superior, código reduzido e situação.
+
+
+        Quando usar: Para dar nome aos centros de custo dos títulos e movimentos (E1_CCUSTO, E2_CCUSTO, E5_CCUSTO)
+        e montar a hierarquia. Quando não usar: se a API não responder (404), consulte a CTT pela genericQuery.'
+      tags:
+      - CentroCusto
+      parameters:
+      - name: page
+        in: query
+        required: false
+        description: Página da coleção, começando em 1.
+        schema:
+          type: integer
+          default: 1
+      - name: pageSize
+        in: query
+        required: false
+        description: Itens por página (padrão 10).
+        schema:
+          type: integer
+          default: 10
+      - name: order
+        in: query
+        required: false
+        description: Ordenação da coleção (campos separados por vírgula; '-' inverte).
+        schema:
+          type: string
+      - name: fields
+        in: query
+        required: false
+        description: Propriedades JSON a devolver, separadas por vírgula.
+        schema:
+          type: string
+      - name: tenantId
+        in: header
+        required: false
+        description: 'Grupo de empresas e filial em que a consulta roda, no formato <grupo>,<filial> (ex.: T1,D
+          MG 01). Pode ir só o grupo.'
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  hasNext:
+                    type: boolean
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        BranchId:
+                          type: string
+                        Code:
+                          type: string
+                        Name:
+                          type: string
+                        Class:
+                          type: string
+                        TopCode:
+                          type: string
+                        ShortCode:
+                          type: string
+                        RegisterSituation:
+                          type: string
+                        InternalId:
+                          type: string
+              example:
+                hasNext: false
+                items:
+                - BranchId: '01'
+                  Code: '1101'
+                  Name: ADMINISTRATIVO
+                  Class: '1'
+                  TopCode: '1100'
+                  ShortCode: '1101'
+                  RegisterSituation: '2'
+                  InternalId: 01|1101
+        '401':
+          description: Não autorizado — Credenciais inválidas ou sem acesso à filial do tenantId.
+        '404':
+          description: 'ErrorModel TOTVS: code, message, detailedMessage — Registro não localizado ou API não publicada/ativa
+            no Protheus do cliente.'
+        '503':
+          description: Serviço indisponível — REST com consumo de licença por demanda (Stateless=1) e nenhuma licença
+            livre no License Server.
+      x-confianca: verificado
+      x-fonte-url: https://api.totvs.com.br/apidetails/CostCenter_v1_000.json
+      x-data-consulta: '2026-10-19'
+      x-entidade-canonica: CentroCusto
+      x-acao-canonica: listar
+  /api/framework/v1/genericQuery:
+    get:
+      operationId: totvs-protheus__tabela_auxiliar__listar__consulta_generica
+      summary: genericQuery — consulta genérica a qualquer tabela do Protheus
+      description: 'Consulta livre: lista registros de um ou mais aliases do Protheus com seleção de campos, filtro
+        SQL (where), junção opcional (FromQry), paginação e ordenação, respeitando privilégios, nível de campo e
+        dados protegidos do usuário.
+
+
+        Quando usar: Quando a informação pedida não tem receita pronta no catálogo (tabelas específicas de módulo,
+        campos customizados, cruzamentos). Quando não usar: se existir uma receita pronta (contas a receber, movimentos
+        bancários, notas...), prefira-a; nunca junte tabelas sem condição de junção.'
+      tags:
+      - TabelaAuxiliar
+      parameters:
+      - name: tables
+        in: query
+        required: true
+        description: Alias (ou aliases separados por vírgula) das tabelas.
+        schema:
+          type: string
+      - name: fields
+        in: query
+        required: false
+        description: Campos a devolver, separados por vírgula (nome físico, minúsculo).
+        schema:
+          type: string
+      - name: where
+        in: query
+        required: false
+        description: Filtro SQL; datas AAAAMMDD entre aspas simples.
+        schema:
+          type: string
+      - name: FromQry
+        in: query
+        required: false
+        description: 'FROM/JOIN explícito para consultas complexas; cada tabela usa o nome físico seguido do alias
+          (ex.: SEDT10 SED).'
+        schema:
+          type: string
+      - name: filialFilter
+        in: query
+        required: false
+        description: Filtro automático de filial. Padrão true.
+        schema:
+          type: boolean
+          default: true
+      - name: deletedFilter
+        in: query
+        required: false
+        description: Filtro automático de excluídos. Padrão true.
+        schema:
+          type: boolean
+          default: true
+      - name: page
+        in: query
+        required: false
+        description: Página, começando em 1.
+        schema:
+          type: integer
+          default: 1
+      - name: pagesize
+        in: query
+        required: false
+        description: Registros por página (use 100).
+        schema:
+          type: integer
+          default: 100
+      - name: order
+        in: query
+        required: false
+        description: Ordenação (campos separados por vírgula; '-' inverte).
+        schema:
+          type: string
+      - name: Format
+        in: query
+        required: false
+        description: smartview para o formato de lookup do Smart View (LIB 20240115+); omita para o formato padrão.
+        schema:
+          type: string
+          enum:
+          - smartview
+      - name: tenantId
+        in: header
+        required: false
+        description: 'Grupo de empresas e filial em que a consulta roda, no formato <grupo>,<filial> (ex.: T1,D
+          MG 01). Pode ir só o grupo.'
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        e5_tipo:
+                          type: string
+                        e5_valor:
+                          type: number
+                        e5_motbx:
+                          type: string
+                        e5_tipodoc:
+                          type: string
+                        e5_dtdispo:
+                          type: string
+                        e5_numero:
+                          type: string
+                        e5_filial:
+                          type: string
+                        e5_histor:
+                          type: string
+                  remainingRecords:
+                    type: integer
+                  protectedDataFields:
+                    type: array
+                    items:
+                      type: string
+                  nivelFields:
+                    type: array
+                    items:
+                      type: string
+                  hasNext:
+                    type: boolean
+              example:
+                items:
+                - e5_tipo: NF
+                  e5_valor: 4692.5
+                  e5_motbx: NOR
+                  e5_tipodoc: VL
+                  e5_dtdispo: '2026-03-03'
+                  e5_numero: 000812
+                  e5_filial: '01'
+                  e5_histor: VALOR RECEBIDO S/ TITULO
+                remainingRecords: 474
+                protectedDataFields:
+                - E5_BANCO
+                - E5_BENEF
+                nivelFields:
+                - E5_MSFIL
+                hasNext: true
+        '401':
+          description: Não autorizado — Usuário ou senha inválidos, token vencido, ou tenantId com uma filial à
+            qual o usuário não tem acesso.
+        '404':
+          description: Not Found (no REST 2.0 a página vem em HTML) — Endereço errado (falta /rest, barra duplicada)
+            ou serviço inexistente na LIB do cliente.
+        '503':
+          description: Serviço indisponível — REST com consumo de licença por demanda (Stateless=1) e nenhuma licença
+            livre no License Server.
+      x-confianca: verificado
+      x-fonte-url: https://tdn.totvs.com/display/public/framework/GenericQuery
+      x-data-consulta: '2026-10-19'
+      x-entidade-canonica: TabelaAuxiliar
+      x-acao-canonica: listar

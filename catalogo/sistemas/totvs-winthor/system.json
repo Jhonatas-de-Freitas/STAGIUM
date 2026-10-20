@@ -1,0 +1,631 @@
+{
+  "slug": "totvs-winthor",
+  "nome": "TOTVS WinThor (linha WinThor de Distribuição e Varejo)",
+  "categoria": "erp_nacional",
+  "fornecedor": {
+    "razao_social": "TOTVS S.A.",
+    "pais": "BR",
+    "site": "https://www.totvs.com",
+    "cnpj": "53113791000122",
+    "observacao": "Razão social e CNPJ do rodapé do site da TOTVS. O WinThor é mantido pela unidade TOTVS Goiânia (ex-PC Sistemas, nome que ainda aparece em mensagens de licença e nos domínios pcinformatica.com.br).",
+    "fonte_url": "https://www.totvs.com/termos-de-uso/",
+    "data_consulta": "2026-10-19"
+  },
+  "descricao_curta": "ERP da TOTVS para distribuidores, atacadistas e varejo, instalado no ambiente do cliente (banco Oracle). Expõe APIs REST/JSON pelo WinThor Anywhere (WTA), no endereço http://<IP>:<porta> da própria instalação, com login por usuário e senha em MD5 que devolve um token JWT de 4 horas guardado em cookie. As APIs públicas nasceram para e-commerce e cobrem pedidos de venda, clientes, produtos, preços, estoque disponível, filiais, planos de pagamento, políticas de desconto, XML de NF-e e logística. Não há API pública de contas a receber, contas a pagar, baixas ou movimento bancário.",
+  "porte_alvo": [
+    "media",
+    "grande"
+  ],
+  "verticais": [
+    "distribuicao",
+    "atacado",
+    "varejo"
+  ],
+  "status": "documentado",
+  "api": {
+    "estilo": "REST",
+    "base_urls": {
+      "producao": null,
+      "sandbox": null
+    },
+    "base_url_modelo": "http://<IP_ou_host_do_WTA>:<porta_do_WTA>",
+    "base_url_observacao": "Não há host público: as APIs rodam nos serviços do WTA instalados no servidor do cliente. A TDN diz que IP e porta são os mesmos do WTA (parâmetros 2851 e 2849 da rotina 132; porta também no arquivo org.ops4j.pax.web.cfg). Os exemplos oficiais usam http e portas diferentes (8889 na coleção Postman, 8181 no artigo de porta, 8282 na demonstração de logística). Para acesso de fora da rede, o TI do cliente precisa externalizar IP e porta.",
+    "versao_atual": null,
+    "versao_observacao": "Versão no caminho por serviço (v0, v1). O que existe depende da versão de cada serviço instalado pela rotina 801 (ex.: viewDocument no pedido a partir do winthor-pedido-venda 1.39.5.17; filiais a partir do winthor-filial 202501.36).",
+    "politica_versionamento": "Não publicada. Sem changelog de API; as páginas da TDN são editadas continuamente (a de pedidos está na versão 98, de 2026-09-21).",
+    "formatos": [
+      "json"
+    ],
+    "formatos_observacao": "JSON em todas as rotas REST. O XML da NF-e vem dentro do JSON (invoiceXml). Existe também um web service SOAP legado (rotina 2699, pc2699.exe no IIS do cliente).",
+    "spec_oficial_url": "https://tdn.totvs.com/download/attachments/573185595/API%20Vendas%20OFFICIAL.postman_collection.json?version=3&modificationDate=1651061830890&api=v2",
+    "spec_formato": "Coleção Postman v2.1 'API Vendas OFFICIAL' (26 requisições, 2022), anexada à página da TDN; não há OpenAPI. Há também a coleção 'API Integrações OFICIAL' (2023) na página da integração Venda Digital.",
+    "openapi_disponivel": false,
+    "pagina_api_oficial": "https://tdn.totvs.com/pages/releaseview.action?pageId=573185595",
+    "fonte_url": "https://tdn.totvs.com/pages/releaseview.action?pageId=573185595",
+    "data_consulta": "2026-10-19"
+  },
+  "autenticacao": {
+    "tipos": [
+      "jwt"
+    ],
+    "fluxo_resumido": "POST /winthor/autenticacao/v1/login com {\"login\": usuário, \"senha\": MD5 em maiúsculas da senha do WTA em maiúsculas}. A resposta traz {\"accessToken\": JWT} e o WTA guarda a sessão em cookie, que segue nas chamadas seguintes. Sem sessão, as rotas respondem 403. GET /winthor/autenticacao/v1/logout encerra. A API de liberação de pedido documenta o envio do token como Authorization: Bearer.",
+    "escopos_permissoes": [],
+    "escopos_observacao": "Não há escopos. O acesso segue o usuário do WinThor: a TDN pede um usuário dedicado com permissão na rotina 530 às rotinas 801, 810, 812 e 814. Não há perfil documentado de somente leitura para as APIs.",
+    "expiracao_token": "4 horas (TTL publicado)",
+    "renovacao": "Não há refresh token: repetir o login.",
+    "ip_allowlist_obrigatorio": false,
+    "ip_allowlist_observacao": "A TOTVS não exige allowlist, mas o WTA fica na rede do cliente; acesso externo depende de o TI externalizar IP e porta. Recomendação própria: liberar só o IP do backend e usar HTTPS/VPN.",
+    "fonte_url": "https://tdn.totvs.com/pages/releaseview.action?pageId=644722134",
+    "data_consulta": "2026-10-19"
+  },
+  "execucao_auth": {
+    "tipo": "login_credenciais",
+    "header": "Authorization",
+    "prefixo": "Bearer ",
+    "usuario_basic_e_a_credencial": false,
+    "headers_fixos": {
+      "Content-Type": "application/json",
+      "Accept": "application/json"
+    },
+    "token_url": null,
+    "credenciais_necessarias": [
+      {
+        "nome": "usuario",
+        "rotulo": "Usuário do WinThor para a integração",
+        "segredo": false,
+        "onde_obter": "Login de um usuário criado só para a integração (funcionário cadastrado na rotina 528), com acesso liberado na rotina 530 às rotinas 801, 810, 812 e 814 (módulo 8/3). É o mesmo login usado para entrar no WinThor Anywhere.",
+        "obrigatoria": true
+      },
+      {
+        "nome": "senha",
+        "rotulo": "Senha desse usuário no WinThor Anywhere",
+        "segredo": true,
+        "onde_obter": "A mesma senha usada para entrar no WTA. O login da API pede o MD5 em maiúsculas da senha em maiúsculas; o executor faz essa conversão antes de enviar (marcador {senha|md5_maiusculo}), então o cliente digita a senha normal.",
+        "obrigatoria": true
+      },
+      {
+        "nome": "base_url",
+        "rotulo": "Endereço do WinThor Anywhere (WTA)",
+        "segredo": false,
+        "onde_obter": "http://<IP ou nome do servidor do WTA>:<porta>, sem barra no final. A porta está no arquivo C:\\pcsist\\produtos\\winthor\\etc\\org.ops4j.pax.web.cfg (linha org.osgi.service.http.port) e nos parâmetros 2851 (IP) e 2849 (porta) da rotina 132. Para o assistente alcançar o WTA, o TI do cliente precisa externalizar esse IP e porta (de preferência com HTTPS e liberação só do IP do backend). O servidor do Stagium não chama IP direto: o endereço precisa ter nome de domínio (ex.: https://wta.suaempresa.com.br:porta) apontando para o WTA.",
+        "obrigatoria": true
+      }
+    ],
+    "base_url_por_ambiente": {
+      "sandbox": null,
+      "producao": null
+    },
+    "login": {
+      "metodo": "POST",
+      "caminho": "/winthor/autenticacao/v1/login",
+      "corpo": {
+        "login": "{usuario}",
+        "senha": "{senha|md5_maiusculo}"
+      },
+      "campo_token": "accessToken",
+      "prefixo": "Bearer ",
+      "expira_em": 14400,
+      "expira_em_unidade": "segundos",
+      "transporte_token_documentado": "cookie",
+      "observacao": "A TDN diz que o accessToken fica nos cookies e deve ser renovado periodicamente (TTL de 4 h). O nome e os atributos do cookie não são publicados. Por isso o login usa repassar_cookies: o executor do site reenvia os cookies do login em todas as consultas (a CLI usa requests.Session) e também manda Authorization: Bearer <accessToken>, transporte documentado só na API de liberação de pedido.",
+      "repassar_cookies": true
+    },
+    "observacao": "Fluxo: (1) POST {base_url}/winthor/autenticacao/v1/login com {\"login\": usuario, \"senha\": senha_md5}; (2) resposta {\"accessToken\": JWT} e cookie de sessão; (3) demais rotas com o cookie (e o Bearer). Sem refresh token: novo login a cada 4 h ou após 403. Cabeçalhos Accept e Content-Type application/json são obrigatórios em pelo menos uma rota (XML da NF-e responde 406 sem eles), por isso vão em headers_fixos. A senha não pode ir pura: o cliente informa a senha normal e o marcador {senha|md5_maiusculo} faz o executor enviar o MD5 em maiúsculas da senha em maiúsculas. Somente leitura: o mesmo usuário pode gravar pedidos e clientes, então o executor só usa GET de leitura (atenção: GET /pedidovenda/liberacaopedido escreve e está marcado como inseguro).",
+    "suporte_executor_atual": {
+      "suportado": "sim",
+      "teste": "2026-10-19: CLI (scripts/executar.py) contra mock local do WTA; site (src/lib/executor.servidor.ts) contra mock que exige o cookie do login e a senha em MD5 maiúsculo. Nenhuma chamada a WTA real.",
+      "ressalvas": [
+        "Rede: o WTA fica na rede do cliente; o TI precisa publicar um endereço com nome de domínio (o servidor do site não chama IP) e, de preferência, HTTPS.",
+        "Fim de paginação por hasNext (hasNext_false); sem o campo na resposta, vale a página incompleta."
+      ]
+    },
+    "confianca": "verificado",
+    "fonte_url": "https://tdn.totvs.com/pages/releaseview.action?pageId=644722134",
+    "data_consulta": "2026-10-19"
+  },
+  "ambiente_testes": {
+    "sandbox": false,
+    "como_obter": "Não há sandbox público nem conta de teste. A TOTVS orienta sempre testar em base de homologação do próprio cliente antes de implantar e, se o processo não for atendido pelas APIs, abrir uma 'Central colaborativa'.",
+    "custo": null,
+    "dados_ficticios": false,
+    "fonte_url": "https://tdn.totvs.com/pages/releaseview.action?pageId=573185595",
+    "data_consulta": "2026-10-19"
+  },
+  "limites": {
+    "rate_limit": null,
+    "janela": null,
+    "burst": null,
+    "rate_limit_observacao": "Nenhum limite publicado. O WTA roda num servidor do cliente (requisito mínimo publicado: 4 núcleos, 8 GB de RAM, recomendado 16 GB); consultas pesadas concorrem com os usuários do ERP. Recomendação própria: uma requisição por vez, fora do horário de pico.",
+    "paginacao": {
+      "estilo": "page",
+      "tamanho_max": null,
+      "observacao": "page/pageSize (planos de pagamento usam pagina/tamanho), envelope {first, items, hasNext}; fim quando hasNext=false. Tamanho padrão varia (10 em clientes); máximo não publicado. Clientes e filiais têm rotas /count."
+    },
+    "filtro_incremental": "lastChange (data da última alteração) na maioria das listas; pedidos usam também daysOfSearch (padrão 15 dias).",
+    "tamanho_max_payload": null,
+    "timeout_recomendado": "120 s por requisição (recomendação própria: listas grandes e XML de NF-e).",
+    "politica_retry": "Não publicada. Recomendação própria: repetir só leituras em 502/503/504 (até 3 vezes); em 403 refazer o login; nunca repetir POST de pedido automaticamente.",
+    "idempotencia": {
+      "suportada": false,
+      "header": null,
+      "observacao": "Sem cabeçalho de idempotência. Na gravação de pedido, a combinação orderIdHube + orderIdMktplace impede duplicar."
+    },
+    "volatil": true,
+    "fonte_url": "https://tdn.totvs.com/pages/releaseview.action?pageId=632099891",
+    "data_consulta": "2026-10-19"
+  },
+  "webhooks": {
+    "suportados": false,
+    "eventos": [],
+    "verificacao_assinatura": null,
+    "politica_reentrega": null,
+    "requer_endpoint_publico": false,
+    "observacao": "Não há assinatura de webhooks para terceiros. O WinThor Smart Hub (WSH, rotina 2650) é um hub instalado no cliente que executa fluxos agendados e pode chamar rotas REST/SOAP configuradas, e tem uma API que recebe eventos (POST /winthor/integracao/fulfillment/v1/evento). Para o assistente, a sincronização é por consulta periódica com lastChange.",
+    "fonte_url": "https://tdn.totvs.com/pages/releaseview.action?pageId=680973675",
+    "data_consulta": "2026-10-19"
+  },
+  "erros": {
+    "formato": "Não uniforme. (1) {\"code\", \"message\", \"detailedMessage\", \"details\": []} — ex.: UNK-ERR no 403 sem autenticação, WT-PV-000000 em validação de cliente/pedido, WT-CONFIG-000032 no WSH; (2) {\"mensagem\", \"erros\": []} — 403 de filiais e erros do XML de NF-e; (3) HTML do Jetty em 404 (serviço não instalado) e 406 (cabeçalhos errados). Liberação de pedido documenta 200/400/404/422/500.",
+    "codigos_principais": [
+      {
+        "status": 200,
+        "quando": "Sucesso (inclusive na liberação de pedido, cujo resultado vem no campo Status)."
+      },
+      {
+        "status": 201,
+        "quando": "Evento gravado no WSH."
+      },
+      {
+        "status": 400,
+        "quando": "Parâmetro order inválido em clientes; onlyProductsSupplierCode sem supplierCode em pedidos; campo obrigatório no evento do WSH."
+      },
+      {
+        "status": 403,
+        "quando": "Sem autenticação ou sessão expirada ('The current Subject is not authenticated. Access denied.' ou 'O Usuário não está autorizado a utilizar esse recurso')."
+      },
+      {
+        "status": 404,
+        "quando": "Serviço não instalado no WTA ou porta errada (HTML do Jetty); cliente não encontrado por CPF/CNPJ."
+      },
+      {
+        "status": 406,
+        "quando": "XML da NF-e sem Accept/Content-Type application/json."
+      },
+      {
+        "status": 422,
+        "quando": "Liberação de pedido com número ou funcionário inválido."
+      },
+      {
+        "status": 500,
+        "quando": "Erro interno na liberação de pedido."
+      }
+    ],
+    "fonte_url": "https://tdn.totvs.com/pages/releaseview.action?pageId=683349868",
+    "data_consulta": "2026-10-19"
+  },
+  "sdks_oficiais": [],
+  "sdks_observacao": "Nenhum SDK. Há duas coleções Postman oficiais anexadas à TDN (2022 e 2023) com variáveis host, port, LOGIN e SENHA.",
+  "comercial": {
+    "modelo_acesso": "sob_contrato",
+    "custo_api": null,
+    "custo_api_observacao": "As APIs fazem parte do WTA, que a TOTVS informa não ter custo adicional para quem já licencia o WinThor (acesso limitado ao perfil licenciado). Não há preço separado de API. Licença do ERP não consultada.",
+    "exige_homologacao": false,
+    "homologacao_observacao": "Não há homologação de parceiro; a TOTVS recomenda testar na base de homologação do cliente.",
+    "tempo_medio_aprovacao": null,
+    "volatil": true,
+    "fonte_url": "https://tdn.totvs.com/pages/releaseview.action?pageId=272708475",
+    "data_consulta": "2026-10-19"
+  },
+  "conformidade": {
+    "trafega_dado_pessoal": true,
+    "dado_sensivel": false,
+    "base_legal_tipica": "Execução de contrato e legítimo interesse (LGPD art. 7º, V e IX) para dados de clientes, consumidores (PCVENDACONSUM, inclusive CPF e data de nascimento), contatos e RCAs.",
+    "exige_certificado_digital": false,
+    "certificado_observacao": "As APIs não exigem certificado. A emissão de NF-e acontece dentro do ERP.",
+    "regulador": null,
+    "residencia_dados": "No servidor do cliente (instalação local do WinThor/WTA).",
+    "termos_uso_url": "https://tdn.totvs.com/pages/releaseview.action?pageId=746503236",
+    "termos_uso_observacao": "Não há termos de uso específicos das APIs. A página indicada é a política da TOTVS sobre o que terceiros podem usar: APIs e rotinas dos módulos 25 e 26 sim; objetos internos do banco (packages, procedures, functions, views, triggers) não, e o suporte não atende quem os usar. Termos gerais do site: https://www.totvs.com/termos-de-uso/",
+    "permite_uso_em_produto_terceiro": "sim",
+    "permite_uso_em_produto_terceiro_observacao": "A Central de Atendimento apresenta as APIs e o web service como as formas de integrar o WinThor com terceiros. Não há termo específico para produto SaaS de terceiros; registrar a autorização do cliente dono do ERP.",
+    "fonte_url": "https://centraldeatendimento.totvs.com/hc/pt-br/articles/15615773269655-WINT-Como-realizar-integra%C3%A7%C3%A3o-com-terceiros",
+    "data_consulta": "2026-10-19"
+  },
+  "esforco_integracao": {
+    "complexidade": "alta",
+    "horas_estimadas_mvp": 40,
+    "premissa_estimativa": "MVP de leitura com 6 a 8 consultas (pedidos com NF, clientes, produtos, preços, estoque, filiais, planos): login com hash MD5 e sessão por cookie, paginação por hasNext, filtros por filial e período, tratamento de 403/404 do Jetty. A maior parte do esforço é de infraestrutura no cliente: instalar e atualizar os serviços no WTA (rotina 801), criar o usuário, externalizar IP/porta com segurança e validar as marcações de e-commerce dos cadastros.",
+    "principais_armadilhas": [
+      "Não há API pública de contas a receber, contas a pagar, baixas ou movimento bancário: a maior dor (conciliação) não é atendida.",
+      "A TOTVS não autoriza ler objetos internos do banco (views, procedures, packages); ler o Oracle direto tira o cliente do suporte.",
+      "A senha vai em MD5 maiúsculo da senha em maiúsculas; o hash vale como senha.",
+      "Sessão por cookie de 4 horas; nome do cookie não publicado.",
+      "Host é http://IP:porta do WTA do cliente, em http nos exemplos; expor à internet exige HTTPS/VPN.",
+      "Cada rota depende de um serviço instalado no WTA; serviço ausente responde 404 em HTML.",
+      "APIs feitas para e-commerce: produtos, estoque e preços dependem de 'Enviar para E-commerce'; estoque aceita callOrigin=WSH para tirar a restrição.",
+      "Pedidos: padrão de 15 dias (daysOfSearch) e de origem W (web); sem informar, a planilha sai incompleta.",
+      "Datas vazias voltam como 1900-01-01T00:00:00.",
+      "GET /pedidovenda/liberacaopedido grava no banco apesar do método."
+    ]
+  },
+  "casos_uso_negocio": [
+    {
+      "titulo": "Vendas e faturamento por cliente, produto e filial",
+      "dor_resolvida": "O comercial exporta relatórios de várias rotinas para montar vendas por cliente e produto e conferir o que já virou nota.",
+      "endpoints_envolvidos": [
+        "totvs-winthor.pedido.listar",
+        "totvs-winthor.cliente.listar",
+        "totvs-winthor.produto.listar",
+        "totvs-winthor.empresa.listar.filiais"
+      ],
+      "valor_percebido": "Pedidos do período com itens, custos, plano de pagamento e número/chave da NF (viewDocument=true), já com nome de cliente, produto e filial."
+    },
+    {
+      "titulo": "Posição de estoque e ruptura por filial",
+      "dor_resolvida": "Compras e logística não enxergam numa planilha só o disponível de todas as filiais ao lado do giro de vendas.",
+      "endpoints_envolvidos": [
+        "totvs-winthor.estoque.listar",
+        "totvs-winthor.produto.listar",
+        "totvs-winthor.pedido.listar"
+      ],
+      "valor_percebido": "Disponível por produto e filial (várias filiais numa chamada), cruzado com fornecedor e com as vendas recentes."
+    },
+    {
+      "titulo": "Tabela de preços, ofertas e políticas de desconto",
+      "dor_resolvida": "O time de preços confere manualmente se ofertas e descontos da rotina 561 estão vigentes e coerentes.",
+      "endpoints_envolvidos": [
+        "totvs-winthor.produto.listar.precos",
+        "totvs-winthor.tabela_auxiliar.listar.politicas_desconto"
+      ],
+      "valor_percebido": "Preço por filial com oferta e vigência, ao lado das políticas de desconto ativas no período."
+    },
+    {
+      "titulo": "Conferência de notas fiscais emitidas",
+      "dor_resolvida": "Fiscal e logística precisam de lista de NF com chave e valor e, às vezes, do XML de pedidos específicos.",
+      "endpoints_envolvidos": [
+        "totvs-winthor.nota_fiscal.listar",
+        "totvs-winthor.pedido.listar",
+        "totvs-winthor.nota_fiscal.baixar_arquivo.xml"
+      ],
+      "valor_percebido": "Número, chave, situação e valor da NF por pedido e o XML sob demanda."
+    },
+    {
+      "titulo": "Base de clientes e prazos concedidos",
+      "dor_resolvida": "Crédito e comercial querem a carteira de clientes com RCA, cidade, bloqueio e o prazo médio do plano de pagamento.",
+      "endpoints_envolvidos": [
+        "totvs-winthor.cliente.listar",
+        "totvs-winthor.tabela_auxiliar.listar.planos_pagamento"
+      ],
+      "valor_percebido": "Cadastro com situação (ativo/bloqueado) e plano de pagamento traduzido em prazo médio e parcelas."
+    }
+  ],
+  "indice_integrabilidade": {
+    "score": 31,
+    "componentes": {
+      "documentacao": {
+        "peso": 20,
+        "pontos": 8,
+        "justificativa": "Páginas públicas na TDN com mapeamento campo a campo para as tabelas do WinThor, parâmetros e exemplos, mais coleções Postman. Perde por estar espalhada em ~40 páginas, sem OpenAPI, com envelopes de resposta omitidos em pedidos e clientes, formatos de data contraditórios, catálogo de erros parcial e foco em e-commerce: nada do financeiro."
+      },
+      "sandbox": {
+        "peso": 15,
+        "pontos": 2,
+        "justificativa": "Não há sandbox. A orientação oficial é testar na base de homologação do próprio cliente."
+      },
+      "autenticacao": {
+        "peso": 15,
+        "pontos": 5,
+        "justificativa": "Login com usuário e senha do ERP, senha em MD5 (hash fraco que vale como senha), JWT de 4 horas carregado em cookie sem nome publicado, sem refresh token, sem escopos; exemplos em http."
+      },
+      "webhooks": {
+        "peso": 15,
+        "pontos": 1,
+        "justificativa": "Sem webhooks para terceiros. O WSH é um hub local configurável, não uma assinatura de eventos com URL pública e assinatura."
+      },
+      "limites_paginacao": {
+        "peso": 10,
+        "pontos": 5,
+        "justificativa": "Paginação page/pageSize com hasNext, rotas de contagem e filtros incrementais por lastChange. Sem rate limit publicado, sem tamanho máximo de página, e pedidos com janela padrão de 15 dias."
+      },
+      "sdks_comunidade": {
+        "peso": 10,
+        "pontos": 2,
+        "justificativa": "Sem SDK; duas coleções Postman oficiais antigas (2022/2023)."
+      },
+      "acesso_sem_barreira": {
+        "peso": 10,
+        "pontos": 5,
+        "justificativa": "Documentação aberta sem login e WTA sem custo extra para licenciados. Barreiras: ser cliente WinThor, instalar serviços no WTA, criar usuário e expor o servidor; objetos internos do banco são proibidos a terceiros."
+      },
+      "versionamento": {
+        "peso": 5,
+        "pontos": 3,
+        "justificativa": "Versão no caminho (v0/v1) e versão mínima de serviço indicada por recurso; sem changelog nem política de depreciação."
+      }
+    }
+  },
+  "qualidade_doc": {
+    "nota": 5,
+    "observacoes": "Boa para e-commerce (mapeamento para PCPEDC/PCPEDI/PCCLIENT/PCPRODUT, regras de parâmetros da rotina 132), fraca para extração analítica: sem financeiro, envelopes omitidos, sem limites publicados, autenticação por cookie sem detalhes, contradições pontuais (formato de lastChange, page a partir de 0 ou 1, grafias suppierId e finalCostumer). Um artigo da Central de 2024 ainda diz que o WTA não tem APIs, o que contradiz a TDN."
+  },
+  "monitoramento": {
+    "changelog_url": null,
+    "canal_breaking_changes": null,
+    "canal_breaking_changes_observacao": "Não há canal. Acompanhar a versão das páginas da TDN (a API REST do Confluence em https://tdn.totvs.com/rest/api/content/<id>?expand=version devolve número e data) a partir da raiz https://tdn.totvs.com/pages/releaseview.action?pageId=573185595, e as versões dos serviços instalados no WTA do cliente (rotina 812).",
+    "frequencia_revisao_sugerida": "trimestral"
+  },
+  "lacunas": [
+    {
+      "campo": "financeiro",
+      "descricao": "Não existe API pública de contas a receber, contas a pagar, baixas, extrato ou movimento bancário. A árvore 'APIs Integrações WinThor' (40 páginas) e o catálogo de APIs padrão da TOTVS só trazem pedidos, cadastros, preços, estoque, fiscal (XML) e logística. A conciliação de PIX (rotina 1296) é interna ao WTA. A TOTVS proíbe a terceiros o uso de objetos internos do banco, então ler o Oracle direto não é caminho suportado. Saída: pedir a API via 'Central colaborativa' da TOTVS ou usar exportações das próprias rotinas do cliente.",
+      "impacto": "alto"
+    },
+    {
+      "campo": "execucao_auth.login (transporte do token)",
+      "descricao": "A TDN diz que o token fica em cookie, mas não publica nome, caminho, domínio nem flags do cookie. O envio por Authorization: Bearer só aparece documentado na API de liberação de pedido. O executor atual manda os dois (cookie da sessão e Bearer).",
+      "impacto": "alto"
+    },
+    {
+      "campo": "rede/TLS",
+      "descricao": "Todos os exemplos usam http://host:porta. Não há documentação de HTTPS no WTA. Expor o WTA à internet em http trafegaria o hash da senha e o token em claro; exigir HTTPS (proxy reverso) ou VPN do cliente.",
+      "impacto": "alto"
+    },
+    {
+      "campo": "pedido.listar e cliente.listar (envelope)",
+      "descricao": "As páginas de pedidos e clientes mostram só o registro, sem o envelope. O envelope {first, items, hasNext} foi inferido pelo mesmo serviço (lista de preços) e pela coleção oficial ('hasNext = true indica outra página'). Marcado lista_em_confianca: inferido.",
+      "impacto": "medio"
+    },
+    {
+      "campo": "pedido.listar (escopo)",
+      "descricao": "Sem daysOfSearch só vêm 15 dias; saleOrigin tem padrão W (web) e não se sabe se aceita várias origens de uma vez; a interação entre daysOfSearch e lastChange não é explicada; a TDN limita as APIs de pedido a B2C do módulo de distribuição.",
+      "impacto": "alto"
+    },
+    {
+      "campo": "limites.paginacao.tamanho_max",
+      "descricao": "Tamanho máximo de página não publicado (a coleção usa até 70000 num exemplo). O executor pede 100 e para na página incompleta; um limite do servidor abaixo de 100 cortaria a leitura.",
+      "impacto": "medio"
+    },
+    {
+      "campo": "limites.rate_limit",
+      "descricao": "Nenhum limite publicado; o WTA divide recursos com o ERP do cliente.",
+      "impacto": "medio"
+    },
+    {
+      "campo": "restrição de e-commerce",
+      "descricao": "Produtos, estoque e preços exigem cadastros marcados para e-commerce. Só o estoque documenta como tirar a restrição (callOrigin=WSH). Para produtos e preços não se sabe se outro callOrigin traz o catálogo completo.",
+      "impacto": "alto"
+    },
+    {
+      "campo": "nota_fiscal.listar",
+      "descricao": "A lista de NF da integração TRE não tem filtro de data nem de filial documentado e não explica se devolve todas as notas ou só as elegíveis à roteirização.",
+      "impacto": "medio"
+    },
+    {
+      "campo": "erros de login",
+      "descricao": "O formato e o status da resposta para usuário ou senha errados não são publicados.",
+      "impacto": "medio"
+    },
+    {
+      "campo": "execucao_auth.credenciais_necessarias.senha_md5",
+      "descricao": "Uma página manda passar a senha para maiúsculas antes do MD5 e outra mostra o MD5 da senha copiada; o exemplo publicado (Totvs@123) confirma maiúsculas antes. A codificação de caracteres para o MD5 (UTF-8 ou Latin-1) não é dita: senhas com acento podem falhar.",
+      "impacto": "baixo"
+    },
+    {
+      "campo": "ambiente_testes",
+      "descricao": "Sem sandbox; testes só na base de homologação do cliente.",
+      "impacto": "medio"
+    },
+    {
+      "campo": "webhooks",
+      "descricao": "Sem webhooks para terceiros; tudo por consulta periódica.",
+      "impacto": "medio"
+    },
+    {
+      "campo": "porta por serviço",
+      "descricao": "A TDN diz que IP e porta são os do WTA, mas os exemplos variam (8889, 8181, 8282) e a liberação de pedido usa caminho sem prefixo (/pedidovenda/...) sem dizer o serviço/porta.",
+      "impacto": "baixo"
+    },
+    {
+      "campo": "contradição na Central",
+      "descricao": "O artigo 'É possível habilitar o uso de API e integrar o Winthor Anywhere a outros sistemas' (atualizado em 2024-02-28) diz que o WTA não tem APIs, enquanto a TDN e outro artigo de 2026 apontam as APIs. Prevalece a TDN.",
+      "impacto": "baixo"
+    },
+    {
+      "campo": "taxonomia — saúde de serviço",
+      "descricao": "As APIs de saúde (health) foram mapeadas como Empresa/consultar_status. Sugestão: entidade 'ServicoIntegracao' ou ampliar Empresa para 'instalação/serviço'.",
+      "impacto": "baixo"
+    },
+    {
+      "campo": "taxonomia — preços",
+      "descricao": "Lista de preços mapeada em Produto/listar com qualificador precos; políticas de desconto em TabelaAuxiliar. Sugestão: entidade 'TabelaPreco' (útil também para Nomus e Protheus).",
+      "impacto": "baixo"
+    }
+  ],
+  "fontes": [
+    {
+      "url": "https://tdn.totvs.com/pages/releaseview.action?pageId=573185595",
+      "titulo": "TDN — APIs Integrações WinThor (página raiz, v70 de 2024-08-20) e árvore de 40 páginas",
+      "data_consulta": "2026-10-19"
+    },
+    {
+      "url": "https://centraldeatendimento.totvs.com/hc/pt-br/articles/15615773269655-WINT-Como-realizar-integra%C3%A7%C3%A3o-com-terceiros",
+      "titulo": "Central de Atendimento — WINT - Como realizar integração com terceiros (API e Webservice; objetos internos não autorizados)",
+      "data_consulta": "2026-10-19"
+    },
+    {
+      "url": "https://tdn.totvs.com/download/attachments/573185595/API%20Vendas%20OFFICIAL.postman_collection.json?version=3&modificationDate=1651061830890&api=v2",
+      "titulo": "Coleção Postman oficial 'API Vendas OFFICIAL' (anexo da TDN)",
+      "data_consulta": "2026-10-19"
+    },
+    {
+      "url": "https://tdn.totvs.com/pages/releaseview.action?pageId=731895547",
+      "titulo": "TDN — Integração WinThor x Venda Digital (coleção 'API Integrações OFICIAL')",
+      "data_consulta": "2026-10-19"
+    },
+    {
+      "url": "https://tdn.totvs.com/pages/releaseview.action?pageId=738243139",
+      "titulo": "TDN — 01 - Comece por aqui -> Parametrizações WTA",
+      "data_consulta": "2026-10-19"
+    },
+    {
+      "url": "https://tdn.totvs.com/pages/releaseview.action?pageId=644722134",
+      "titulo": "TDN — 02 - APIs Integrações - Login/Logout Token (v23, 2026-09-04)",
+      "data_consulta": "2026-10-19"
+    },
+    {
+      "url": "https://tdn.totvs.com/pages/releaseview.action?pageId=741845526",
+      "titulo": "TDN — Geração de token de autenticação (WTA)",
+      "data_consulta": "2026-10-19"
+    },
+    {
+      "url": "https://tdn.totvs.com/pages/releaseview.action?pageId=632099891",
+      "titulo": "TDN — APIs Integrações - Pedido (v98, 2026-09-21)",
+      "data_consulta": "2026-10-19"
+    },
+    {
+      "url": "https://tdn.totvs.com/pages/releaseview.action?pageId=632097966",
+      "titulo": "TDN — APIs Integrações - Clientes",
+      "data_consulta": "2026-10-19"
+    },
+    {
+      "url": "https://tdn.totvs.com/pages/releaseview.action?pageId=632096738",
+      "titulo": "TDN — APIs Integrações - Produtos",
+      "data_consulta": "2026-10-19"
+    },
+    {
+      "url": "https://tdn.totvs.com/pages/releaseview.action?pageId=632108371",
+      "titulo": "TDN — APIs Integrações - Preço de Produto",
+      "data_consulta": "2026-10-19"
+    },
+    {
+      "url": "https://tdn.totvs.com/pages/releaseview.action?pageId=632097669",
+      "titulo": "TDN — APIs Integrações - Estoque Disponível (OFFLINE)",
+      "data_consulta": "2026-10-19"
+    },
+    {
+      "url": "https://tdn.totvs.com/pages/releaseview.action?pageId=1110484707",
+      "titulo": "TDN — Estoque Disponível PDVSYNC",
+      "data_consulta": "2026-10-19"
+    },
+    {
+      "url": "https://tdn.totvs.com/pages/releaseview.action?pageId=683349868",
+      "titulo": "TDN — APIs Integrações - Filiais",
+      "data_consulta": "2026-10-19"
+    },
+    {
+      "url": "https://tdn.totvs.com/pages/releaseview.action?pageId=699812479",
+      "titulo": "TDN — APIs Integrações - Planos de Pagamentos",
+      "data_consulta": "2026-10-19"
+    },
+    {
+      "url": "https://tdn.totvs.com/pages/releaseview.action?pageId=885390869",
+      "titulo": "TDN — APIs Integrações - Política de desconto",
+      "data_consulta": "2026-10-19"
+    },
+    {
+      "url": "https://tdn.totvs.com/pages/releaseview.action?pageId=650007958",
+      "titulo": "TDN — APIs Integrações - Notas Fiscais - XML",
+      "data_consulta": "2026-10-19"
+    },
+    {
+      "url": "https://tdn.totvs.com/pages/releaseview.action?pageId=665288385",
+      "titulo": "TDN — Consulta Despacho Notas Fiscais - XML TOTVS OMNI",
+      "data_consulta": "2026-10-19"
+    },
+    {
+      "url": "https://tdn.totvs.com/pages/releaseview.action?pageId=1011570009",
+      "titulo": "TDN — APIs Logística - Integração TRE - Notas Fiscais (com GIF de demonstração)",
+      "data_consulta": "2026-10-19"
+    },
+    {
+      "url": "https://tdn.totvs.com/pages/releaseview.action?pageId=1036755549",
+      "titulo": "TDN — APIs de Saúde (Health) das integrações do WinThor",
+      "data_consulta": "2026-10-19"
+    },
+    {
+      "url": "https://tdn.totvs.com/pages/releaseview.action?pageId=1062879116",
+      "titulo": "TDN — API - Liberação de Pedido",
+      "data_consulta": "2026-10-19"
+    },
+    {
+      "url": "https://tdn.totvs.com/pages/releaseview.action?pageId=728640605",
+      "titulo": "TDN — APIs Integrações - Endereço de entrega",
+      "data_consulta": "2026-10-19"
+    },
+    {
+      "url": "https://tdn.totvs.com/pages/releaseview.action?pageId=632097259",
+      "titulo": "TDN — APIs Integrações - Embalagem/SKU",
+      "data_consulta": "2026-10-19"
+    },
+    {
+      "url": "https://tdn.totvs.com/pages/releaseview.action?pageId=1101856793",
+      "titulo": "TDN — API HUB Carga de Dados do Winthor - Integração com o WSH",
+      "data_consulta": "2026-10-19"
+    },
+    {
+      "url": "https://tdn.totvs.com/pages/releaseview.action?pageId=680973675",
+      "titulo": "TDN — WSH - Winthor Smart Hub - Integrações",
+      "data_consulta": "2026-10-19"
+    },
+    {
+      "url": "https://tdn.totvs.com/pages/releaseview.action?pageId=770952459",
+      "titulo": "TDN — Integração do Winthor com TOTVS Varejo PDV Omni (rotas do WTA)",
+      "data_consulta": "2026-10-19"
+    },
+    {
+      "url": "https://tdn.totvs.com/pages/releaseview.action?pageId=746503236",
+      "titulo": "TDN — Utilização de objetos internos da Integração WinThor Módulos 25 e 26",
+      "data_consulta": "2026-10-19"
+    },
+    {
+      "url": "https://tdn.totvs.com/pages/releaseview.action?pageId=272708475",
+      "titulo": "TDN — Como instalar o WinThor Anywhere (requisitos; sem custo adicional)",
+      "data_consulta": "2026-10-19"
+    },
+    {
+      "url": "https://centraldeatendimento.totvs.com/hc/pt-br/articles/360025106212-WINT-Como-visualizar-alterar-a-porta-de-conex%C3%A3o-do-Winthor-Anywhere",
+      "titulo": "Central — Como visualizar / alterar a porta de conexão do Winthor Anywhere",
+      "data_consulta": "2026-10-19"
+    },
+    {
+      "url": "https://centraldeatendimento.totvs.com/hc/pt-br/articles/360050873054-WINT-Como-identificar-a-porta-para-o-qual-o-WTA-foi-instalado",
+      "titulo": "Central — Como identificar a porta para o qual o WTA foi instalado",
+      "data_consulta": "2026-10-19"
+    },
+    {
+      "url": "https://centraldeatendimento.totvs.com/hc/pt-br/articles/40916341521687-WINT-Como-realizar-a-integra%C3%A7%C3%A3o-de-Pedidos-via-API-com-o-Sistema-Winthor",
+      "titulo": "Central — Como realizar a integração de Pedidos via API com o Sistema Winthor (2026)",
+      "data_consulta": "2026-10-19"
+    },
+    {
+      "url": "https://centraldeatendimento.totvs.com/hc/pt-br/articles/360028531411-WINT-%C3%89-poss%C3%ADvel-habilitar-o-uso-de-API-e-integrar-o-Winthor-Anywhere-a-outros-sistemas",
+      "titulo": "Central — É possível habilitar o uso de API e integrar o Winthor Anywhere a outros sistemas (2024, desatualizado)",
+      "data_consulta": "2026-10-19"
+    },
+    {
+      "url": "https://centraldeatendimento.totvs.com/hc/pt-br/articles/360026666351-WINT-Como-instalar-a-rotina-2699-Web-Service",
+      "titulo": "Central — Como instalar a rotina 2699 (Web Service SOAP) e lista de PortTypes",
+      "data_consulta": "2026-10-19"
+    },
+    {
+      "url": "https://centraldeatendimento.totvs.com/hc/pt-br/articles/12801337558551-WINT-Qual-o-objetivo-da-solu%C3%A7%C3%A3o-rotina-1296",
+      "titulo": "Central — Objetivo da rotina 1296 (conciliação de pagamentos instantâneos)",
+      "data_consulta": "2026-10-19"
+    },
+    {
+      "url": "https://api.totvs.com.br/",
+      "titulo": "TOTVS Developers (api.totvs.com.br) — catálogo de APIs padrão",
+      "data_consulta": "2026-10-19"
+    },
+    {
+      "url": "https://github.com/totvs/ttalk-standard-message",
+      "titulo": "Repositório oficial TOTVS das APIs padrão (fonte do api.totvs.com.br); specs com WinThor como produto",
+      "data_consulta": "2026-10-19"
+    },
+    {
+      "url": "https://www.totvs.com/termos-de-uso/",
+      "titulo": "TOTVS — termos de uso do site (rodapé com razão social e CNPJ)",
+      "data_consulta": "2026-10-19"
+    }
+  ]
+}

@@ -44,6 +44,8 @@ TIPOS_AUTH_EXEC = {"header_api_key", "bearer", "basic", "oauth2_client_credentia
                    "oauth2_refresh_token", "mtls_oauth2", "login_credenciais",
                    "certificado_icp_brasil", "nenhum"}
 TIPOS_PAGINACAO = {"offset", "page", "cursor", "versao", "nenhuma"}
+# transformações do marcador {credencial|nome} no corpo do login (executores do site e da CLI)
+TRANSFORMACOES_LOGIN = {"md5_maiusculo"}
 CHAVES_META_CHUNK = [
     "sistema", "categoria", "entidade_canonica", "acao_canonica", "metodo", "path", "id",
     "fonte_url", "data_consulta", "confianca",
@@ -170,10 +172,12 @@ def validar_sistema(s, r: Relatorio):
                         if not log.get(k):
                             r.erro(f"system.json: execucao_auth.login.{k} ausente")
                     nomes = {c.get("nome") for c in creds or []}
-                    marcadores = {m for val in (log.get("corpo") or {}).values()
-                                  for m in re.findall(r"\{([a-z0-9_]+)\}", str(val))}
-                    for m in sorted(marcadores - nomes):
+                    achados = [m for val in (log.get("corpo") or {}).values()
+                               for m in re.findall(r"\{([a-z0-9_]+)(?:\|([a-z0-9_]+))?\}", str(val))]
+                    for m in sorted({nome for nome, _ in achados} - nomes):
                         r.erro(f"system.json: login.corpo usa marcador '{m}' fora de credenciais_necessarias")
+                    for t in sorted({t for _, t in achados if t} - TRANSFORMACOES_LOGIN):
+                        r.erro(f"system.json: login.corpo usa transformação desconhecida '{t}'")
     fontes = s.get("fontes") or []
     if not fontes:
         r.erro("system.json: fontes[] vazio")

@@ -1,8 +1,8 @@
 # Índice dos sistemas documentados
 
-Gerado em 2026-10-14 por `scripts/gerar_indice.py` a partir das fichas. Não edite à mão: rode o script de novo.
+Gerado em 2026-10-19 por `scripts/gerar_indice.py` a partir das fichas. Não edite à mão: rode o script de novo.
 
-**Totais:** 13 sistemas · 632 endpoints detalhados · 1155 catalogados · 373 executáveis pelo assistente · 228 perguntas de FAQ.
+**Totais:** 15 sistemas · 682 endpoints detalhados · 1827 catalogados · 413 executáveis pelo assistente · 269 perguntas de FAQ.
 
 | Sistema | Categoria | Índice | Endpoints (det. + cat.) | Executáveis | Autenticação | Concluído |
 |---|---|---|---|---|---|---|
@@ -19,6 +19,8 @@ Gerado em 2026-10-14 por `scripts/gerar_indice.py` a partir das fichas. Não edi
 | [PlugNotas (Tecnospeed)](../sistemas/plugnotas/ficha.md) | Fiscal (emissor) | 62 | 90 + 94 | 56 | `header_api_key` | 2026-09-17 |
 | [SEFAZ — NF-e e NFC-e (web services oficiais)](../sistemas/sefaz-nfe/ficha.md) | Fiscal (governo) | 43 | 12 + 8 | 5 | `certificado_icp_brasil` | 2026-09-18 |
 | [SyGeCom (Sagi, SGR, SGR+, Easy)](../sistemas/sygecom/ficha.md) | ERP | 39 | 16 + 63 | 14 | `login_credenciais` | 2026-09-17 |
+| [TOTVS Protheus](../sistemas/totvs-protheus/ficha.md) | ERP | 37 | 27 + 568 | 25 | `basic` | 2026-10-19 |
+| [TOTVS WinThor (linha WinThor de Distribuição e Varejo)](../sistemas/totvs-winthor/ficha.md) | ERP | 31 | 23 + 104 | 15 | `login_credenciais` | 2026-10-19 |
 
 ## Detalhe por sistema
 
@@ -247,3 +249,39 @@ ERP vertical para gestão de resíduos e reciclagem (linha Easy, SGR, SGR+ e Sag
   - A spec manda enviar "homol": true no login para gerar token de homologação e avisa que o token só funciona no ambiente em que foi gerado, mas não pub…
   - https://api.sagierp.com.br/api/v1 é o host do Swagger oficial e é o que a spec implica (servers: /api/v1, relativo). Não está publicado se toda insta…
   - Não há termos de uso de API publicados. A página oficial de liberação já teve um passo de 'Contrato de Consentimento para Compartilhamento de Dados'…
+
+### TOTVS Protheus
+
+ERP da TOTVS para médias e grandes empresas, instalado no servidor de cada cliente ou no TOTVS Cloud. Expõe um serviço REST no próprio servidor (https://<servidor>:<porta>/rest), com autenticação por usuário e senha do Protheus (Basic ou token Bearer de 1 hora), escolha de empresa e filial pelo cab…
+
+- **Pasta:** `catalogo/sistemas/totvs-protheus/` — ficha humana em `ficha.md`
+- **API:** REST · produção `—` · sandbox `não há`
+- **Autenticação para o executor:** `basic`
+- **Índice de integrabilidade:** 37
+- **Endpoints:** 27 detalhados, 568 catalogados, 25 executáveis, 23 perguntas de FAQ
+- **Armadilhas:**
+  - Não há host público: o REST do cliente precisa estar publicado (HTTPS, firewall/VPN) para um serviço na nuvem alcançá-lo.
+  - Sem o cabeçalho tenantId e com PrepareIn=All, a resposta pode vir de outra empresa do grupo.
+  - Datas no where são texto AAAAMMDD: enviar AAAA-MM-DD compara errado e devolve dados incorretos sem erro.
+- **Lacunas principais:**
+  - Não existe URL pública: cada cliente tem o seu servidor, porta e caminho, e o REST pode nem estar exposto à internet. O cliente precisa informar a UR…
+  - O executor do site não monta Basic usuário:senha nem envia o cabeçalho tenantId, e o login_credenciais atual manda corpo JSON, enquanto o token do Pr…
+  - Os filtros da genericQuery vão num único parâmetro SQL (where), unidos por ' AND ', com datas AAAAMMDD. O mecanismo atual de filtro composto do site…
+
+### TOTVS WinThor (linha WinThor de Distribuição e Varejo)
+
+ERP da TOTVS para distribuidores, atacadistas e varejo, instalado no ambiente do cliente (banco Oracle). Expõe APIs REST/JSON pelo WinThor Anywhere (WTA), no endereço http://<IP>:<porta> da própria instalação, com login por usuário e senha em MD5 que devolve um token JWT de 4 horas guardado em cook…
+
+- **Pasta:** `catalogo/sistemas/totvs-winthor/` — ficha humana em `ficha.md`
+- **API:** REST · produção `—` · sandbox `não há`
+- **Autenticação para o executor:** `login_credenciais`
+- **Índice de integrabilidade:** 31
+- **Endpoints:** 23 detalhados, 104 catalogados, 15 executáveis, 18 perguntas de FAQ
+- **Armadilhas:**
+  - Não há API pública de contas a receber, contas a pagar, baixas ou movimento bancário: a maior dor (conciliação) não é atendida.
+  - A TOTVS não autoriza ler objetos internos do banco (views, procedures, packages); ler o Oracle direto tira o cliente do suporte.
+  - A senha vai em MD5 maiúsculo da senha em maiúsculas; o hash vale como senha.
+- **Lacunas principais:**
+  - Não existe API pública de contas a receber, contas a pagar, baixas, extrato ou movimento bancário. A árvore 'APIs Integrações WinThor' (40 páginas) e…
+  - A TDN diz que o token fica em cookie, mas não publica nome, caminho, domínio nem flags do cookie. O envio por Authorization: Bearer só aparece docume…
+  - Todos os exemplos usam http://host:porta. Não há documentação de HTTPS no WTA. Expor o WTA à internet em http trafegaria o hash da senha e o token em…
