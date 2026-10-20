@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ChatRouteImport } from './routes/chat'
+import { Route as PlanosRouteImport } from './routes/planos'
 import { Route as ConectarSistemaRouteImport } from './routes/conectar.$sistema'
 
 const IndexRoute = IndexRouteImport.update({
@@ -23,6 +24,11 @@ const ChatRoute = ChatRouteImport.update({
   path: '/chat',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PlanosRoute = PlanosRouteImport.update({
+  id: '/planos',
+  path: '/planos',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ConectarSistemaRoute = ConectarSistemaRouteImport.update({
   id: '/conectar/$sistema',
   path: '/conectar/$sistema',
@@ -32,30 +38,34 @@ const ConectarSistemaRoute = ConectarSistemaRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/chat': typeof ChatRoute
+  '/planos': typeof PlanosRoute
   '/conectar/$sistema': typeof ConectarSistemaRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/chat': typeof ChatRoute
+  '/planos': typeof PlanosRoute
   '/conectar/$sistema': typeof ConectarSistemaRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/chat': typeof ChatRoute
+  '/planos': typeof PlanosRoute
   '/conectar/$sistema': typeof ConectarSistemaRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/chat' | '/conectar/$sistema'
+  fullPaths: '/' | '/chat' | '/planos' | '/conectar/$sistema'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/chat' | '/conectar/$sistema'
-  id: '__root__' | '/' | '/chat' | '/conectar/$sistema'
+  to: '/' | '/chat' | '/planos' | '/conectar/$sistema'
+  id: '__root__' | '/' | '/chat' | '/planos' | '/conectar/$sistema'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ChatRoute: typeof ChatRoute
+  PlanosRoute: typeof PlanosRoute
   ConectarSistemaRoute: typeof ConectarSistemaRoute
 }
 
@@ -75,6 +85,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ChatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/planos': {
+      id: '/planos'
+      path: '/planos'
+      fullPath: '/planos'
+      preLoaderRoute: typeof PlanosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/conectar/$sistema': {
       id: '/conectar/$sistema'
       path: '/conectar/$sistema'
@@ -88,6 +105,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ChatRoute: ChatRoute,
+  PlanosRoute: PlanosRoute,
   ConectarSistemaRoute: ConectarSistemaRoute,
 }
 export const routeTree = rootRouteImport

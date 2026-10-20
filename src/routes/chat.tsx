@@ -1,5 +1,5 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowUp,
   Bookmark,
@@ -43,6 +43,7 @@ import { CHAVE_PENDENTE, CHAVE_STATE, type MensagemConexao } from "@/lib/conexao
 import conhecimento from "@/lib/conhecimento.json";
 import { interpretarPeriodo, type PeriodoInterpretado } from "@/lib/periodo";
 import { baixarPlanilha, type DadosPlanilha } from "@/lib/planilha";
+import { formatarMoeda, resumirDados, type Grupo, type ResumoDados } from "@/lib/resumo";
 import {
   PIN_MINIMO,
   abrirCredenciais,
@@ -404,6 +405,90 @@ function PainelConsultas({
 
 const LINHAS_NA_PREVIA = 6;
 
+/** Barras de um agrupamento (por mês ou por categoria), proporcionais à soma ou à contagem. */
+function BarrasResumo({
+  titulo,
+  grupos,
+  comValor,
+}: {
+  titulo: string;
+  grupos: Grupo[];
+  comValor: boolean;
+}) {
+  const medida = (g: Grupo) => (comValor ? (g.soma ?? 0) : g.quantidade);
+  const maior = Math.max(...grupos.map(medida), 1);
+  const visiveis = grupos.slice(0, 8);
+  return (
+    <div className="min-w-0">
+      <p className="titulo-bloco text-base">{titulo}</p>
+      <ul className="mt-2 space-y-1.5 text-xs">
+        {visiveis.map((g) => (
+          <li
+            key={g.nome}
+            className="grid grid-cols-[minmax(0,7rem)_minmax(0,1fr)_auto] items-center gap-2"
+          >
+            <span className="truncate" title={g.nome}>
+              {g.nome}
+            </span>
+            <span className="h-2.5 rounded-sm bg-[var(--grade-cabecalho)]">
+              <span
+                className="block h-full rounded-sm bg-marca"
+                style={{ width: `${Math.max(2, (medida(g) / maior) * 100)}%` }}
+              />
+            </span>
+            <span className="mono tabular-nums text-muted-foreground">
+              {comValor ? formatarMoeda(g.soma ?? 0) : g.quantidade.toLocaleString("pt-BR")}
+            </span>
+          </li>
+        ))}
+      </ul>
+      {grupos.length > visiveis.length && (
+        <p className="dica mt-1">e mais {grupos.length - visiveis.length} na planilha.</p>
+      )}
+    </div>
+  );
+}
+
+/** Aba Resumo da prévia: os primeiros números que o analista calcularia na planilha. */
+function PainelResumo({ resumo }: { resumo: ResumoDados }) {
+  const comValor = resumo.colunaValor !== null;
+  return (
+    <div className="space-y-5 px-4 py-4">
+      <dl className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-3">
+        {resumo.destaques.map((d) => (
+          <div key={d.rotulo} className="min-w-0">
+            <dt className="dica truncate" title={d.rotulo}>
+              {d.rotulo}
+            </dt>
+            <dd className="mono truncate text-sm font-semibold tabular-nums">{d.valor}</dd>
+          </div>
+        ))}
+      </dl>
+      {(resumo.porMes || resumo.porCategoria) && (
+        <div className="grid gap-6 sm:grid-cols-2">
+          {resumo.porMes && (
+            <BarrasResumo
+              titulo={`Por mês${comValor ? ` · ${resumo.colunaValor}` : ""}`}
+              grupos={resumo.porMes.grupos}
+              comValor={comValor}
+            />
+          )}
+          {resumo.porCategoria && (
+            <BarrasResumo
+              titulo={`Por ${resumo.porCategoria.coluna.toLowerCase()}`}
+              grupos={resumo.porCategoria.grupos}
+              comValor={comValor}
+            />
+          )}
+        </div>
+      )}
+      <p className="dica">
+        Calculado a partir de todas as linhas. A planilha traz esta aba também.
+      </p>
+    </div>
+  );
+}
+
 function PreviaPlanilha({
   planilha,
   aoBaixar,
@@ -419,6 +504,11 @@ function PreviaPlanilha({
   const [nomeando, setNomeando] = useState(false);
   const [nome, setNome] = useState(nomeSugerido ?? "");
   const [salva, setSalva] = useState(false);
+  const resumo = useMemo(
+    () => resumirDados(planilha.colunas, planilha.linhas),
+    [planilha.colunas, planilha.linhas],
+  );
+  const [aba, setAba] = useState<"dados" | "resumo">("dados");
   return (
     <div className="folha mt-4">
       <div className="folha-arquivo">
@@ -428,15 +518,40 @@ function PreviaPlanilha({
           <span className="mono ml-2 text-muted-foreground">{planilha.nomeArquivo}</span>
         </p>
       </div>
-      <Grade
-        descricao={`Primeiras linhas de ${planilha.titulo}`}
-        titulos={planilha.colunas.map((c) => c.titulo)}
-        chaves={planilha.colunas.map((c) => c.chave)}
-        linhas={planilha.linhas.slice(0, LINHAS_NA_PREVIA)}
-      />
-      <div className="abas" aria-hidden>
-        <span className="aba aba-ativa">Dados</span>
-        <span className="aba">Informações</span>
+      {aba === "resumo" && resumo ? (
+        <PainelResumo resumo={resumo} />
+      ) : (
+        <Grade
+          descricao={`Primeiras linhas de ${planilha.titulo}`}
+          titulos={planilha.colunas.map((c) => c.titulo)}
+          chaves={planilha.colunas.map((c) => c.chave)}
+          linhas={planilha.linhas.slice(0, LINHAS_NA_PREVIA)}
+        />
+      )}
+      <div className="abas" role="tablist" aria-label="Abas da planilha">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={aba === "dados"}
+          className={`aba ${aba === "dados" ? "aba-ativa" : ""}`}
+          onClick={() => setAba("dados")}
+        >
+          Dados
+        </button>
+        {resumo && (
+          <button
+            type="button"
+            role="tab"
+            aria-selected={aba === "resumo"}
+            className={`aba ${aba === "resumo" ? "aba-ativa" : ""}`}
+            onClick={() => setAba("resumo")}
+          >
+            Resumo
+          </button>
+        )}
+        <span className="aba" aria-hidden>
+          Informações
+        </span>
       </div>
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
         <Button size="sm" onClick={aoBaixar}>

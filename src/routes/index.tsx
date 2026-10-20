@@ -4,6 +4,7 @@ import { MessageCircle } from "lucide-react";
 import { FluxoPlanilhas } from "@/components/fluxo-planilhas";
 import { PassoAPasso } from "@/components/passo-a-passo";
 import { PlanilhaDeExemplos, type GrupoDeExemplos } from "@/components/planilha-de-exemplos";
+import { TabelaDePlanos } from "@/components/tabela-de-planos";
 import { Button } from "@/components/ui/button";
 import { linkWhatsApp } from "@/lib/contato";
 
@@ -14,7 +15,7 @@ export const Route = createFileRoute("/")({
       {
         name: "description",
         content:
-          "Pergunte em português o que precisa do ERP da sua empresa (hoje Sagi, Nomus e Qive). O Stagium encontra a consulta certa, pede sua aprovação, lê os dados pela API e devolve a planilha .xlsx.",
+          "Pergunte em português o que precisa do ERP da sua empresa (hoje Protheus, WinThor, Sagi, Nomus, Qive e Mercado Livre). O Stagium encontra a consulta certa, pede sua aprovação, lê os dados pela API e devolve a planilha .xlsx.",
       },
       { property: "og:title", content: "Stagium" },
       {
@@ -133,9 +134,14 @@ function Landing() {
       <header className="border-b">
         <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-4 py-5 sm:px-6">
           <span className="marca-celula">Stagium</span>
-          <Button asChild variant="ghost" size="sm">
-            <Link to="/chat">Abrir o Stagium</Link>
-          </Button>
+          <nav className="flex items-center gap-1">
+            <Button asChild variant="ghost" size="sm">
+              <Link to="/planos">Planos</Link>
+            </Button>
+            <Button asChild variant="ghost" size="sm">
+              <Link to="/chat">Abrir o Stagium</Link>
+            </Button>
+          </nav>
         </div>
       </header>
 
@@ -155,7 +161,8 @@ function Landing() {
               <BotoesContato centro />
             </div>
             <p className="mt-4 text-sm text-muted-foreground">
-              Hoje com Sagi (SyGeCom), Nomus e Qive. Só leitura, sempre com a sua aprovação.
+              Hoje com Protheus, WinThor, Sagi (SyGeCom), Nomus, Qive e Mercado Livre. Só leitura,
+              sempre com a sua aprovação.
             </p>
           </div>
           <FluxoPlanilhas />
@@ -199,6 +206,21 @@ function Landing() {
           </div>
         </section>
 
+        {/* Planos: os mesmos cartões da página /planos */}
+        <section className="border-t">
+          <div className="mx-auto w-full max-w-6xl px-4 py-20 sm:px-6">
+            <h2 className="titulo-secao">Planos</h2>
+            <p className="mt-3 max-w-[60ch] text-muted-foreground">
+              Pague pelo número de sistemas conectados. Comece com 14 dias grátis.{" "}
+              <Link to="/planos" className="underline underline-offset-4">
+                Ver detalhes e perguntas
+              </Link>
+              .
+            </p>
+            <TabelaDePlanos />
+          </div>
+        </section>
+
         {/* Fechamento */}
         <section className="bg-primary text-primary-foreground">
           <div className="mx-auto w-full max-w-6xl px-4 py-20 sm:px-6">
@@ -207,8 +229,8 @@ function Landing() {
             </h2>
             <p className="mt-4 max-w-[58ch] leading-relaxed text-primary-foreground/75">
               Escolha uma informação que a sua equipe pede toda semana e peça ao Stagium. Hoje ele
-              trabalha com o Sagi (SyGeCom), o Nomus e a Qive; se a sua empresa usa outro sistema,
-              conte qual.
+              trabalha com Protheus, WinThor, Sagi (SyGeCom), Nomus, Qive e Mercado Livre; se a sua
+              empresa usa outro sistema, conte qual.
             </p>
             <div className="mt-8">
               <BotoesContato invertido />

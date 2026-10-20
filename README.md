@@ -11,6 +11,9 @@ está na `main` (que é a que o Lovable publica) até ser revisado e juntado.
 
 | Data | O quê | Onde |
 |---|---|---|
+| 19/10/2026 | **Planos e valores**: página `/planos` (Essencial R$ 297/mês, Profissional R$ 697/mês, Empresa sob consulta, anual com 2 meses grátis, teste de 14 dias, sistema sob medida a partir de R$ 1.500) e a mesma tabela na landing, com link no topo. Itens que ainda não existem aparecem como "em breve". **Valores de lançamento propostos: revisar com o Tom antes de divulgar.** Para mudar preço ou item, edite só `src/lib/planos.ts`. | `src/lib/planos.ts`, `src/components/tabela-de-planos.tsx`, `src/routes/planos.tsx`, `src/routes/index.tsx` |
+| 19/10/2026 | **Resumo automático da consulta**: nova aba "Resumo" na prévia do chat e na planilha baixada, com registros, soma, média e maior valor, período coberto, totais por mês e por categoria (situação, filial, tipo...), em barras. Tudo calculado dos próprios dados, para qualquer sistema. | `src/lib/resumo.ts`, `src/lib/planilha.ts`, `src/routes/chat.tsx` |
+| 19/10/2026 | Landing passa a citar os 6 sistemas do chat (Protheus, WinThor, Sagi, Nomus, Qive e Mercado Livre). | `src/routes/index.tsx` |
 | 19/10/2026 | **WinThor e Protheus no catálogo e no chat** (lote P4). Protheus traz o financeiro (contas a receber e a pagar, baixas, movimentos bancários com "só não conciliados", extrato e saldos); WinThor traz pedidos, clientes, produtos, preços e estoque (a API dele não tem financeiro). Executor ganhou senha em MD5, cookie de sessão, Basic com `tenantId`, `where` montado só pelo executor e fim de página por `hasNext`; recusa endereço por IP. | `catalogo/sistemas/totvs-*`, `src/lib/executor.servidor.ts`, `catalogo/relatorios/winthor.md` e `protheus.md` |
 
 ## Fluxo
