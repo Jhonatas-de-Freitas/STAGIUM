@@ -53,9 +53,14 @@ function Planos() {
           <Link to="/" className="marca-celula">
             Stagium
           </Link>
-          <Button asChild variant="ghost" size="sm">
-            <Link to="/chat">Abrir o Stagium</Link>
-          </Button>
+          <nav className="flex items-center gap-1">
+            <Button asChild variant="ghost" size="sm">
+              <Link to="/entrar">Entrar</Link>
+            </Button>
+            <Button asChild variant="ghost" size="sm">
+              <Link to="/chat">Abrir o Stagium</Link>
+            </Button>
+          </nav>
         </div>
       </header>
       <main className="mx-auto w-full max-w-6xl px-4 py-16 sm:px-6">

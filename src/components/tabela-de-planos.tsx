@@ -50,7 +50,7 @@ function Chamada({ plano }: { plano: Plano }) {
       variant={plano.destaque ? "default" : "outline"}
       className={plano.destaque ? "w-full" : "w-full bg-card"}
     >
-      <Link to="/chat">{plano.mensal === null ? "Testar agora" : plano.chamada}</Link>
+      <Link to="/cadastro" search={{ plano: plano.id }}>{plano.mensal === null ? "Testar agora" : plano.chamada}</Link>
     </Button>
   );
 }

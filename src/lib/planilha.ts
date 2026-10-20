@@ -8,6 +8,8 @@ export type DadosPlanilha = {
   colunas: Coluna[];
   linhas: Record<string, string | number>[];
   informacoes: { rotulo: string; valor: string }[];
+  /** Não gera a aba "Resumo" (relatórios agendados podem dispensá-la). */
+  semResumo?: boolean;
 };
 
 /**
@@ -41,7 +43,7 @@ export async function baixarPlanilha(dados: DadosPlanilha) {
   const arquivo = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(arquivo, aba, "Dados");
   // resumo automático (totais, por mês, por categoria) quando os dados permitem
-  const resumo = resumirDados(dados.colunas, dados.linhas);
+  const resumo = dados.semResumo ? null : resumirDados(dados.colunas, dados.linhas);
   if (resumo) {
     const abaResumo = XLSX.utils.aoa_to_sheet(resumoEmLinhas(resumo));
     abaResumo["!cols"] = [{ wch: 34 }, { wch: 22 }, { wch: 22 }];

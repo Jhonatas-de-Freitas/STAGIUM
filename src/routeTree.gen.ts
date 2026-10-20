@@ -10,13 +10,52 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AdminRouteImport } from './routes/admin'
+import { Route as AppRouteImport } from './routes/app'
+import { Route as CadastroRouteImport } from './routes/cadastro'
 import { Route as ChatRouteImport } from './routes/chat'
+import { Route as ConfigurarRouteImport } from './routes/configurar'
+import { Route as EntrarRouteImport } from './routes/entrar'
 import { Route as PlanosRouteImport } from './routes/planos'
+import { Route as AdminIndexRouteImport } from './routes/admin.index'
+import { Route as AdminClientesRouteImport } from './routes/admin.clientes'
+import { Route as AdminConfiguracoesRouteImport } from './routes/admin.configuracoes'
+import { Route as AdminPlanosRouteImport } from './routes/admin.planos'
+import { Route as AdminSolicitacoesRouteImport } from './routes/admin.solicitacoes'
+import { Route as AppIndexRouteImport } from './routes/app.index'
+import { Route as AppChatRouteImport } from './routes/app.chat'
+import { Route as AppConexoesRouteImport } from './routes/app.conexoes'
+import { Route as AppDadosRouteImport } from './routes/app.dados'
+import { Route as AppEquipeRouteImport } from './routes/app.equipe'
+import { Route as AppInsightsRouteImport } from './routes/app.insights'
+import { Route as AppPlanoRouteImport } from './routes/app.plano'
+import { Route as AppRelatoriosRouteImport } from './routes/app.relatorios'
+import { Route as AppSegurancaRouteImport } from './routes/app.seguranca'
 import { Route as ConectarSistemaRouteImport } from './routes/conectar.$sistema'
+import { Route as ConviteCodigoRouteImport } from './routes/convite.$codigo'
+import { Route as AdminClientesIndexRouteImport } from './routes/admin.clientes.index'
+import { Route as AdminClientesIdRouteImport } from './routes/admin.clientes.$id'
+import { Route as AppDashboardsIndexRouteImport } from './routes/app.dashboards.index'
+import { Route as AppDashboardsIdRouteImport } from './routes/app.dashboards.$id'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminRoute = AdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AppRoute = AppRouteImport.update({
+  id: '/app',
+  path: '/app',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CadastroRoute = CadastroRouteImport.update({
+  id: '/cadastro',
+  path: '/cadastro',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ChatRoute = ChatRouteImport.update({
@@ -24,49 +63,311 @@ const ChatRoute = ChatRouteImport.update({
   path: '/chat',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ConfigurarRoute = ConfigurarRouteImport.update({
+  id: '/configurar',
+  path: '/configurar',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EntrarRoute = EntrarRouteImport.update({
+  id: '/entrar',
+  path: '/entrar',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PlanosRoute = PlanosRouteImport.update({
   id: '/planos',
   path: '/planos',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AdminIndexRoute = AdminIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminClientesRoute = AdminClientesRouteImport.update({
+  id: '/clientes',
+  path: '/clientes',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminConfiguracoesRoute = AdminConfiguracoesRouteImport.update({
+  id: '/configuracoes',
+  path: '/configuracoes',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminPlanosRoute = AdminPlanosRouteImport.update({
+  id: '/planos',
+  path: '/planos',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminSolicitacoesRoute = AdminSolicitacoesRouteImport.update({
+  id: '/solicitacoes',
+  path: '/solicitacoes',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AppIndexRoute = AppIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppChatRoute = AppChatRouteImport.update({
+  id: '/chat',
+  path: '/chat',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppConexoesRoute = AppConexoesRouteImport.update({
+  id: '/conexoes',
+  path: '/conexoes',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppDadosRoute = AppDadosRouteImport.update({
+  id: '/dados',
+  path: '/dados',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppEquipeRoute = AppEquipeRouteImport.update({
+  id: '/equipe',
+  path: '/equipe',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppInsightsRoute = AppInsightsRouteImport.update({
+  id: '/insights',
+  path: '/insights',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppPlanoRoute = AppPlanoRouteImport.update({
+  id: '/plano',
+  path: '/plano',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppRelatoriosRoute = AppRelatoriosRouteImport.update({
+  id: '/relatorios',
+  path: '/relatorios',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppSegurancaRoute = AppSegurancaRouteImport.update({
+  id: '/seguranca',
+  path: '/seguranca',
+  getParentRoute: () => AppRoute,
 } as any)
 const ConectarSistemaRoute = ConectarSistemaRouteImport.update({
   id: '/conectar/$sistema',
   path: '/conectar/$sistema',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ConviteCodigoRoute = ConviteCodigoRouteImport.update({
+  id: '/convite/$codigo',
+  path: '/convite/$codigo',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminClientesIndexRoute = AdminClientesIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AdminClientesRoute,
+} as any)
+const AdminClientesIdRoute = AdminClientesIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => AdminClientesRoute,
+} as any)
+const AppDashboardsIndexRoute = AppDashboardsIndexRouteImport.update({
+  id: '/dashboards/',
+  path: '/dashboards/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppDashboardsIdRoute = AppDashboardsIdRouteImport.update({
+  id: '/dashboards/$id',
+  path: '/dashboards/$id',
+  getParentRoute: () => AppRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRouteWithChildren
+  '/app': typeof AppRouteWithChildren
+  '/cadastro': typeof CadastroRoute
   '/chat': typeof ChatRoute
+  '/configurar': typeof ConfigurarRoute
+  '/entrar': typeof EntrarRoute
   '/planos': typeof PlanosRoute
+  '/admin/clientes': typeof AdminClientesRouteWithChildren
+  '/admin/configuracoes': typeof AdminConfiguracoesRoute
+  '/admin/planos': typeof AdminPlanosRoute
+  '/admin/solicitacoes': typeof AdminSolicitacoesRoute
+  '/app/chat': typeof AppChatRoute
+  '/app/conexoes': typeof AppConexoesRoute
+  '/app/dados': typeof AppDadosRoute
+  '/app/equipe': typeof AppEquipeRoute
+  '/app/insights': typeof AppInsightsRoute
+  '/app/plano': typeof AppPlanoRoute
+  '/app/relatorios': typeof AppRelatoriosRoute
+  '/app/seguranca': typeof AppSegurancaRoute
   '/conectar/$sistema': typeof ConectarSistemaRoute
+  '/convite/$codigo': typeof ConviteCodigoRoute
+  '/admin/': typeof AdminIndexRoute
+  '/app/': typeof AppIndexRoute
+  '/admin/clientes/$id': typeof AdminClientesIdRoute
+  '/app/dashboards/$id': typeof AppDashboardsIdRoute
+  '/admin/clientes/': typeof AdminClientesIndexRoute
+  '/app/dashboards/': typeof AppDashboardsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/cadastro': typeof CadastroRoute
   '/chat': typeof ChatRoute
+  '/configurar': typeof ConfigurarRoute
+  '/entrar': typeof EntrarRoute
   '/planos': typeof PlanosRoute
+  '/admin/configuracoes': typeof AdminConfiguracoesRoute
+  '/admin/planos': typeof AdminPlanosRoute
+  '/admin/solicitacoes': typeof AdminSolicitacoesRoute
+  '/app/chat': typeof AppChatRoute
+  '/app/conexoes': typeof AppConexoesRoute
+  '/app/dados': typeof AppDadosRoute
+  '/app/equipe': typeof AppEquipeRoute
+  '/app/insights': typeof AppInsightsRoute
+  '/app/plano': typeof AppPlanoRoute
+  '/app/relatorios': typeof AppRelatoriosRoute
+  '/app/seguranca': typeof AppSegurancaRoute
   '/conectar/$sistema': typeof ConectarSistemaRoute
+  '/convite/$codigo': typeof ConviteCodigoRoute
+  '/admin': typeof AdminIndexRoute
+  '/app': typeof AppIndexRoute
+  '/admin/clientes/$id': typeof AdminClientesIdRoute
+  '/app/dashboards/$id': typeof AppDashboardsIdRoute
+  '/admin/clientes': typeof AdminClientesIndexRoute
+  '/app/dashboards': typeof AppDashboardsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/admin': typeof AdminRouteWithChildren
+  '/app': typeof AppRouteWithChildren
+  '/cadastro': typeof CadastroRoute
   '/chat': typeof ChatRoute
+  '/configurar': typeof ConfigurarRoute
+  '/entrar': typeof EntrarRoute
   '/planos': typeof PlanosRoute
+  '/admin/clientes': typeof AdminClientesRouteWithChildren
+  '/admin/configuracoes': typeof AdminConfiguracoesRoute
+  '/admin/planos': typeof AdminPlanosRoute
+  '/admin/solicitacoes': typeof AdminSolicitacoesRoute
+  '/app/chat': typeof AppChatRoute
+  '/app/conexoes': typeof AppConexoesRoute
+  '/app/dados': typeof AppDadosRoute
+  '/app/equipe': typeof AppEquipeRoute
+  '/app/insights': typeof AppInsightsRoute
+  '/app/plano': typeof AppPlanoRoute
+  '/app/relatorios': typeof AppRelatoriosRoute
+  '/app/seguranca': typeof AppSegurancaRoute
   '/conectar/$sistema': typeof ConectarSistemaRoute
+  '/convite/$codigo': typeof ConviteCodigoRoute
+  '/admin/': typeof AdminIndexRoute
+  '/app/': typeof AppIndexRoute
+  '/admin/clientes/$id': typeof AdminClientesIdRoute
+  '/app/dashboards/$id': typeof AppDashboardsIdRoute
+  '/admin/clientes/': typeof AdminClientesIndexRoute
+  '/app/dashboards/': typeof AppDashboardsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/chat' | '/planos' | '/conectar/$sistema'
+  fullPaths:
+    | '/'
+    | '/admin'
+    | '/app'
+    | '/cadastro'
+    | '/chat'
+    | '/configurar'
+    | '/entrar'
+    | '/planos'
+    | '/admin/clientes'
+    | '/admin/configuracoes'
+    | '/admin/planos'
+    | '/admin/solicitacoes'
+    | '/app/chat'
+    | '/app/conexoes'
+    | '/app/dados'
+    | '/app/equipe'
+    | '/app/insights'
+    | '/app/plano'
+    | '/app/relatorios'
+    | '/app/seguranca'
+    | '/conectar/$sistema'
+    | '/convite/$codigo'
+    | '/admin/'
+    | '/app/'
+    | '/admin/clientes/$id'
+    | '/app/dashboards/$id'
+    | '/admin/clientes/'
+    | '/app/dashboards/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/chat' | '/planos' | '/conectar/$sistema'
-  id: '__root__' | '/' | '/chat' | '/planos' | '/conectar/$sistema'
+  to:
+    | '/'
+    | '/cadastro'
+    | '/chat'
+    | '/configurar'
+    | '/entrar'
+    | '/planos'
+    | '/admin/configuracoes'
+    | '/admin/planos'
+    | '/admin/solicitacoes'
+    | '/app/chat'
+    | '/app/conexoes'
+    | '/app/dados'
+    | '/app/equipe'
+    | '/app/insights'
+    | '/app/plano'
+    | '/app/relatorios'
+    | '/app/seguranca'
+    | '/conectar/$sistema'
+    | '/convite/$codigo'
+    | '/admin'
+    | '/app'
+    | '/admin/clientes/$id'
+    | '/app/dashboards/$id'
+    | '/admin/clientes'
+    | '/app/dashboards'
+  id:
+    | '__root__'
+    | '/'
+    | '/admin'
+    | '/app'
+    | '/cadastro'
+    | '/chat'
+    | '/configurar'
+    | '/entrar'
+    | '/planos'
+    | '/admin/clientes'
+    | '/admin/configuracoes'
+    | '/admin/planos'
+    | '/admin/solicitacoes'
+    | '/app/chat'
+    | '/app/conexoes'
+    | '/app/dados'
+    | '/app/equipe'
+    | '/app/insights'
+    | '/app/plano'
+    | '/app/relatorios'
+    | '/app/seguranca'
+    | '/conectar/$sistema'
+    | '/convite/$codigo'
+    | '/admin/'
+    | '/app/'
+    | '/admin/clientes/$id'
+    | '/app/dashboards/$id'
+    | '/admin/clientes/'
+    | '/app/dashboards/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AdminRoute: typeof AdminRouteWithChildren
+  AppRoute: typeof AppRouteWithChildren
+  CadastroRoute: typeof CadastroRoute
   ChatRoute: typeof ChatRoute
+  ConfigurarRoute: typeof ConfigurarRoute
+  EntrarRoute: typeof EntrarRoute
   PlanosRoute: typeof PlanosRoute
   ConectarSistemaRoute: typeof ConectarSistemaRoute
+  ConviteCodigoRoute: typeof ConviteCodigoRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -78,11 +379,46 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/app': {
+      id: '/app'
+      path: '/app'
+      fullPath: '/app'
+      preLoaderRoute: typeof AppRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/cadastro': {
+      id: '/cadastro'
+      path: '/cadastro'
+      fullPath: '/cadastro'
+      preLoaderRoute: typeof CadastroRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/chat': {
       id: '/chat'
       path: '/chat'
       fullPath: '/chat'
       preLoaderRoute: typeof ChatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/configurar': {
+      id: '/configurar'
+      path: '/configurar'
+      fullPath: '/configurar'
+      preLoaderRoute: typeof ConfigurarRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/entrar': {
+      id: '/entrar'
+      path: '/entrar'
+      fullPath: '/entrar'
+      preLoaderRoute: typeof EntrarRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/planos': {
@@ -92,6 +428,104 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PlanosRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/': {
+      id: '/admin/'
+      path: '/'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AdminIndexRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/clientes': {
+      id: '/admin/clientes'
+      path: '/clientes'
+      fullPath: '/admin/clientes'
+      preLoaderRoute: typeof AdminClientesRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/configuracoes': {
+      id: '/admin/configuracoes'
+      path: '/configuracoes'
+      fullPath: '/admin/configuracoes'
+      preLoaderRoute: typeof AdminConfiguracoesRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/planos': {
+      id: '/admin/planos'
+      path: '/planos'
+      fullPath: '/admin/planos'
+      preLoaderRoute: typeof AdminPlanosRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/solicitacoes': {
+      id: '/admin/solicitacoes'
+      path: '/solicitacoes'
+      fullPath: '/admin/solicitacoes'
+      preLoaderRoute: typeof AdminSolicitacoesRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/app/': {
+      id: '/app/'
+      path: '/'
+      fullPath: '/app/'
+      preLoaderRoute: typeof AppIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/chat': {
+      id: '/app/chat'
+      path: '/chat'
+      fullPath: '/app/chat'
+      preLoaderRoute: typeof AppChatRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/conexoes': {
+      id: '/app/conexoes'
+      path: '/conexoes'
+      fullPath: '/app/conexoes'
+      preLoaderRoute: typeof AppConexoesRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/dados': {
+      id: '/app/dados'
+      path: '/dados'
+      fullPath: '/app/dados'
+      preLoaderRoute: typeof AppDadosRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/equipe': {
+      id: '/app/equipe'
+      path: '/equipe'
+      fullPath: '/app/equipe'
+      preLoaderRoute: typeof AppEquipeRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/insights': {
+      id: '/app/insights'
+      path: '/insights'
+      fullPath: '/app/insights'
+      preLoaderRoute: typeof AppInsightsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/plano': {
+      id: '/app/plano'
+      path: '/plano'
+      fullPath: '/app/plano'
+      preLoaderRoute: typeof AppPlanoRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/relatorios': {
+      id: '/app/relatorios'
+      path: '/relatorios'
+      fullPath: '/app/relatorios'
+      preLoaderRoute: typeof AppRelatoriosRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/seguranca': {
+      id: '/app/seguranca'
+      path: '/seguranca'
+      fullPath: '/app/seguranca'
+      preLoaderRoute: typeof AppSegurancaRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/conectar/$sistema': {
       id: '/conectar/$sistema'
       path: '/conectar/$sistema'
@@ -99,14 +533,117 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ConectarSistemaRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/convite/$codigo': {
+      id: '/convite/$codigo'
+      path: '/convite/$codigo'
+      fullPath: '/convite/$codigo'
+      preLoaderRoute: typeof ConviteCodigoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/clientes/': {
+      id: '/admin/clientes/'
+      path: '/'
+      fullPath: '/admin/clientes/'
+      preLoaderRoute: typeof AdminClientesIndexRouteImport
+      parentRoute: typeof AdminClientesRoute
+    }
+    '/admin/clientes/$id': {
+      id: '/admin/clientes/$id'
+      path: '/$id'
+      fullPath: '/admin/clientes/$id'
+      preLoaderRoute: typeof AdminClientesIdRouteImport
+      parentRoute: typeof AdminClientesRoute
+    }
+    '/app/dashboards/': {
+      id: '/app/dashboards/'
+      path: '/dashboards'
+      fullPath: '/app/dashboards/'
+      preLoaderRoute: typeof AppDashboardsIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/dashboards/$id': {
+      id: '/app/dashboards/$id'
+      path: '/dashboards/$id'
+      fullPath: '/app/dashboards/$id'
+      preLoaderRoute: typeof AppDashboardsIdRouteImport
+      parentRoute: typeof AppRoute
+    }
   }
 }
 
+interface AdminClientesRouteChildren {
+  AdminClientesIdRoute: typeof AdminClientesIdRoute
+  AdminClientesIndexRoute: typeof AdminClientesIndexRoute
+}
+
+const AdminClientesRouteChildren: AdminClientesRouteChildren = {
+  AdminClientesIdRoute: AdminClientesIdRoute,
+  AdminClientesIndexRoute: AdminClientesIndexRoute,
+}
+
+const AdminClientesRouteWithChildren = AdminClientesRoute._addFileChildren(
+  AdminClientesRouteChildren,
+)
+
+interface AdminRouteChildren {
+  AdminClientesRoute: typeof AdminClientesRouteWithChildren
+  AdminConfiguracoesRoute: typeof AdminConfiguracoesRoute
+  AdminPlanosRoute: typeof AdminPlanosRoute
+  AdminSolicitacoesRoute: typeof AdminSolicitacoesRoute
+  AdminIndexRoute: typeof AdminIndexRoute
+}
+
+const AdminRouteChildren: AdminRouteChildren = {
+  AdminClientesRoute: AdminClientesRouteWithChildren,
+  AdminConfiguracoesRoute: AdminConfiguracoesRoute,
+  AdminPlanosRoute: AdminPlanosRoute,
+  AdminSolicitacoesRoute: AdminSolicitacoesRoute,
+  AdminIndexRoute: AdminIndexRoute,
+}
+
+const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
+
+interface AppRouteChildren {
+  AppChatRoute: typeof AppChatRoute
+  AppConexoesRoute: typeof AppConexoesRoute
+  AppDadosRoute: typeof AppDadosRoute
+  AppEquipeRoute: typeof AppEquipeRoute
+  AppInsightsRoute: typeof AppInsightsRoute
+  AppPlanoRoute: typeof AppPlanoRoute
+  AppRelatoriosRoute: typeof AppRelatoriosRoute
+  AppSegurancaRoute: typeof AppSegurancaRoute
+  AppIndexRoute: typeof AppIndexRoute
+  AppDashboardsIdRoute: typeof AppDashboardsIdRoute
+  AppDashboardsIndexRoute: typeof AppDashboardsIndexRoute
+}
+
+const AppRouteChildren: AppRouteChildren = {
+  AppChatRoute: AppChatRoute,
+  AppConexoesRoute: AppConexoesRoute,
+  AppDadosRoute: AppDadosRoute,
+  AppEquipeRoute: AppEquipeRoute,
+  AppInsightsRoute: AppInsightsRoute,
+  AppPlanoRoute: AppPlanoRoute,
+  AppRelatoriosRoute: AppRelatoriosRoute,
+  AppSegurancaRoute: AppSegurancaRoute,
+  AppIndexRoute: AppIndexRoute,
+  AppDashboardsIdRoute: AppDashboardsIdRoute,
+  AppDashboardsIndexRoute: AppDashboardsIndexRoute,
+}
+
+const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AdminRoute: AdminRouteWithChildren,
+  AppRoute: AppRouteWithChildren,
+  CadastroRoute: CadastroRoute,
   ChatRoute: ChatRoute,
+  ConfigurarRoute: ConfigurarRoute,
+  EntrarRoute: EntrarRoute,
   PlanosRoute: PlanosRoute,
   ConectarSistemaRoute: ConectarSistemaRoute,
+  ConviteCodigoRoute: ConviteCodigoRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

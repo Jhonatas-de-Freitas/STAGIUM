@@ -141,6 +141,9 @@ function Landing() {
             <Button asChild variant="ghost" size="sm">
               <Link to="/chat">Abrir o Stagium</Link>
             </Button>
+            <Button asChild variant="outline" size="sm" className="bg-card">
+              <Link to="/entrar">Entrar</Link>
+            </Button>
           </nav>
         </div>
       </header>

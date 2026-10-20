@@ -96,6 +96,18 @@ export function interpretarPeriodo(
     return periodo(ontem, ontem, "ontem");
   }
 
+  // 3b. "próximos N dias/semanas/meses" (contas a vencer, previsões)
+  const proximos = /\bproxim[oa]s? (\d{1,3}) (dias?|semanas?|mes(?:es)?)\b/.exec(t);
+  if (proximos) {
+    const n = Number(proximos[1]);
+    const unidade = proximos[2]!;
+    const fim = new Date(hojeZero);
+    if (unidade.startsWith("dia")) fim.setDate(fim.getDate() + n);
+    else if (unidade.startsWith("semana")) fim.setDate(fim.getDate() + n * 7);
+    else fim.setMonth(fim.getMonth() + n);
+    return periodo(hojeZero, fim, `próximos ${n} ${unidade}`);
+  }
+
   // 4. "últimos N dias/semanas/meses"
   const ultimos = /\bultim[oa]s? (\d{1,3}) (dias?|semanas?|mes(?:es)?)\b/.exec(t);
   if (ultimos) {

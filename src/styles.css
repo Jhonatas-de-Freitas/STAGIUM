@@ -728,3 +728,58 @@
     }
   }
 }
+
+/* Painel do cliente: cores de séries dos gráficos (paleta categórica validada, claro e escuro) */
+:root {
+  --serie-1: #2a78d6;
+  --serie-2: #eb6834;
+  --serie-3: #1baf7a;
+  --serie-4: #eda100;
+  --serie-5: #e87ba4;
+  --serie-6: #008300;
+  --serie-7: #6250d6;
+  --serie-8: #e34948;
+  --bom: oklch(0.52 0.13 150);
+  --atencao: oklch(0.6 0.15 70);
+  --ruim: oklch(0.53 0.17 28);
+}
+.dark {
+  --serie-1: #3987e5;
+  --serie-2: #d95926;
+  --serie-3: #199e70;
+  --serie-4: #c98500;
+  --serie-5: #d55181;
+  --serie-6: #008300;
+  --serie-7: #9085e9;
+  --serie-8: #e66767;
+  --bom: oklch(0.72 0.14 150);
+  --atencao: oklch(0.78 0.14 80);
+  --ruim: oklch(0.7 0.17 25);
+}
+
+@layer components {
+  .painel-nav a {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    border-radius: var(--radius-sm);
+    padding: 0.45rem 0.7rem;
+    font-size: 0.9rem;
+    color: var(--muted-foreground);
+  }
+  .painel-nav a:hover {
+    background: var(--secondary);
+    color: var(--foreground);
+  }
+  .painel-nav a[data-status="active"] {
+    background: var(--foreground);
+    color: var(--background);
+  }
+  .numero-grande {
+    font-variation-settings:
+      "CASL" 0,
+      "MONO" 1;
+    font-feature-settings: "tnum" 1;
+    letter-spacing: -0.03em;
+  }
+}
